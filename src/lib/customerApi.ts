@@ -215,7 +215,9 @@ export async function fetchPendingPaymentOrders() {
 
 export async function fetchToShipOrders() {
   ensureConfigured()
-  const data = await handleAdminGet(apiPath(API.adminCartOrders, { order_status: "shipping" }))
+  const data = await handleAdminGet(
+    apiPath(API.adminCartOrders, { order_status: "shipping", filter_user: "1" }),
+  )
   return (data.items ?? []) as Record<string, unknown>[]
 }
 
@@ -336,6 +338,33 @@ export async function uploadChatImage(file: File) {
 export async function fetchMyReviews() {
   ensureConfigured()
   return handleAdminGet(API.reviewsList) as Promise<{ success: boolean; items?: ReviewItem[]; message?: string }>
+}
+
+export async function fetchPendingReviewOrders() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.reviewsPending)
+  return (data.items ?? []) as Record<string, unknown>[]
+}
+
+export async function submitCustomerReview(orderId: number, reviewText: string, starRating: number) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("order_id", String(orderId))
+  fd.append("review_text", reviewText)
+  fd.append("star_rating", String(starRating))
+  return handleAdminPost(API.submitReview, fd) as Promise<ApiResult>
+}
+
+export async function fetchDepositHistory() {
+  ensureConfigured()
+  const data = await handleAdminGet(apiPath(API.walletHistory, { type: "deposit" }))
+  return (data.items ?? []) as Record<string, unknown>[]
+}
+
+export async function fetchWithdrawHistory() {
+  ensureConfigured()
+  const data = await handleAdminGet(apiPath(API.walletHistory, { type: "withdraw" }))
+  return (data.items ?? []) as Record<string, unknown>[]
 }
 
 export async function fetchFollowingShops() {

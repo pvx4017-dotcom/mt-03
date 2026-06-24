@@ -77,8 +77,15 @@ export async function fetchCategories(): Promise<ApiCategory[]> {
 
 export async function fetchShops(): Promise<ApiShop[]> {
   if (!isSupabaseConfigured()) return []
-  const rows = await dbFetchShops(false)
+  const rows = await dbFetchShops(true)
   return rows.filter((s) => s.shop_name?.trim()) as ApiShop[]
+}
+
+export async function fetchSlideBanners(): Promise<string[]> {
+  if (!isSupabaseConfigured()) return []
+  const { dbFetchSlides } = await import("@/lib/dbService")
+  const rows = await dbFetchSlides()
+  return rows.map((r) => String(r.slide_image ?? r.image_path ?? "").trim()).filter(Boolean)
 }
 
 export async function fetchProducts(): Promise<ApiProduct[]> {

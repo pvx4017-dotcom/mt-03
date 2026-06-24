@@ -10,12 +10,14 @@ import {
   addProductToMyStore,
   fetchFollowingShops,
   fetchMyReviews,
+  fetchPendingReviewOrders,
   fetchOtherStoreProducts,
   fetchProductCategoryNames,
   fetchStoreCustomerStatus,
   fmtMoney,
   parseCustomerImage,
   parseProductRowImage,
+  submitCustomerReview,
   submitStoreCustomer,
   unfollowShop,
   type FollowShopRow,
@@ -161,30 +163,62 @@ export function CouponPage() {
 
 export function ReviewsPage() {
   useBodyClass("page-reviews")
+  const { refreshOrderHubCounts, requireLogin } = useApp()
   const [items, setItems] = useState<{ product_image?: string; review_text?: string; star_rating?: number }[]>([])
+  const [pending, setPending] = useState<Record<string, unknown>[]>([])
   const [message, setMessage] = useState("กำลังโหลด...")
   const [needLogin, setNeedLogin] = useState(false)
+  const [drafts, setDrafts] = useState<Record<number, { stars: number; text: string }>>({})
+  const [submittingId, setSubmittingId] = useState<number | null>(null)
 
-  useEffect(() => {
-    fetchMyReviews().then((data) => {
-      if (!data.success) {
-        if (String(data.message ?? "").includes("เข้าสู่ระบบ")) {
-          setNeedLogin(true)
-          setMessage(String(data.message))
-          return
-        }
-        setMessage(String(data.message ?? "ไม่สามารถโหลดรีวิวได้"))
+  const load = useCallback(async () => {
+    if (!requireLogin()) {
+      setNeedLogin(true)
+      setMessage("กรุณาเข้าสู่ระบบ")
+      return
+    }
+    const [data, pendingRows] = await Promise.all([fetchMyReviews(), fetchPendingReviewOrders()])
+    if (!data.success) {
+      if (String(data.message ?? "").includes("เข้าสู่ระบบ")) {
+        setNeedLogin(true)
+        setMessage(String(data.message))
         return
       }
-      setItems(data.items ?? [])
-      setMessage("")
-    })
-  }, [])
+      setMessage(String(data.message ?? "ไม่สามารถโหลดรีวิวได้"))
+      return
+    }
+    setItems(data.items ?? [])
+    setPending(pendingRows)
+    setMessage("")
+  }, [requireLogin])
 
-  const renderStars = (rating: unknown) => {
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const submitReview = async (orderId: number) => {
+    const draft = drafts[orderId] ?? { stars: 5, text: "" }
+    setSubmittingId(orderId)
+    try {
+      const res = await submitCustomerReview(orderId, draft.text.trim(), draft.stars)
+      if (res.success) {
+        await load()
+        await refreshOrderHubCounts()
+      }
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
+  const renderStars = (rating: unknown, interactive?: boolean, onPick?: (n: number) => void) => {
     const n = Math.max(1, Math.min(5, Number(rating ?? 5)))
     return Array.from({ length: 5 }, (_, i) => (
-      <i key={i} className={`fa-solid fa-star${i < n ? " active" : ""}`} />
+      <i
+        key={i}
+        className={`fa-solid fa-star${i < n ? " active" : ""}`}
+        style={{ cursor: interactive ? "pointer" : undefined }}
+        onClick={interactive && onPick ? () => onPick(i + 1) : undefined}
+      />
     ))
   }
 
@@ -207,31 +241,79 @@ export function ReviewsPage() {
               <Link to="/login">ไปเข้าสู่ระบบ</Link>
             </div>
           </div>
-        ) : items.length === 0 ? (
-          <div className="empty-state">{message || "ยังไม่มีรีวิวสินค้าที่โพสต์แล้ว"}</div>
         ) : (
           <>
-            <div className="reviews-section-label">รีวิวที่โพสต์แล้ว</div>
-            {items.map((r, idx) => (
-              <div key={idx} className="rev-card">
-                <div className="rc-head">
-                  <div className="rc-shop"><i className="fa-solid fa-store" /> ลูกค้าทั่วไป</div>
-                  <span className="rc-label">รีวิวของฉัน</span>
-                </div>
-                <div className="rc-body">
-                  <div className="rc-avatar">
-                    <img src={parseCustomerImage(r.product_image)} alt="" />
-                  </div>
-                  <div className="rc-content">
-                    <div className="rp-name">รีวิวจากลูกค้า</div>
-                    <div className={`rp-comment${String(r.review_text ?? "").trim() ? "" : " empty"}`}>
-                      {String(r.review_text ?? "").trim() || "ไม่ได้ใส่ข้อความรีวิว"}
+            {pending.length > 0 ? (
+              <>
+                <div className="reviews-section-label">รอรีวิว ({pending.length})</div>
+                {pending.map((row) => {
+                  const orderId = Number(row.id)
+                  const draft = drafts[orderId] ?? { stars: 5, text: "" }
+                  return (
+                    <div key={orderId} className="rev-card">
+                      <div className="rc-body">
+                        <div className="rc-avatar">
+                          <img src={parseCustomerImage(row.product_image)} alt="" />
+                        </div>
+                        <div className="rc-content">
+                          <div className="rp-name">{String(row.product_name ?? "สินค้า")}</div>
+                          <textarea
+                            className="admin-form-control"
+                            placeholder="เขียนรีวิว…"
+                            value={draft.text}
+                            onChange={(e) =>
+                              setDrafts((prev) => ({ ...prev, [orderId]: { ...draft, text: e.target.value } }))
+                            }
+                            style={{ width: "100%", minHeight: 72, marginTop: 8 }}
+                          />
+                        </div>
+                      </div>
+                      <div className="rc-stars">
+                        {renderStars(draft.stars, true, (stars) =>
+                          setDrafts((prev) => ({ ...prev, [orderId]: { ...draft, stars } })),
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-submit-btn"
+                        style={{ marginTop: 10, width: "100%" }}
+                        disabled={submittingId === orderId}
+                        onClick={() => submitReview(orderId)}
+                      >
+                        {submittingId === orderId ? "กำลังบันทึก…" : "ส่งรีวิว"}
+                      </button>
                     </div>
+                  )
+                })}
+              </>
+            ) : null}
+            {items.length === 0 && pending.length === 0 ? (
+              <div className="empty-state">{message || "ยังไม่มีรีวิวสินค้า"}</div>
+            ) : items.length > 0 ? (
+              <>
+                <div className="reviews-section-label">รีวิวที่โพสต์แล้ว</div>
+                {items.map((r, idx) => (
+                  <div key={idx} className="rev-card">
+                    <div className="rc-head">
+                      <div className="rc-shop"><i className="fa-solid fa-store" /> ลูกค้าทั่วไป</div>
+                      <span className="rc-label">รีวิวของฉัน</span>
+                    </div>
+                    <div className="rc-body">
+                      <div className="rc-avatar">
+                        <img src={parseCustomerImage(r.product_image)} alt="" />
+                      </div>
+                      <div className="rc-content">
+                        <div className="rp-name">รีวิวจากลูกค้า</div>
+                        <div className={`rp-comment${String(r.review_text ?? "").trim() ? "" : " empty"}`}>
+                          {String(r.review_text ?? "").trim() || "ไม่ได้ใส่ข้อความรีวิว"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rc-stars">{renderStars(r.star_rating)}</div>
                   </div>
-                </div>
-                <div className="rc-stars">{renderStars(r.star_rating)}</div>
-              </div>
-            ))}
+                ))}
+              </>
+            ) : null}
           </>
         )}
       </div>

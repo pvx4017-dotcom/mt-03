@@ -7,7 +7,7 @@ import {
   dbFetchCategories,
   dbFetchChatMessages,
   dbFetchChatThreads,
-  dbFetchCustomerShopProducts,
+  dbFetchAllCustomerShopProducts,
   dbFetchDeposits,
   dbFetchPaymentLimits,
   dbFetchProducts,
@@ -98,17 +98,21 @@ export async function adminPost<T>(path: string, body: FormData) {
 
 export async function fetchAdminBadges() {
   ensureConfigured()
-  const [cart, receiving, chat] = await Promise.all([
+  const [cart, receiving, threads] = await Promise.all([
     adminGet<{ success: boolean; count?: number }>(apiPath(API.adminCart, { status: "pending" })),
     adminGet<{ success: boolean; count?: number }>(
       apiPath(API.adminCartOrders, { order_status: "receiving", admin_view: "1" }),
     ),
-    adminGet<{ success: boolean; count?: number }>(apiPath(API.supportChat, { mode: "thread_user_count" })),
+    fetchChatThreads(),
   ])
+  const unreadChat = threads.reduce(
+    (sum, t) => sum + Number((t as Record<string, unknown>).message_count ?? (t as Record<string, unknown>).unread ?? 0),
+    0,
+  )
   return {
     cart: cart.success ? (cart.count ?? 0) : 0,
     receiving: receiving.success ? (receiving.count ?? 0) : 0,
-    chat: chat.success ? (chat.count ?? 0) : 0,
+    chat: unreadChat,
   }
 }
 
@@ -133,7 +137,12 @@ export async function fetchAdminStoreProducts() {
 }
 
 export async function fetchAdminUsers() {
-  return dbFetchUsers() as Promise<AdminUser[]>
+  const rows = await dbFetchUsers()
+  return rows.map((u) => ({
+    ...u,
+    password: String(u.password_hash ?? u.password ?? ""),
+    registered_at: String(u.registered_at ?? u.created_at ?? ""),
+  })) as AdminUser[]
 }
 
 export async function fetchAdminCredits() {
@@ -155,14 +164,23 @@ export async function fetchAdminWithdrawPasswords() {
   const data = await adminGet<ApiResult<{ passwords?: Record<string, unknown>[] }>>(
     API.adminWithdrawPasswords,
   )
-  return data.passwords ?? []
+  return (data.passwords ?? []).map((row) => ({
+    ...row,
+    is_active: row.has_password ? 1 : 0,
+    withdraw_password: row.has_password ? "******" : "",
+  }))
 }
 
 export async function fetchAdminTopupWallets() {
   const data = await adminGet<ApiResult<{ wallets?: Record<string, unknown>[] }>>(
     apiPath(API.adminCustomerTopup, { action: "wallets" }),
   )
-  return data.wallets ?? []
+  return (data.wallets ?? []).map((row) => ({
+    ...row,
+    user_id: row.id ?? row.user_id,
+    balance: row.wallet_balance ?? row.balance ?? 0,
+    updated_at: row.updated_at ?? row.registered_at ?? null,
+  }))
 }
 
 export async function fetchAdminDeposits() {
@@ -205,7 +223,7 @@ export async function fetchAdminOrders(orderStatus: string) {
 }
 
 export async function fetchCustomerShopProducts() {
-  return dbFetchCustomerShopProducts()
+  return dbFetchAllCustomerShopProducts()
 }
 
 export async function fetchChatThreads() {

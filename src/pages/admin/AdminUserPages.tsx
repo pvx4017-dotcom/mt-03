@@ -904,21 +904,21 @@ export function AdminCustomerTopupPage() {
                 />
               ) : (
                 filtered.map((row, i) => (
-                  <tr key={String(row.user_id ?? i)}>
-                    <td>{String(row.user_id ?? "-")}</td>
+                  <tr key={String(row.user_id ?? row.id ?? i)}>
+                    <td>{String(row.user_id ?? row.id ?? "-")}</td>
                     <td>{String(row.phone ?? row.email ?? "-")}</td>
-                    <td>${adminFmtMoney(row.balance)}</td>
-                    <td>{formatAdminDate(String(row.updated_at ?? ""))}</td>
+                    <td>${adminFmtMoney(row.balance ?? row.wallet_balance)}</td>
+                    <td>{formatAdminDate(String(row.updated_at ?? row.registered_at ?? ""))}</td>
                     <td>
                       <button
                         type="button"
                         className="admin-wallet-action-btn"
                         onClick={() => {
                           setWalletEdit({
-                            userId: Number(row.user_id),
-                            balance: Number(row.balance ?? 0),
+                            userId: Number(row.user_id ?? row.id),
+                            balance: Number(row.balance ?? row.wallet_balance ?? 0),
                           })
-                          setEditBalance(String(row.balance ?? 0))
+                          setEditBalance(String(row.balance ?? row.wallet_balance ?? 0))
                         }}
                       >
                         แก้ไข

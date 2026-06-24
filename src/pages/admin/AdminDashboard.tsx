@@ -27,7 +27,10 @@ export default function AdminDashboard() {
   const [badges, setBadges] = useState<Badges>({ cart: 0, receiving: 0, chat: 0 })
 
   useEffect(() => {
-    fetchAdminBadges().then(setBadges).catch(() => {})
+    const load = () => fetchAdminBadges().then(setBadges).catch(() => {})
+    load()
+    const t = setInterval(load, 15000)
+    return () => clearInterval(t)
   }, [])
 
   const toggleGroup = (label: string) => {

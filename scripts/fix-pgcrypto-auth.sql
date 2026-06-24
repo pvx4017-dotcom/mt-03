@@ -1,0 +1,94 @@
+-- แก้ error: function gen_salt(unknown) does not exist
+-- รันใน Supabase SQL Editor (ไม่ต้องรัน database.sql ใหม่ทั้งไฟล์)
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION login_user(p_account TEXT, p_password TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE u users%ROWTYPE;
+BEGIN
+  SELECT * INTO u FROM users
+  WHERE status = 'active'
+    AND (email = p_account OR phone = p_account OR username = p_account)
+  LIMIT 1;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่พบบัญชีผู้ใช้');
+  END IF;
+  IF u.password_hash = crypt(p_password, u.password_hash) THEN
+    RETURN jsonb_build_object('success', true, 'user_id', u.id, 'role', u.role, 'message', 'เข้าสู่ระบบสำเร็จ');
+  END IF;
+  RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านไม่ถูกต้อง');
+END; $$;
+
+CREATE OR REPLACE FUNCTION register_user(
+  p_email TEXT, p_phone TEXT, p_password TEXT, p_confirm TEXT, p_invitation TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_code TEXT; v_ref TEXT; v_uid BIGINT;
+BEGIN
+  IF p_password IS NULL OR p_password <> p_confirm THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านไม่ตรงกัน');
+  END IF;
+  v_code := regexp_replace(COALESCE(p_invitation, ''), '\D', '', 'g');
+  IF length(v_code) <> 5 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสเชิญไม่ถูกต้อง');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM invitation_codes WHERE code = v_code AND is_active) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสเชิญไม่ถูกต้องหรือหมดอายุ');
+  END IF;
+  IF p_email IS NOT NULL AND p_email <> '' AND EXISTS (SELECT 1 FROM users WHERE email = p_email) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'อีเมลนี้ถูกใช้แล้ว');
+  END IF;
+  IF p_phone IS NOT NULL AND p_phone <> '' AND EXISTS (SELECT 1 FROM users WHERE phone = p_phone) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'เบอร์โทรนี้ถูกใช้แล้ว');
+  END IF;
+  v_ref := lpad((floor(random()*99999))::int::text, 5, '0');
+  INSERT INTO users (email, phone, password_hash, referral_code, wallet_balance)
+  VALUES (
+    NULLIF(p_email, ''), NULLIF(p_phone, ''),
+    crypt(p_password, gen_salt('bf')), v_ref, 0
+  ) RETURNING id INTO v_uid;
+  RETURN jsonb_build_object('success', true, 'message', 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ', 'user_id', v_uid);
+END; $$;
+
+CREATE OR REPLACE FUNCTION verify_withdraw_password(p_user_id BIGINT, p_password TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE h TEXT;
+BEGIN
+  SELECT withdraw_password_hash INTO h FROM users WHERE id = p_user_id;
+  IF h IS NULL THEN RETURN jsonb_build_object('ok', false); END IF;
+  IF h = crypt(p_password, h) THEN RETURN jsonb_build_object('ok', true); END IF;
+  RETURN jsonb_build_object('ok', false);
+END; $$;
+
+CREATE OR REPLACE FUNCTION update_user_password(p_user_id BIGINT, p_current TEXT, p_new TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE u users%ROWTYPE;
+BEGIN
+  SELECT * INTO u FROM users WHERE id = p_user_id;
+  IF NOT FOUND THEN RETURN jsonb_build_object('success', false, 'message', 'ไม่พบผู้ใช้'); END IF;
+  IF u.password_hash <> crypt(p_current, u.password_hash) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
+  END IF;
+  UPDATE users SET password_hash = crypt(p_new, gen_salt('bf')) WHERE id = p_user_id;
+  RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
+END; $$;
+
+CREATE OR REPLACE FUNCTION set_user_withdraw_password(p_user_id BIGINT, p_password TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF length(p_password) <> 6 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านต้อง 6 หลัก');
+  END IF;
+  UPDATE users SET withdraw_password_hash = crypt(p_password, gen_salt('bf')) WHERE id = p_user_id;
+  RETURN jsonb_build_object('success', true, 'message', 'บันทึกรหัสการถอนแล้ว');
+END; $$;
+
+CREATE OR REPLACE FUNCTION admin_set_user_password(p_user_id BIGINT, p_password TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF p_password IS NULL OR length(trim(p_password)) = 0 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านว่าง');
+  END IF;
+  UPDATE users SET password_hash = crypt(p_password, gen_salt('bf')) WHERE id = p_user_id;
+  RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
+END; $$;

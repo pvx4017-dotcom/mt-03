@@ -9,7 +9,6 @@ import {
   dbFetchChatMessages,
   dbFetchChatThreads,
   dbFetchCommissionSettings,
-  dbFetchCustomerShopProducts,
   dbFetchDeposits,
   dbFetchOrdersByStatus,
   dbFetchPaymentLimits,
@@ -33,6 +32,46 @@ function ok(extra?: Json) {
 
 function fail(message: string) {
   return { success: false, message }
+}
+
+function isEditAction(action: string) {
+  return action === "edit" || action === "update"
+}
+
+function normalizeNotificationType(raw: string) {
+  if (raw === "customer_service") return "service"
+  return raw || "platform"
+}
+
+async function uploadToStorage(file: File, prefix: string) {
+  const sb = getSupabase()
+  const path = `${prefix}/${Date.now()}_${file.name.replace(/\s+/g, "_")}`
+  const { error } = await sb.storage.from("uploads").upload(path, file, { upsert: true })
+  if (error) throw error
+  return path
+}
+
+async function resolveImageUpload(
+  fd: FormData,
+  field: string,
+  existingPath: string,
+  storagePrefix: string,
+) {
+  const file = fd.get(field)
+  if (file instanceof File && file.size > 0) {
+    return uploadToStorage(file, storagePrefix)
+  }
+  const hinted = String(fd.get(`${field}_path`) ?? "").trim()
+  if (hinted && hinted !== "[object File]") return hinted
+  return existingPath
+}
+
+async function resolveValidUserId(raw: FormDataEntryValue | null) {
+  const id = Number(raw)
+  if (!id || Number.isNaN(id)) return null
+  const sb = getSupabase()
+  const { data } = await sb.from("users").select("id").eq("id", id).maybeSingle()
+  return data?.id ?? null
 }
 
 export async function handleAdminGet(path: string): Promise<Json> {
@@ -67,7 +106,7 @@ export async function handleAdminGet(path: string): Promise<Json> {
     case API.adminNotifications:
       return ok({ rows: await (await import("@/lib/dbService")).dbAdminNotifications() })
     case API.customerShopProducts:
-      return ok({ products: await dbFetchCustomerShopProducts() })
+      return ok({ products: await (await import("@/lib/dbService")).dbFetchAllCustomerShopProducts() })
     case API.adminCart: {
       const status = params.get("status") ?? "pending"
       const filterUser = params.get("filter_user")
@@ -86,7 +125,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
     }
     case API.adminCartOrders: {
       const status = params.get("order_status") ?? "shipping"
-      const items = await dbFetchOrdersByStatus(status, false)
+      const filterUser = params.get("filter_user") === "1"
+      const items = await dbFetchOrdersByStatus(status, filterUser)
       return ok({ items, orders: items, count: items.length })
     }
     case API.adminShippingHistory: {
@@ -148,6 +188,12 @@ export async function handleAdminGet(path: string): Promise<Json> {
     }
     case API.reviewsList:
       return (await import("@/lib/dbService")).dbFetchReviews()
+    case API.reviewsPending:
+      return (await import("@/lib/dbService")).dbFetchPendingReviewOrders()
+    case API.walletHistory: {
+      const type = params.get("type") ?? "deposit"
+      return (await import("@/lib/dbService")).dbFetchWalletHistory(type)
+    }
     case API.shopFollows: {
       if (params.get("action") === "status") {
         return (await import("@/lib/dbService")).dbFollowStatus(String(params.get("shop_name") ?? ""))
@@ -178,7 +224,13 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         await sb.from("users").delete().eq("id", id)
         return ok({ message: "ลบแล้ว" })
       }
-      if (action === "block" || action === "edit") {
+      if (action === "block") {
+        const { data: u } = await sb.from("users").select("status").eq("id", id).single()
+        const next = u?.status === "banned" ? "active" : "banned"
+        await sb.from("users").update({ status: next }).eq("id", id)
+        return ok({ message: next === "banned" ? "ระงับแล้ว" : "ยกเลิกระงับแล้ว" })
+      }
+      if (action === "edit") {
         const status = String(fd.get("status") ?? "active")
         await sb.from("users").update({ status }).eq("id", id)
         const pwd = fd.get("password")
@@ -249,11 +301,22 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         await sb.from("product_categories").delete().eq("id", id)
         return ok({ message: "ลบแล้ว" })
       }
+      let existingImage = ""
+      if (isEditAction(action) && id) {
+        const { data: cur } = await sb.from("product_categories").select("category_image").eq("id", id).single()
+        existingImage = String(cur?.category_image ?? "")
+      }
+      let categoryImage = existingImage
+      try {
+        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "uploads/categories")
+      } catch {
+        return fail("อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
+      }
       const row = {
         category_name: String(fd.get("category_name") ?? ""),
-        category_image: String(fd.get("category_image") ?? ""),
+        category_image: categoryImage,
       }
-      if (action === "edit" && id) {
+      if (isEditAction(action) && id) {
         await sb.from("product_categories").update(row).eq("id", id)
       } else {
         await sb.from("product_categories").insert(row)
@@ -268,16 +331,27 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         await sb.from("shops").delete().eq("id", id)
         return ok({ message: "ลบแล้ว" })
       }
+      let existingImage = ""
+      if (isEditAction(action) && id) {
+        const { data: cur } = await sb.from("shops").select("shop_image").eq("id", id).single()
+        existingImage = String(cur?.shop_image ?? "")
+      }
+      let shopImage = existingImage
+      try {
+        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "uploads/shops")
+      } catch {
+        return fail("อัปโหลดรูปร้านค้าไม่สำเร็จ")
+      }
       const row = {
         shop_name: String(fd.get("shop_name") ?? ""),
-        shop_image: String(fd.get("shop_image") ?? ""),
+        shop_image: shopImage,
         review_count: Number(fd.get("review_count") ?? 0),
         view_count: Number(fd.get("view_count") ?? 0),
         trust_score: Number(fd.get("trust_score") ?? 0),
         sales_volume: Number(fd.get("sales_volume") ?? 0),
         is_recommended: isRec,
       }
-      if (action === "edit" && id) await sb.from("shops").update(row).eq("id", id)
+      if (isEditAction(action) && id) await sb.from("shops").update(row).eq("id", id)
       else await sb.from("shops").insert(row)
       return ok({ message: "บันทึกแล้ว" })
     }
@@ -306,7 +380,29 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         await sb.from("store_products").delete().eq("id", id)
         return ok({ message: "ลบแล้ว" })
       }
+      let existingImage = ""
+      let existingImages: string[] = []
+      if (isEditAction(action) && id) {
+        const { data: cur } = await sb.from("store_products").select("product_image, product_images").eq("id", id).single()
+        existingImage = String(cur?.product_image ?? "")
+        if (Array.isArray(cur?.product_images)) {
+          existingImages = cur.product_images.map(String)
+        }
+      }
+      const uploaded: string[] = []
+      for (const entry of fd.getAll("product_images[]")) {
+        if (entry instanceof File && entry.size > 0) {
+          try {
+            uploaded.push(await uploadToStorage(entry, "uploads/products"))
+          } catch {
+            return fail("อัปโหลดรูปสินค้าไม่สำเร็จ")
+          }
+        }
+      }
+      const imageList = uploaded.length ? uploaded : existingImages.length ? existingImages : existingImage ? [existingImage] : []
+      const userId = await resolveValidUserId(fd.get("user_id"))
       const row = {
+        user_id: userId,
         product_type: String(fd.get("product_type") ?? "admin"),
         shop_name: String(fd.get("shop_name") ?? ""),
         product_category: String(fd.get("product_category") ?? ""),
@@ -316,9 +412,14 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         product_colors: String(fd.get("product_colors") ?? ""),
         product_price: Number(fd.get("product_price") ?? 0),
         product_stock: Number(fd.get("product_stock") ?? 0),
-        product_image: String(fd.get("product_image") ?? ""),
+        product_image: imageList[0] ?? "",
+        product_images: imageList,
+        review_count: Number(fd.get("review_count") ?? 0),
+        view_count: Number(fd.get("view_count") ?? 0),
+        trust_score: Number(fd.get("trust_score") ?? 0),
+        sales_volume: Number(fd.get("sales_volume") ?? 0),
       }
-      if (action === "edit" && id) await sb.from("store_products").update(row).eq("id", id)
+      if (isEditAction(action) && id) await sb.from("store_products").update(row).eq("id", id)
       else await sb.from("store_products").insert(row)
       return ok({ message: "บันทึกแล้ว" })
     }
@@ -329,7 +430,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         return ok({ message: "ลบแล้ว" })
       }
       const row = {
-        ntype: String(fd.get("notification_type") ?? "platform"),
+        ntype: normalizeNotificationType(String(fd.get("notification_type") ?? "platform")),
         title: String(fd.get("title") ?? ""),
         message: String(fd.get("message") ?? ""),
         user_id: fd.get("target_user_id") ? Number(fd.get("target_user_id")) : null,
@@ -397,8 +498,14 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       const status = String(fd.get("status") ?? "approved")
       const table = path === API.adminDepositRequests ? "deposit_requests" : "withdraw_requests"
       const { data: req } = await sb.from(table).select("*").eq("id", id).single()
+      if (!req) return fail("ไม่พบรายการ")
+      const prevStatus = String(req.status ?? "pending")
+      if (prevStatus === status) return ok({ message: "อัปเดตแล้ว" })
+      if (prevStatus !== "pending" && status === "approved") {
+        return fail("รายการนี้ดำเนินการไปแล้ว")
+      }
       await sb.from(table).update({ status }).eq("id", id)
-      if (status === "approved" && req) {
+      if (status === "approved" && prevStatus === "pending") {
         if (table === "deposit_requests") {
           const { data: u } = await sb.from("users").select("wallet_balance").eq("id", req.user_id).single()
           await sb
@@ -407,9 +514,14 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
             .eq("id", req.user_id)
         } else {
           const { data: u } = await sb.from("users").select("wallet_balance").eq("id", req.user_id).single()
+          const balance = Number(u?.wallet_balance ?? 0)
+          if (balance < Number(req.amount)) {
+            await sb.from(table).update({ status: prevStatus }).eq("id", id)
+            return fail("ยอดเงินในกระเป๋าไม่เพียงพอ")
+          }
           await sb
             .from("users")
-            .update({ wallet_balance: Number(u?.wallet_balance ?? 0) - Number(req.amount) })
+            .update({ wallet_balance: balance - Number(req.amount) })
             .eq("id", req.user_id)
         }
       }
@@ -472,14 +584,19 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     }
     case API.submitReviewAdmin: {
       const orderId = Number(fd.get("order_id") ?? fd.get("id"))
-      await sb
-        .from("admin_cart_orders")
-        .update({
-          review_text: String(fd.get("review_text") ?? ""),
-          star_rating: Number(fd.get("star_rating") ?? fd.get("rating") ?? 5),
-        })
-        .eq("id", orderId)
-      return ok({ message: "บันทึกรีวิวแล้ว" })
+      return (await import("@/lib/dbService")).dbAdminSubmitReview(
+        orderId,
+        String(fd.get("review_text") ?? ""),
+        Number(fd.get("star_rating") ?? fd.get("rating") ?? 5),
+      )
+    }
+    case API.submitReview: {
+      const orderId = Number(fd.get("order_id") ?? fd.get("id"))
+      return (await import("@/lib/dbService")).dbSubmitReview(
+        orderId,
+        String(fd.get("review_text") ?? ""),
+        Number(fd.get("star_rating") ?? fd.get("rating") ?? 5),
+      )
     }
     case API.authProcess:
       return (await import("@/lib/dbService")).dbProcessAuth(fd)

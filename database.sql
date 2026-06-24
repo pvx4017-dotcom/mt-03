@@ -2,7 +2,7 @@
 -- Generated: 2026-06-24T09:25:54.965Z
 -- Products: 662 | Categories: 13 | Shops: 11
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ============================================================
 -- DROP (idempotent re-run in SQL editor)
@@ -317,7 +317,7 @@ CREATE INDEX idx_chat_user ON support_chat_messages(user_id, created_at);
 -- AUTH RPC (SECURITY DEFINER)
 -- ============================================================
 CREATE OR REPLACE FUNCTION login_user(p_account TEXT, p_password TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE u users%ROWTYPE;
 BEGIN
   SELECT * INTO u FROM users
@@ -335,7 +335,7 @@ END; $$;
 
 CREATE OR REPLACE FUNCTION register_user(
   p_email TEXT, p_phone TEXT, p_password TEXT, p_confirm TEXT, p_invitation TEXT
-) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE v_code TEXT; v_ref TEXT; v_uid BIGINT;
 BEGIN
   IF p_password IS NULL OR p_password <> p_confirm THEN
@@ -364,7 +364,7 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION get_user_profile(p_user_id BIGINT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE u users%ROWTYPE; b bank_accounts%ROWTYPE;
 BEGIN
   SELECT * INTO u FROM users WHERE id = p_user_id;
@@ -385,7 +385,7 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION verify_withdraw_password(p_user_id BIGINT, p_password TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE h TEXT;
 BEGIN
   SELECT withdraw_password_hash INTO h FROM users WHERE id = p_user_id;
@@ -395,7 +395,7 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION update_user_password(p_user_id BIGINT, p_current TEXT, p_new TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE u users%ROWTYPE;
 BEGIN
   SELECT * INTO u FROM users WHERE id = p_user_id;
@@ -408,7 +408,7 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION set_user_withdraw_password(p_user_id BIGINT, p_password TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
   IF length(p_password) <> 6 THEN
     RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านต้อง 6 หลัก');
@@ -418,7 +418,7 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION admin_set_user_password(p_user_id BIGINT, p_password TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
   IF p_password IS NULL OR length(trim(p_password)) = 0 THEN
     RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านว่าง');

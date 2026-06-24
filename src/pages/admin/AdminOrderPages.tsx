@@ -85,7 +85,7 @@ export function AdminCustomerStoreProductsPage() {
   const addToCart = async (row: CartItem) => {
     const fd = new FormData()
     fd.append("action", "add")
-    fd.append("product_id", String(row.id))
+    fd.append("product_id", String(row.source_product_id ?? row.id))
     fd.append("user_id", String(row.user_id ?? 0))
     fd.append("product_name", String(row.product_name ?? ""))
     fd.append("shop_name", String(row.shop_name ?? ""))
@@ -337,7 +337,11 @@ export function AdminCartPage() {
   const openOrder = (row: CartItem) => {
     setOrderModal(row)
     setQty(Number(row.quantity ?? 1))
-    setReceiver({ name: "", address: "", phone: "" })
+    setReceiver({
+      name: String(row.receiver_name ?? row.contact_name ?? ""),
+      address: String(row.receiver_address ?? row.contact_address ?? ""),
+      phone: String(row.receiver_phone ?? row.contact_phone ?? ""),
+    })
   }
 
   const saveOrder = async () => {
@@ -387,7 +391,7 @@ export function AdminCartPage() {
             ตะกร้าสินค้า ({items.length} รายการ)
           </h1>
           <Link to="/admin/shipping-orders" className="admin-order-top-action">
-            อัปเดต รอรับสินค้า
+            สินค้ารอจัดส่ง
             {shippingCount > 0 ? <span className="admin-cart-badge-inline">{shippingCount}</span> : null}
           </Link>
         </div>

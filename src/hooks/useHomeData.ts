@@ -4,6 +4,7 @@ import {
   fetchCategories,
   fetchProducts,
   fetchShops,
+  fetchSlideBanners,
   mapApiProduct,
   type ApiCategory,
   type ApiShop,
@@ -14,6 +15,7 @@ type HomeData = {
   categoriesStatus: string
   shops: ApiShop[]
   shopsStatus: string
+  banners: string[]
   dailyProducts: Product[]
   dailyStatus: string
   catalogProducts: Product[]
@@ -27,6 +29,7 @@ const empty: HomeData = {
   categoriesStatus: "กำลังโหลดหมวดหมู่…",
   shops: [],
   shopsStatus: "กำลังโหลดร้านค้า…",
+  banners: [],
   dailyProducts: [],
   dailyStatus: "กำลังโหลดสินค้า…",
   catalogProducts: [],
@@ -43,10 +46,11 @@ export function useHomeData(): HomeData {
 
     async function load() {
       try {
-        const [categories, shops, apiProducts] = await Promise.all([
+        const [categories, shops, apiProducts, banners] = await Promise.all([
           fetchCategories(),
           fetchShops(),
           fetchProducts(),
+          fetchSlideBanners(),
         ])
 
         if (cancelled) return
@@ -58,6 +62,7 @@ export function useHomeData(): HomeData {
           categoriesStatus: categories.length ? "" : "ยังไม่มีหมวดหมู่",
           shops,
           shopsStatus: shops.length ? "" : "ยังไม่มีร้านค้าแนะนำ",
+          banners,
           dailyProducts: mapped.slice(0, 12),
           dailyStatus: mapped.length ? "" : "ยังไม่มีสินค้าหรือข้อมูลไม่ถูกต้อง",
           catalogProducts: mapped,
@@ -72,6 +77,7 @@ export function useHomeData(): HomeData {
           categoriesStatus: "โหลดหมวดหมู่ไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ Supabase",
           shops: [],
           shopsStatus: "โหลดร้านค้าไม่สำเร็จ",
+          banners: [],
           dailyProducts: [],
           dailyStatus: "โหลดสินค้าไม่สำเร็จ",
           catalogProducts: [],

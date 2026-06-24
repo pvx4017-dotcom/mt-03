@@ -181,25 +181,12 @@ function OrderCardList({
                 marginTop: 12,
                 paddingTop: 12,
                 borderTop: "1px solid #f8f9fa",
-                display: "flex",
-                justifyContent: "center",
+                textAlign: "center",
+                color: "#6b7280",
+                fontSize: 13,
               }}
             >
-              <Link
-                to="/help-center"
-                style={{
-                  background: "linear-gradient(135deg, #1e40af, #60a5fa)",
-                  color: "white",
-                  border: "none",
-                  padding: "10px 40px",
-                  borderRadius: 25,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                ชำระสินค้า
-              </Link>
+              รอแอดมินดำเนินการชำระและจัดส่ง
             </div>
           ) : null}
         </div>

@@ -151,6 +151,7 @@ export function AdminSlideImagesPage() {
 }
 
 const NOTIF_TYPES: Record<string, string> = {
+  service: "บริการลูกค้า",
   customer_service: "บริการลูกค้า",
   platform: "แพลตฟอร์ม",
   personal: "ส่วนตัว",
@@ -232,7 +233,7 @@ export function AdminNotificationsPage() {
   const startEdit = (row: Record<string, unknown>) => {
     setEditId(Number(row.id))
     setForm({
-      notification_type: String(row.notification_type ?? "platform"),
+      notification_type: String(row.notification_type ?? row.ntype ?? "platform"),
       recipient_mode: String(row.recipient_mode ?? "all"),
       target_user_id: String(row.target_user_id ?? ""),
       title: String(row.title ?? ""),
@@ -247,7 +248,7 @@ export function AdminNotificationsPage() {
           <div className="admin-form-group">
             <label>ประเภท</label>
             <select className="admin-form-control" value={form.notification_type} onChange={(e) => setForm({ ...form, notification_type: e.target.value })}>
-              <option value="customer_service">บริการลูกค้า</option>
+              <option value="service">บริการลูกค้า</option>
               <option value="platform">แพลตฟอร์ม</option>
               <option value="personal">ส่วนตัว</option>
             </select>

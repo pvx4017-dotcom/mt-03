@@ -18,7 +18,7 @@ import { ProductSkeleton } from "@/components/home/ProductSkeleton"
 import { ProductCard } from "@/components/product/ProductCard"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
-const banners = [
+const fallbackBanners = [
   "images/banner_hot_product_1775719595992.png",
   "images/banner_smart_home_2_1775724145981.png",
   "images/banner_luxury_furniture_3_1775724161606.png",
@@ -40,6 +40,7 @@ export default function HomePage() {
     categoriesStatus,
     shops,
     shopsStatus,
+    banners: slideBanners,
     dailyProducts,
     dailyStatus,
     catalogProducts,
@@ -48,10 +49,13 @@ export default function HomePage() {
     loading,
   } = useHomeData()
 
+  const banners = slideBanners.length ? slideBanners : fallbackBanners
+
   useEffect(() => {
+    if (!banners.length) return
     const timer = setInterval(() => setSlide((s) => (s + 1) % banners.length), 5000)
     return () => clearInterval(timer)
-  }, [])
+  }, [banners.length])
 
   const visibleCatalog = catalogProducts.slice(0, catalogVisible)
   const hasMoreCatalog = catalogVisible < catalogProducts.length
@@ -80,7 +84,7 @@ export default function HomePage() {
         <div className="banner-slider-container">
           <div className="banner-wrapper" style={{ transform: `translateX(-${slide * 100}%)` }}>
             {banners.map((b, i) => (
-              <div className="hero-banner" key={b}>
+              <div className="hero-banner" key={`${b}-${i}`}>
                 <img src={asset(b)} alt={`Banner ${i + 1}`} className="banner-img" />
               </div>
             ))}

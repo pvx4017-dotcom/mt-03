@@ -11,6 +11,19 @@ function ok<T>(extra?: T): Result<T> {
   return { success: true, ...(extra ?? ({} as T)) }
 }
 
+type UserJoin = { username?: string; phone?: string; email?: string } | null
+
+function flattenUserJoin<T extends Record<string, unknown>>(row: T) {
+  const joined = row.users as UserJoin
+  const { users: _users, ...rest } = row
+  return {
+    ...rest,
+    username: (rest.username as string | undefined) ?? joined?.username,
+    phone: (rest.phone as string | undefined) ?? joined?.phone,
+    email: (rest.email as string | undefined) ?? joined?.email,
+  }
+}
+
 async function uploadFile(bucket: string, path: string, file: File) {
   const sb = getSupabase()
   const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: true })
@@ -80,6 +93,7 @@ export async function dbFetchShops(recommendedOnly = false) {
   const sb = getSupabase()
   let q = sb.from("shops").select("*").order("id")
   if (recommendedOnly) q = q.eq("is_recommended", true)
+  else q = q.eq("is_recommended", false)
   const { data, error } = await q
   if (error) return []
   return data ?? []
@@ -295,31 +309,113 @@ export async function dbAdminUpdateOrder(
   const { data: order } = await sb.from("admin_cart_orders").select("*").eq("id", orderId).single()
   if (!order) return fail("ไม่พบคำสั่งซื้อ")
 
+  const prevStatus = String(order.status ?? "pending")
+  const nextStatus = patch.status ?? prevStatus
+  const qty =
+    patch.quantity != null && !Number.isNaN(patch.quantity)
+      ? patch.quantity
+      : Number(order.quantity ?? 1)
+  const unitPrice = Number(order.unit_price ?? 0)
+  const totalPrice = unitPrice * qty
+
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  const nextStatus = patch.status ?? order.status
   if (patch.status) updates.status = patch.status
   if (patch.quantity != null && !Number.isNaN(patch.quantity)) {
-    updates.quantity = patch.quantity
-    updates.total_price = Number(order.unit_price ?? 0) * patch.quantity
+    updates.quantity = qty
+    updates.total_price = totalPrice
   }
   if (patch.receiver_name) updates.receiver_name = patch.receiver_name
   if (patch.receiver_address) updates.receiver_address = patch.receiver_address
   if (patch.receiver_phone) updates.receiver_phone = patch.receiver_phone
-  if (patch.commission_amount != null && !Number.isNaN(patch.commission_amount)) {
-    updates.commission_amount = patch.commission_amount
+
+  // Admin ยืนยันจากตะกร้า → หัก wallet + คำนวณค่าคอมจาก settings
+  if (nextStatus === "shipping" && prevStatus === "pending") {
+    const { data: cs } = await sb.from("commission_settings").select("percent").eq("id", 1).single()
+    const pct = Number(cs?.percent ?? 20)
+    const commission = totalPrice * (pct / 100)
+    updates.commission_amount = commission
+    const totalDue = totalPrice + commission
+    const { data: user } = await sb.from("users").select("wallet_balance").eq("id", order.user_id).single()
+    const balance = Number(user?.wallet_balance ?? 0)
+    if (balance < totalDue) {
+      return fail(
+        `ยอดเงินในกระเป๋าไม่เพียงพอ (ต้องการ $${totalDue.toFixed(2)}, มี $${balance.toFixed(2)})`,
+      )
+    }
+    const { error: walletErr } = await sb
+      .from("users")
+      .update({ wallet_balance: balance - totalDue })
+      .eq("id", order.user_id)
+    if (walletErr) return fail(walletErr.message)
+  }
+
+  // จัดส่งเสร็จ → เครดิตกำไร + นับยอดขายร้านลูกค้า
+  if (nextStatus === "completed" && prevStatus !== "completed") {
+    const commission = Number(updates.commission_amount ?? order.commission_amount ?? 0)
+    if (commission > 0) {
+      const { data: u } = await sb.from("users").select("wallet_profit").eq("id", order.user_id).single()
+      const { error: profitErr } = await sb
+        .from("users")
+        .update({ wallet_profit: Number(u?.wallet_profit ?? 0) + commission })
+        .eq("id", order.user_id)
+      if (profitErr) return fail(profitErr.message)
+    }
+    const { data: store } = await sb
+      .from("customer_stores")
+      .select("sold_count")
+      .eq("user_id", order.user_id)
+      .maybeSingle()
+    if (store) {
+      await sb
+        .from("customer_stores")
+        .update({ sold_count: Number(store.sold_count ?? 0) + qty })
+        .eq("user_id", order.user_id)
+    }
+    if (order.product_id) {
+      const { data: mirror } = await sb
+        .from("customer_store_products_mirror")
+        .select("id, sales_volume")
+        .eq("user_id", order.user_id)
+        .or(`source_product_id.eq.${order.product_id},id.eq.${order.product_id}`)
+        .maybeSingle()
+      if (mirror) {
+        await sb
+          .from("customer_store_products_mirror")
+          .update({ sales_volume: Number(mirror.sales_volume ?? 0) + qty })
+          .eq("id", mirror.id)
+      }
+    }
   }
 
   const { error } = await sb.from("admin_cart_orders").update(updates).eq("id", orderId)
   if (error) return fail(error.message)
-  if (patch.status && patch.status !== order.status) {
+  if (nextStatus !== prevStatus) {
     await sb.from("shipping_history").insert({
       order_id: orderId,
       user_id: order.user_id,
-      from_status: order.status,
+      from_status: prevStatus,
       to_status: nextStatus,
     })
   }
   return ok()
+}
+
+export async function dbAdminSubmitReview(orderId: number, reviewText: string, starRating: number) {
+  const sb = getSupabase()
+  const { data: order } = await sb.from("admin_cart_orders").select("*").eq("id", orderId).single()
+  if (!order) return fail("ไม่พบคำสั่งซื้อ")
+  await sb
+    .from("admin_cart_orders")
+    .update({ review_text: reviewText, star_rating: starRating })
+    .eq("id", orderId)
+  await sb.from("reviews").insert({
+    user_id: order.user_id,
+    order_id: orderId,
+    product_image: order.product_image,
+    review_text: reviewText,
+    star_rating: starRating,
+  })
+  return ok({ message: "บันทึกรีวิวแล้ว" })
 }
 
 export async function dbAdminFetchCart(status: string) {
@@ -469,7 +565,26 @@ export async function dbFetchChatThreads() {
       map.set(uid, { ...prev, unread: Number(prev.unread ?? 0) + 1 })
     }
   }
-  return [...map.values()]
+  const userIds = [...map.keys()]
+  if (userIds.length) {
+    const { data: users } = await sb.from("users").select("id, phone, email, username").in("id", userIds)
+    const userMap = new Map((users ?? []).map((u) => [Number(u.id), u]))
+    return [...map.values()].map((t) => {
+      const u = userMap.get(Number(t.user_id))
+      const unread = Number(t.unread ?? 0)
+      return {
+        ...t,
+        message_count: unread,
+        phone: u?.phone,
+        email: u?.email,
+        username: u?.username,
+      }
+    })
+  }
+  return [...map.values()].map((t) => ({
+    ...t,
+    message_count: Number(t.unread ?? 0),
+  }))
 }
 
 export async function dbResetChatReadState(userId: number) {
@@ -558,6 +673,12 @@ export async function dbFetchCustomerShopProducts(userId?: number) {
   if (!uid) return []
   const sb = getSupabase()
   const { data } = await sb.from("customer_store_products_mirror").select("*").eq("user_id", uid)
+  return data ?? []
+}
+
+export async function dbFetchAllCustomerShopProducts() {
+  const sb = getSupabase()
+  const { data } = await sb.from("customer_store_products_mirror").select("*").order("id", { ascending: false })
   return data ?? []
 }
 
@@ -764,6 +885,40 @@ export async function dbFetchReviews() {
   return { success: true, items: data ?? [] }
 }
 
+export async function dbFetchPendingReviewOrders() {
+  const uid = requireUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  const { data } = await sb
+    .from("admin_cart_orders")
+    .select("*")
+    .eq("user_id", uid)
+    .eq("status", "completed")
+    .is("star_rating", null)
+    .order("created_at", { ascending: false })
+  return { success: true, items: data ?? [] }
+}
+
+export async function dbFetchWalletHistory(type: string) {
+  const uid = requireUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  if (type === "withdraw") {
+    const { data } = await sb
+      .from("withdraw_requests")
+      .select("*")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+    return { success: true, items: data ?? [] }
+  }
+  const { data } = await sb
+    .from("deposit_requests")
+    .select("*")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+  return { success: true, items: data ?? [] }
+}
+
 // ─── Admin helpers ──────────────────────────────────────────────────────────
 
 export async function dbFetchUsers() {
@@ -775,25 +930,35 @@ export async function dbFetchUsers() {
 export async function dbFetchDeposits() {
   const sb = getSupabase()
   const { data } = await sb.from("deposit_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
-  return data ?? []
+  return (data ?? []).map((row) => {
+    const flat = flattenUserJoin(row as Record<string, unknown>)
+    return {
+      ...flat,
+      transaction_ref: flat.request_no ?? flat.transaction_ref,
+      channel: flat.payment_method ?? flat.channel,
+    }
+  })
 }
 
 export async function dbFetchWithdrawals() {
   const sb = getSupabase()
   const { data } = await sb.from("withdraw_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
-  return data ?? []
+  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
 }
 
 export async function dbFetchVerifications() {
   const sb = getSupabase()
-  const { data } = await sb.from("identity_verifications").select("*").order("created_at", { ascending: false })
-  return data ?? []
+  const { data } = await sb
+    .from("identity_verifications")
+    .select("*, users(email,phone,username)")
+    .order("created_at", { ascending: false })
+  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
 }
 
 export async function dbFetchBankAccounts() {
   const sb = getSupabase()
   const { data } = await sb.from("bank_accounts").select("*, users(email,phone,username)").order("id")
-  return data ?? []
+  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
 }
 
 export async function dbSavePaymentLimits(minDeposit: number, minWithdraw: number) {
@@ -830,7 +995,12 @@ export async function dbSaveCommissionSettings(percent: number) {
 export async function dbAdminNotifications() {
   const sb = getSupabase()
   const { data } = await sb.from("notifications").select("*").order("created_at", { ascending: false })
-  return data ?? []
+  return (data ?? []).map((row) => ({
+    ...row,
+    notification_type: row.ntype,
+    target_user_id: row.user_id,
+    recipient_mode: row.user_id ? "one" : "all",
+  }))
 }
 
 export async function dbSubmitReview(orderId: number, reviewText: string, starRating: number) {

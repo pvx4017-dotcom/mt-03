@@ -88,10 +88,7 @@ export default function CartPage() {
       fd.append("contact_name", contactName.trim())
       fd.append("contact_address", contactAddress.trim())
       fd.append("contact_phone", contactPhone.trim())
-      const [res] = await Promise.all([
-        confirmProductOrders(fd),
-        new Promise((r) => setTimeout(r, 3000)),
-      ])
+      const res = await confirmProductOrders(fd)
       if (!res.success) {
         showNotice(res.message ?? "ยืนยันคำสั่งซื้อไม่สำเร็จ")
         return

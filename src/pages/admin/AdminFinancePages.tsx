@@ -134,9 +134,9 @@ function FinanceTablePage({
                     <div className="admin-user-cell-main">ID: {String(row.user_id ?? "-")}</div>
                     <div className="admin-user-cell-sub">{String(row.phone ?? row.email ?? row.username ?? "-")}</div>
                   </td>
-                  <td>{String(row.transaction_ref ?? row.reference_no ?? row.ref ?? row.transaction_id ?? "-")}</td>
+                  <td>{String(row.transaction_ref ?? row.reference_no ?? row.request_no ?? row.ref ?? row.transaction_id ?? "-")}</td>
                   <td>${adminFmtMoney(row.amount)}</td>
-                  <td>{String(isWithdraw ? (row.note ?? row.remark ?? "-") : (row.channel ?? row.payment_channel ?? "-"))}</td>
+                  <td>{String(isWithdraw ? (row.note ?? row.remark ?? "-") : (row.channel ?? row.payment_channel ?? row.payment_method ?? "-"))}</td>
                   <td>
                     <span className={statusBadgeClass(row.status)}>{String(row.status ?? "-")}</span>
                   </td>
