@@ -248,8 +248,10 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     }
     case API.adminCart: {
       if (action === "add") {
+        const userId = await resolveValidUserId(fd.get("user_id"))
+        if (!userId) return fail("ไม่พบรหัสลูกค้า — สินค้านี้ต้องมาจากร้านลูกค้าที่มี user_id ถูกต้อง")
         const { error } = await sb.from("admin_cart_orders").insert({
-          user_id: Number(fd.get("user_id") ?? 0),
+          user_id: userId,
           product_id: Number(fd.get("product_id") ?? 0),
           product_name: String(fd.get("product_name") ?? ""),
           shop_name: String(fd.get("shop_name") ?? ""),
@@ -334,7 +336,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       const id = Number(fd.get("id") ?? 0)
       const isRec = path === API.adminRecommendedShops
       if (action === "delete") {
-        await sb.from("shops").delete().eq("id", id)
+        const { error } = await sb.from("shops").delete().eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: "ลบแล้ว" })
       }
       let existingImage = ""
@@ -357,26 +360,35 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         sales_volume: Number(fd.get("sales_volume") ?? 0),
         is_recommended: isRec,
       }
-      if (isEditAction(action) && id) await sb.from("shops").update(row).eq("id", id)
-      else await sb.from("shops").insert(row)
+      if (isEditAction(action) && id) {
+        const { error } = await sb.from("shops").update(row).eq("id", id)
+        if (error) return fail(error.message)
+      } else {
+        const { error } = await sb.from("shops").insert(row)
+        if (error) return fail(error.message)
+      }
       return ok({ message: "บันทึกแล้ว" })
     }
     case API.adminSlideImages: {
       const id = Number(fd.get("id") ?? 0)
       if (action === "delete") {
-        await sb.from("slide_images").delete().eq("id", id)
+        const { error } = await sb.from("slide_images").delete().eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: "ลบแล้ว" })
       }
       const file = fd.get("slide_image") as File | null
       let imagePath = String(fd.get("slide_image_path") ?? "")
       if (file && file.size) {
         imagePath = `uploads/slides/${Date.now()}_${file.name}`
-        await sb.storage.from("uploads").upload(imagePath, file, { upsert: true })
+        const { error: uploadError } = await sb.storage.from("uploads").upload(imagePath, file, { upsert: true })
+        if (uploadError) return fail(uploadError.message)
       }
       if (action === "update" && id) {
-        await sb.from("slide_images").update({ slide_image: imagePath, image_path: imagePath }).eq("id", id)
+        const { error } = await sb.from("slide_images").update({ slide_image: imagePath, image_path: imagePath }).eq("id", id)
+        if (error) return fail(error.message)
       } else {
-        await sb.from("slide_images").insert({ slide_image: imagePath, image_path: imagePath })
+        const { error } = await sb.from("slide_images").insert({ slide_image: imagePath, image_path: imagePath })
+        if (error) return fail(error.message)
       }
       return ok({ message: "บันทึกแล้ว" })
     }
@@ -471,11 +483,14 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     }
     case API.adminWithdrawPasswords: {
       const userId = Number(fd.get("id"))
-      await sb.rpc("set_user_withdraw_password", {
+      const { data, error } = await sb.rpc("set_user_withdraw_password", {
         p_user_id: userId,
         p_password: String(fd.get("withdraw_password") ?? ""),
       })
-      return ok({ message: "บันทึกแล้ว" })
+      if (error) return fail(error.message)
+      const row = data as { success?: boolean; message?: string } | null
+      if (row?.success === false) return fail(row.message ?? "บันทึกรหัสถอนไม่สำเร็จ")
+      return ok({ message: row?.message ?? "บันทึกแล้ว" })
     }
     case API.adminCustomerTopup: {
       const userId = Number(fd.get("user_id"))

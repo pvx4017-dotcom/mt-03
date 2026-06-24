@@ -365,7 +365,7 @@ body.admin-chat-page[data-view="chat"] .admin-chat-sidebar {
 
 body.admin-chat-page[data-view="chat"] .admin-chat-panel {
   position: fixed;
-  top: 52px;
+  top: calc(var(--admin-top-h) + var(--admin-safe-top));
   left: 0;
   right: 0;
   bottom: 0;

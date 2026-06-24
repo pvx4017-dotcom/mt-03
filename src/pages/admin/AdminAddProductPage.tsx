@@ -6,6 +6,7 @@ import {
   AdminEditModal,
   AdminEmptyRow,
   AdminLoadingRow,
+  AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/lib/adminApi"
 import { adminParseImage } from "@/lib/adminUtils"
 import { useBodyClass } from "@/hooks/useBodyClass"
+import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 
 const DEFAULT_DESC = "สินค้าคุณภาพดี รับประกันความพึงพอใจ"
 
@@ -80,14 +82,19 @@ export default function AdminAddProductPage() {
     setCategories(cats.map((c) => c.category_name))
   }, [])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminStoreProducts())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminStoreProducts,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     loadMeta()
@@ -147,7 +154,7 @@ export default function AdminAddProductPage() {
     if (res.success) {
       showToast(editId ? "แก้ไขสำเร็จ" : "เพิ่มสินค้าสำเร็จ")
       setModalOpen(false)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -160,7 +167,7 @@ export default function AdminAddProductPage() {
     if (res.success) {
       showToast("ลบสำเร็จ")
       setConfirmId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -175,7 +182,7 @@ export default function AdminAddProductPage() {
         </button>
       }
     >
-      <div className="admin-card admin-add-product-table-wrap">
+      <AdminTableWrap innerClassName="admin-add-product-table-wrap">
         <table>
           <thead>
             <tr>
@@ -200,7 +207,7 @@ export default function AdminAddProductPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={18} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={18} message="ยังไม่มีสินค้า" />
@@ -246,7 +253,7 @@ export default function AdminAddProductPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal
         open={modalOpen}

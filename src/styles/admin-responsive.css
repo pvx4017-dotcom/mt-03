@@ -1,0 +1,1102 @@
+/* Admin responsive polish — mobile-first layout & touch-friendly UI */
+
+:root {
+  --admin-top-h: 52px;
+  --admin-safe-top: env(safe-area-inset-top, 0px);
+  --admin-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --admin-page-pad: 16px;
+  --admin-radius: 14px;
+  --admin-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* ── Top bar ── */
+body.admin-page .top-bar,
+body.admin-chat-page .top-bar,
+.admin-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  min-height: var(--admin-top-h);
+  padding: calc(8px + var(--admin-safe-top)) 12px 8px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  background: linear-gradient(180deg, #1a1a1a 0%, #212121 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.admin-top-bar-back {
+  position: static !important;
+  flex-shrink: 0;
+}
+
+.admin-top-bar-title {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+}
+
+body.admin-page .admin-badge,
+body.admin-chat-page .admin-badge,
+.admin-top-bar-title {
+  max-width: none;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.admin-page .logout-btn,
+body.admin-chat-page .logout-btn,
+.admin-top-bar-back {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+body.admin-page .logout-btn:hover,
+body.admin-chat-page .logout-btn:hover,
+.admin-top-bar-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.admin-top-bar-back--logout {
+  color: #fca5a5 !important;
+}
+
+.admin-top-bar-back--logout:hover {
+  background: rgba(220, 38, 38, 0.25) !important;
+  color: #fff !important;
+}
+
+/* ── Dashboard ── */
+body.admin-page .admin-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px var(--admin-page-pad) calc(28px + var(--admin-safe-bottom));
+  gap: 12px;
+}
+
+body.admin-page .admin-dashboard-intro {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+body.admin-page .menu-item {
+  padding: 16px 18px;
+  border-radius: var(--admin-radius);
+  min-height: 56px;
+  box-shadow: var(--admin-shadow);
+  border: 1px solid rgba(255, 193, 7, 0.25);
+}
+
+body.admin-page .item-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+body.admin-page .item-label {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+body.admin-page .submenu-item {
+  padding: 14px 18px 14px 56px;
+  font-size: 14px;
+}
+
+body.admin-page .menu-group .menu-item {
+  position: relative;
+}
+
+body.admin-page .admin-menu-badge {
+  right: 44px;
+}
+
+/* ── Page shell ── */
+.admin-page-container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px var(--admin-page-pad) calc(32px + var(--admin-safe-bottom));
+  box-sizing: border-box;
+}
+
+.admin-page-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-page-title {
+  font-size: 18px;
+  line-height: 1.35;
+  flex-wrap: wrap;
+}
+
+.admin-page-title i {
+  color: #f59e0b;
+  font-size: 20px;
+}
+
+.admin-page-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+.admin-page-header-actions .admin-search-container {
+  max-width: none;
+  width: 100%;
+}
+
+.admin-page-header-actions .back-btn {
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+/* Top bar already has back — hide duplicate on small screens */
+@media (max-width: 767px) {
+  .admin-page-header-actions .back-btn {
+    display: none;
+  }
+}
+
+/* ── Cards & forms ── */
+.admin-card {
+  border-radius: var(--admin-radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #eef0f3;
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-form-row {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.admin-form-group-action .admin-submit-btn {
+  width: 100%;
+}
+
+.admin-submit-btn,
+.admin-action-btn,
+.admin-edit-btn {
+  min-height: 44px;
+}
+
+.admin-manage-actions {
+  gap: 8px;
+}
+
+.admin-manage-actions .admin-action-btn {
+  flex: 1 1 auto;
+  min-width: 72px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* ── Tables: scroll container with hint ── */
+.admin-table-scroll {
+  position: relative;
+  margin: 0 calc(-1 * var(--admin-page-pad));
+  padding: 0 var(--admin-page-pad);
+}
+
+.admin-table-scroll::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: var(--admin-page-pad);
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.admin-table-scroll.is-scrollable::after {
+  opacity: 1;
+}
+
+.admin-table-wrap {
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  border: 1px solid #eef0f3;
+}
+
+.admin-table-wrap table {
+  min-width: 560px;
+}
+
+.admin-table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: 0 1px 0 #f1f1f1;
+}
+
+.admin-table-wrap td .admin-manage-actions {
+  justify-content: flex-end;
+}
+
+.admin-table-scroll-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  background: linear-gradient(180deg, #f9fafb 0%, #fff 100%);
+  border-bottom: 1px solid #eef0f3;
+  user-select: none;
+}
+
+.admin-table-scroll-hint i {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.admin-table-bundle:not(:has(table)) .admin-table-scroll-hint {
+  display: none !important;
+}
+
+.admin-table-bundle {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.admin-table-bundle--bare {
+  margin-bottom: 0;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+}
+
+.admin-table-bundle--bare .admin-table-wrap {
+  border: none;
+  box-shadow: none;
+}
+
+.admin-table-bundle .admin-table-wrap,
+.admin-table-bundle .admin-order-table-wrap {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 639px) {
+  .admin-table-scroll-hint {
+    display: flex;
+  }
+
+  .admin-table-bundle:not(.admin-table-bundle--bare) {
+    margin-left: calc(-1 * var(--admin-page-pad));
+    margin-right: calc(-1 * var(--admin-page-pad));
+    border-radius: 0;
+    border-top: 1px solid #eef0f3;
+    border-bottom: 1px solid #eef0f3;
+  }
+
+  .admin-table-bundle--order {
+    margin-left: calc(-1 * var(--admin-page-pad));
+    margin-right: calc(-1 * var(--admin-page-pad));
+  }
+}
+
+/* ── Finance / filters ── */
+.admin-finance-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.admin-finance-toolbar .admin-search-container {
+  max-width: none;
+  width: 100%;
+}
+
+.admin-finance-toolbar select {
+  width: 100%;
+  min-height: 44px;
+}
+
+.admin-finance-count {
+  margin-left: 0;
+  text-align: center;
+  padding: 6px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.admin-filter-row {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.admin-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-filter-btn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 8px 16px;
+}
+
+/* ── Topup / wallet ── */
+.admin-topup-trigger-wrap {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.admin-wallet-search-input {
+  order: 0;
+  max-width: none;
+  width: 100%;
+  min-height: 44px;
+}
+
+.admin-open-topup-btn {
+  order: 1;
+  width: 100%;
+  justify-content: center;
+  min-height: 48px;
+}
+
+/* ── Order flow pages ── */
+.admin-order-topbar {
+  padding-top: calc(0px + var(--admin-safe-top));
+  height: calc(56px + var(--admin-safe-top));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+.admin-order-topbar h1 {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.admin-order-topbar .admin-order-top-action {
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.admin-order-wrap {
+  padding: 12px var(--admin-page-pad) calc(32px + var(--admin-safe-bottom));
+}
+
+.admin-order-wrap .admin-page-header {
+  flex-direction: column;
+  align-items: stretch;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 10px;
+}
+
+.admin-order-wrap .admin-page-title {
+  font-size: 17px;
+}
+
+.admin-order-table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-order-commission {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.admin-order-commission input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.admin-order-summary {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.admin-stats-row {
+  flex-direction: column;
+}
+
+.admin-stat-box {
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-selection-bar,
+.admin-bulk-bar {
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+}
+
+.admin-selection-bar button,
+.admin-bulk-bar button {
+  width: 100%;
+  min-height: 40px;
+}
+
+/* ── Modals ── */
+.admin-edit-modal,
+.admin-confirm-modal,
+.admin-order-modal-overlay,
+.admin-topup-modal,
+.admin-wallet-edit-modal {
+  padding: max(12px, var(--admin-safe-top)) 12px max(12px, var(--admin-safe-bottom));
+  align-items: flex-end;
+}
+
+.admin-edit-card,
+.admin-confirm-card,
+.admin-order-modal,
+.admin-wallet-edit-card {
+  width: 100%;
+  max-width: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  max-height: min(92vh, 720px);
+}
+
+.admin-edit-actions,
+.admin-order-modal-foot,
+.admin-wallet-edit-actions {
+  flex-direction: column-reverse;
+  gap: 10px;
+}
+
+.admin-edit-actions .admin-edit-btn,
+.admin-order-modal-foot button,
+.admin-wallet-edit-btn {
+  width: 100%;
+  min-height: 48px;
+}
+
+/* ── Toast: bottom on mobile ── */
+.admin-center-toast {
+  top: auto;
+  bottom: calc(24px + var(--admin-safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  animation: adminToastSlideUp 0.25s ease-out;
+}
+
+.admin-center-toast.error {
+  animation: adminToastSlideUp 0.25s ease-out;
+}
+
+@keyframes adminToastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ── Chat mobile ── */
+body.admin-chat-page .admin-chat-layout {
+  min-height: calc(100dvh - var(--admin-top-h) - var(--admin-safe-top));
+}
+
+.admin-chat-input-row {
+  padding-bottom: calc(12px + var(--admin-safe-bottom));
+}
+
+.admin-chat-input-row input {
+  min-height: 44px;
+}
+
+.admin-chat-input-row button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ── Notifications history ── */
+.admin-notif-card {
+  flex-direction: column;
+}
+
+.admin-history-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-history-refresh {
+  min-height: 40px;
+}
+
+/* ── Doc viewer ── */
+.admin-doc-grid {
+  grid-template-columns: 1fr;
+}
+
+/* ── Sheet modals (detail / edit / confirm) ── */
+.admin-sheet-overlay.show {
+  display: flex;
+}
+
+.admin-sheet-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(92dvh, 780px);
+  overflow: hidden;
+}
+
+.admin-sheet-panel--wide {
+  max-width: min(94vw, 720px);
+}
+
+.admin-sheet-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 44px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-sheet-handle {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d1d5db;
+}
+
+.admin-sheet-title,
+.admin-sheet-head .admin-edit-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.admin-sheet-head .admin-modal-close-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-top: 4px;
+}
+
+.admin-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 18px;
+  min-height: 0;
+}
+
+.admin-sheet-foot,
+.admin-order-modal-foot.admin-sheet-foot,
+.admin-edit-actions.admin-sheet-foot {
+  flex-shrink: 0;
+  padding: 12px 18px calc(12px + var(--admin-safe-bottom));
+  border-top: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+.admin-sheet-message {
+  margin: 0;
+  padding: 0 18px 8px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.admin-btn-danger {
+  background: #dc2626 !important;
+}
+
+.admin-edit-card.admin-sheet-panel {
+  padding: 0;
+}
+
+.admin-edit-card.admin-sheet-panel .admin-sheet-body {
+  padding-top: 8px;
+}
+
+.admin-order-modal.admin-sheet-panel {
+  padding: 0;
+}
+
+.admin-order-modal.admin-sheet-panel .admin-order-modal-head {
+  padding: 18px 44px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: inherit;
+}
+
+.admin-order-modal.admin-sheet-panel .admin-order-modal-body {
+  padding: 0;
+}
+
+/* ── Order detail content ── */
+.admin-order-product-preview {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.admin-order-product-preview img {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+}
+
+.admin-order-product-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.admin-order-product-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.admin-order-product-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #16a34a;
+  margin-top: 6px;
+}
+
+.admin-order-qty-row {
+  justify-content: center;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 8px 0 12px;
+}
+
+.admin-qty-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.admin-qty-value {
+  min-width: 32px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.admin-order-comm-note {
+  margin: 12px 0 0;
+  padding: 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.admin-detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-detail-item {
+  background: #f9fafb;
+  border: 1px solid #eef0f3;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.admin-detail-item dt {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.admin-detail-item dd {
+  margin: 0;
+  font-size: 14px;
+  color: #111827;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* ── Mobile: ตารางแบบจอใหญ่ + เลื่อนซ้าย-ขวา ── */
+@media (max-width: 639px) {
+  .admin-table-wrap,
+  .admin-order-table-wrap,
+  .admin-responsive-table {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .admin-table-wrap::-webkit-scrollbar,
+  .admin-order-table-wrap::-webkit-scrollbar,
+  .admin-responsive-table::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .admin-table-wrap::-webkit-scrollbar-thumb,
+  .admin-order-table-wrap::-webkit-scrollbar-thumb,
+  .admin-responsive-table::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+
+  .admin-card.admin-table-wrap,
+  .admin-table-bundle .admin-table-wrap,
+  .admin-table-wrap,
+  .admin-table-bundle .admin-order-table-wrap,
+  .admin-order-table-wrap,
+  .admin-responsive-table {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    background: #fff;
+  }
+
+  .admin-card.admin-table-wrap {
+    padding: 0;
+  }
+
+  .admin-table-wrap table,
+  .admin-table-bundle .admin-table-wrap table,
+  .admin-order-table-wrap table,
+  .admin-table-bundle .admin-order-table-wrap table {
+    min-width: 680px;
+    width: max-content;
+  }
+
+  .admin-order-table-wrap table,
+  .admin-product-table table {
+    min-width: 760px;
+  }
+
+  .admin-add-product-table-wrap table {
+    min-width: 1200px;
+  }
+
+  .admin-table-wrap th,
+  .admin-order-table-wrap th,
+  .admin-responsive-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+  }
+
+  .admin-table-wrap td,
+  .admin-order-table-wrap td,
+  .admin-responsive-table td {
+    white-space: nowrap;
+  }
+
+  .admin-table-wrap td .admin-manage-actions,
+  .admin-responsive-table td .admin-manage-actions {
+    flex-wrap: nowrap;
+  }
+
+  .admin-topup-modal .admin-topup-modal-content,
+  .admin-wallet-edit-modal .admin-wallet-edit-card {
+    width: 100%;
+    max-width: none;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: min(92dvh, 720px);
+  }
+
+  .admin-topup-modal,
+  .admin-wallet-edit-modal {
+    align-items: flex-end;
+  }
+
+  .admin-review-stars {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .admin-review-stars button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-order-product-preview {
+    flex-direction: row;
+    text-align: left;
+    align-items: center;
+  }
+}
+
+.admin-topup-modal-content.admin-sheet-panel {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-topup-modal-content .admin-sheet-body {
+  padding: 8px 18px 16px;
+}
+
+.admin-topup-modal-content .admin-sheet-foot {
+  padding: 0 18px calc(16px + var(--admin-safe-bottom));
+}
+
+.admin-topup-modal-content .admin-submit-topup-btn {
+  margin-top: 0;
+}
+
+.admin-wallet-edit-card.admin-sheet-panel {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Tablet+ ── */
+@media (min-width: 640px) {
+  .admin-page-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .admin-page-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-page-title {
+    font-size: 22px;
+  }
+
+  .admin-page-header-actions {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
+    margin-left: auto;
+  }
+
+  .admin-page-header-actions .back-btn {
+    display: inline-flex;
+    width: auto;
+  }
+
+  .admin-form-row {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .admin-finance-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-finance-count {
+    margin-left: auto;
+    text-align: right;
+    background: transparent;
+    padding: 0;
+  }
+
+  .admin-topup-trigger-wrap {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-open-topup-btn {
+    width: auto;
+  }
+
+  .admin-order-wrap .admin-page-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-order-table-wrap {
+    margin: 0;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .admin-order-commission {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-order-commission input {
+    width: 72px;
+  }
+
+  .admin-stats-row {
+    flex-direction: row;
+  }
+
+  .admin-stat-box {
+    width: auto;
+  }
+
+  .admin-edit-modal,
+  .admin-confirm-modal,
+  .admin-order-modal-overlay,
+  .admin-topup-modal,
+  .admin-wallet-edit-modal {
+    align-items: center;
+  }
+
+  .admin-edit-card,
+  .admin-confirm-card,
+  .admin-order-modal,
+  .admin-wallet-edit-card {
+    width: min(94vw, 520px);
+    border-radius: 14px;
+  }
+
+  .admin-edit-actions,
+  .admin-order-modal-foot,
+  .admin-wallet-edit-actions {
+    flex-direction: row;
+  }
+
+  .admin-edit-actions .admin-edit-btn,
+  .admin-order-modal-foot button,
+  .admin-wallet-edit-btn {
+    width: auto;
+  }
+
+  .admin-doc-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .admin-center-toast {
+    top: 50%;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    animation: adminToastCenterIn 0.2s ease-out;
+  }
+
+  @keyframes adminToastCenterIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -46%);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  body.admin-page .admin-container {
+    margin-top: 8px;
+    padding-top: 28px;
+  }
+
+  body.admin-page .admin-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    max-width: 960px;
+  }
+
+  body.admin-page .menu-group {
+    grid-column: 1 / -1;
+  }
+
+  .admin-table-wrap table {
+    min-width: 680px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-page-container {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .admin-table-scroll {
+    margin: 0;
+    padding: 0;
+  }
+
+  .admin-table-scroll::after {
+    display: none;
+  }
+}

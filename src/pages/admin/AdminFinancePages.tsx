@@ -6,6 +6,7 @@ import {
   AdminEmptyRow,
   AdminLoadingRow,
   AdminSearchBar,
+  AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
@@ -16,6 +17,7 @@ import {
   formatAdminDate,
 } from "@/lib/adminApi"
 import { adminFmtMoney } from "@/lib/adminUtils"
+import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 function statusBadgeClass(status: unknown) {
@@ -46,15 +48,19 @@ function FinanceTablePage({
 
   const apiPath = type === "deposit" ? API.adminDepositRequests : API.adminWithdrawRequests
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = type === "deposit" ? await fetchAdminDeposits() : await fetchAdminWithdrawals()
-      setRows(data)
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: async () => (type === "deposit" ? fetchAdminDeposits() : fetchAdminWithdrawals()),
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [type, rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -87,7 +93,7 @@ function FinanceTablePage({
     if (res.success) {
       showToast("ดำเนินการสำเร็จ")
       setConfirm(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ดำเนินการไม่สำเร็จ", "error")
   }
 
@@ -107,7 +113,7 @@ function FinanceTablePage({
         <span className="admin-finance-count">{filtered.length} รายการ</span>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -122,7 +128,7 @@ function FinanceTablePage({
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={8} />
             ) : filtered.length === 0 ? (
               <AdminEmptyRow cols={8} message="ไม่มีรายการ" />
@@ -160,7 +166,7 @@ function FinanceTablePage({
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminConfirmModal
         open={!!confirm}
@@ -190,17 +196,22 @@ export function AdminPaymentLimitsPage() {
   const [history, setHistory] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await fetchAdminPaymentLimits()
-      setMinDeposit(String(data.min_deposit ?? ""))
-      setMinWithdraw(String(data.min_withdraw ?? ""))
-      setHistory(data.limits ?? [])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || history.length === 0) setLoading(true)
+      try {
+        const data = await fetchAdminPaymentLimits()
+        setMinDeposit(String(data.min_deposit ?? ""))
+        setMinWithdraw(String(data.min_withdraw ?? ""))
+        setHistory(data.limits ?? [])
+      } catch {
+        showToast("โหลดข้อมูลไม่สำเร็จ", "error")
+      } finally {
+        if (!silent || history.length === 0) setLoading(false)
+      }
+    },
+    [history.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -213,7 +224,7 @@ export function AdminPaymentLimitsPage() {
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminPaymentLimits, fd)
     if (res.success) {
       showToast("บันทึกสำเร็จ")
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -236,7 +247,7 @@ export function AdminPaymentLimitsPage() {
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -246,7 +257,7 @@ export function AdminPaymentLimitsPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, history.length) ? (
               <AdminLoadingRow cols={3} />
             ) : history.length === 0 ? (
               <AdminEmptyRow cols={3} message="ยังไม่มีประวัติ" />
@@ -261,7 +272,7 @@ export function AdminPaymentLimitsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
       {Toast}
     </AdminPageShell>
   )

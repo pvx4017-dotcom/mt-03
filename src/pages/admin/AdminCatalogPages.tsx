@@ -6,6 +6,7 @@ import {
   AdminEditModal,
   AdminEmptyRow,
   AdminLoadingRow,
+  AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
@@ -18,6 +19,7 @@ import {
   type AdminShop,
 } from "@/lib/adminApi"
 import { adminParseImage } from "@/lib/adminUtils"
+import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 export default function AdminProductCategoriesPage() {
@@ -33,20 +35,25 @@ export default function AdminProductCategoriesPage() {
   const [confirmId, setConfirmId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setLoadError(null)
-    try {
-      setRows(await fetchAdminCategories())
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ"
-      setLoadError(message)
-      setRows([])
-      showToast(message, "error")
-    } finally {
-      setLoading(false)
-    }
-  }, [showToast])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || rows.length === 0) {
+        setLoading(true)
+        setLoadError(null)
+      }
+      try {
+        setRows(await fetchAdminCategories())
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ"
+        setLoadError(message)
+        setRows([])
+        showToast(message, "error")
+      } finally {
+        if (!silent || rows.length === 0) setLoading(false)
+      }
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -66,7 +73,7 @@ export default function AdminProductCategoriesPage() {
       showToast("เพิ่มหมวดหมู่สำเร็จ")
       setName("")
       setFile(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "เพิ่มไม่สำเร็จ", "error")
   }
 
@@ -84,7 +91,7 @@ export default function AdminProductCategoriesPage() {
     if (res.success) {
       showToast("บันทึกสำเร็จ")
       setEdit(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -100,7 +107,7 @@ export default function AdminProductCategoriesPage() {
     if (res.success) {
       showToast("ลบสำเร็จ")
       setConfirmId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -143,7 +150,7 @@ export default function AdminProductCategoriesPage() {
         </div>
       ) : null}
 
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -156,7 +163,7 @@ export default function AdminProductCategoriesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={6} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={6} message="ยังไม่มีหมวดหมู่สินค้า" />
@@ -205,7 +212,7 @@ export default function AdminProductCategoriesPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal
         open={!!edit}
@@ -270,17 +277,19 @@ export function AdminShopsPage({
   const [editFile, setEditFile] = useState<File | null>(null)
   const [confirmId, setConfirmId] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = isRec ? await fetchAdminRecommendedShops() : await fetchAdminGeneralShops()
-      setRows(data)
-    } catch {
-      showToast("โหลดข้อมูลไม่สำเร็จ", "error")
-    } finally {
-      setLoading(false)
-    }
-  }, [isRec, showToast])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: async () => (isRec ? fetchAdminRecommendedShops() : fetchAdminGeneralShops()),
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [isRec, rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -308,7 +317,7 @@ export function AdminShopsPage({
       showToast("เพิ่มร้านค้าสำเร็จ")
       setForm({ shop_name: "", review_count: "", view_count: "", trust_score: "", sales_volume: "" })
       setFile(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "เพิ่มไม่สำเร็จ", "error")
   }
 
@@ -328,7 +337,7 @@ export function AdminShopsPage({
       showToast("บันทึกสำเร็จ")
       setEdit(null)
       setEditFile(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -339,7 +348,7 @@ export function AdminShopsPage({
     if (res.success) {
       showToast("ลบสำเร็จ")
       setConfirmId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -416,7 +425,7 @@ export function AdminShopsPage({
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -432,7 +441,7 @@ export function AdminShopsPage({
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={9} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={9} message="ยังไม่มีร้านค้า" />
@@ -475,7 +484,7 @@ export function AdminShopsPage({
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal
         open={!!edit}

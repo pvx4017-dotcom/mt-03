@@ -91,11 +91,11 @@ export async function dbFetchCategories() {
 
 export async function dbFetchShops(recommendedOnly = false) {
   const sb = getSupabase()
-  let q = sb.from("shops").select("*").order("id")
+  let q = sb.from("shops").select("*").order("id", { ascending: false })
   if (recommendedOnly) q = q.eq("is_recommended", true)
   else q = q.eq("is_recommended", false)
   const { data, error } = await q
-  if (error) return []
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 

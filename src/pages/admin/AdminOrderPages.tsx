@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { API } from "@/lib/apiRoutes"
 import { Link, useNavigate } from "react-router-dom"
 import { AdminTopBar } from "@/components/admin/AdminTopBar"
-import { AdminConfirmModal, useAdminToast } from "@/components/admin/AdminUi"
+import { AdminConfirmModal, AdminDetailModal, AdminOrderTableWrap, useAdminToast } from "@/components/admin/AdminUi"
 import {
   adminGet,
   adminPost,
@@ -21,6 +21,7 @@ import {
   type CartItem,
 } from "@/lib/adminUtils"
 import { useBodyClass } from "@/hooks/useBodyClass"
+import { showAdminTableLoading } from "@/lib/adminLoadHelper"
 
 function OrderFlowTopBar({
   title,
@@ -46,6 +47,13 @@ function OrderFlowTopBar({
   )
 }
 
+const PRODUCT_STAT_FIELDS = [
+  { key: "product_stock" as const, label: "จำนวนสต็อก", type: "number" },
+  { key: "view_count" as const, label: "ยอดเข้าชม", type: "number" },
+  { key: "trust_score" as const, label: "คะแนนความน่าเชื่อถือ", type: "number" },
+  { key: "sales_volume" as const, label: "ยอดขายสะสม", type: "number" },
+]
+
 export function AdminCustomerStoreProductsPage() {
   useBodyClass("admin-page")
   const { showToast, Toast } = useAdminToast()
@@ -54,7 +62,7 @@ export function AdminCustomerStoreProductsPage() {
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [cartCount, setCartCount] = useState(0)
-  const [editRow, setEditRow] = useState<CartItem | null>(null)
+  const [detailRow, setDetailRow] = useState<CartItem | null>(null)
   const [editForm, setEditForm] = useState({
     product_stock: "",
     view_count: "",
@@ -62,19 +70,34 @@ export function AdminCustomerStoreProductsPage() {
     sales_volume: "",
   })
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [products, cart] = await Promise.all([
-        fetchCustomerShopProducts(),
-        fetchAdminCart("pending"),
-      ])
-      setRows(products)
-      setCartCount(cart.items?.length ?? 0)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const openDetail = (row: CartItem) => {
+    setDetailRow(row)
+    setEditForm({
+      product_stock: String(row.product_stock ?? ""),
+      view_count: String(row.view_count ?? ""),
+      trust_score: String(row.trust_score ?? ""),
+      sales_volume: String(row.sales_volume ?? ""),
+    })
+  }
+
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || rows.length === 0) setLoading(true)
+      try {
+        const [products, cart] = await Promise.all([
+          fetchCustomerShopProducts(),
+          fetchAdminCart("pending"),
+        ])
+        setRows(products)
+        setCartCount(cart.items?.length ?? 0)
+      } catch {
+        showToast("โหลดข้อมูลไม่สำเร็จ", "error")
+      } finally {
+        if (!silent || rows.length === 0) setLoading(false)
+      }
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -110,10 +133,10 @@ export function AdminCustomerStoreProductsPage() {
   }
 
   const saveEdit = async () => {
-    if (!editRow) return
+    if (!detailRow) return
     const fd = new FormData()
     fd.append("action", "update_product")
-    fd.append("id", String(editRow.id))
+    fd.append("id", String(detailRow.id))
     fd.append("product_stock", editForm.product_stock)
     fd.append("view_count", editForm.view_count)
     fd.append("trust_score", editForm.trust_score)
@@ -124,21 +147,26 @@ export function AdminCustomerStoreProductsPage() {
     )
     if (res.success) {
       showToast("บันทึกสำเร็จ")
-      setEditRow(null)
-      load()
+      setDetailRow(null)
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
+  }
+
+  const addDetailToCart = async () => {
+    if (!detailRow) return
+    await addToCart(detailRow)
   }
 
   return (
     <>
       <AdminTopBar title="สินค้าของลูกค้า" backTo="/admin" />
-      <div className="admin-page-container">
+      <div className="admin-order-wrap admin-customer-products-page">
         <div className="admin-page-header">
           <h1 className="admin-page-title">
             <i className="fa-solid fa-store" /> สินค้าของลูกค้า ({rows.length})
           </h1>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link to="/admin/cart" className="back-btn">
+          <div className="admin-page-header-actions">
+            <Link to="/admin/cart" className="back-btn admin-header-cart-btn">
               <i className="fa-solid fa-cart-shopping" />
               ตะกร้า
               {cartCount > 0 ? <span className="admin-cart-badge-inline">{cartCount}</span> : null}
@@ -168,11 +196,24 @@ export function AdminCustomerStoreProductsPage() {
           </button>
         </div>
 
-        <div className="admin-order-table-wrap admin-product-table">
-          {loading ? (
+        <AdminOrderTableWrap className="admin-product-table">
+          {showAdminTableLoading(loading, rows.length) ? (
             <div className="admin-order-empty">กำลังโหลด…</div>
           ) : filtered.length === 0 ? (
-            <div className="admin-order-empty">ไม่พบข้อมูลสินค้า</div>
+            <div className="admin-order-empty">
+              {rows.length === 0 ? (
+                <>
+                  ยังไม่มีสินค้าจากร้านลูกค้า
+                  <br />
+                  <small style={{ opacity: 0.75, fontWeight: 400 }}>
+                    ลูกค้าต้องเปิดร้านและเพิ่มสินค้าจากคอลเลกชันก่อน — หรือรัน{" "}
+                    <code>scripts/seed-customer-store-mirror.sql</code> ใน Supabase
+                  </small>
+                </>
+              ) : (
+                "ไม่พบข้อมูลสินค้าตามคำค้นหา"
+              )}
+            </div>
           ) : (
             <table>
               <thead>
@@ -237,18 +278,10 @@ export function AdminCustomerStoreProductsPage() {
                         <button
                           type="button"
                           className="admin-order-act info"
-                          title="แก้ไข"
-                          onClick={() => {
-                            setEditRow(row)
-                            setEditForm({
-                              product_stock: String(row.product_stock ?? ""),
-                              view_count: String(row.view_count ?? ""),
-                              trust_score: String(row.trust_score ?? ""),
-                              sales_volume: String(row.sales_volume ?? ""),
-                            })
-                          }}
+                          title="รายละเอียด / แก้ไข"
+                          onClick={() => openDetail(row)}
                         >
-                          <i className="fa-regular fa-pen-to-square" />
+                          <i className="fa-solid fa-circle-info" />
                         </button>
                       </td>
                     </tr>
@@ -257,34 +290,78 @@ export function AdminCustomerStoreProductsPage() {
               </tbody>
             </table>
           )}
-        </div>
+        </AdminOrderTableWrap>
       </div>
 
-      <div className={`admin-order-modal-overlay${editRow ? " show" : ""}`} onClick={() => setEditRow(null)}>
-        <div className="admin-order-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-order-modal-head">แก้ไขสินค้า</div>
-          <div className="admin-order-modal-body">
-            {(["product_stock", "view_count", "trust_score", "sales_volume"] as const).map((f) => (
-              <div className="admin-form-group" key={f}>
-                <label>{f}</label>
-                <input
-                  className="admin-form-control"
-                  value={editForm[f]}
-                  onChange={(e) => setEditForm({ ...editForm, [f]: e.target.value })}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="admin-order-modal-foot">
-            <button type="button" className="admin-edit-btn cancel" onClick={() => setEditRow(null)}>
-              ยกเลิก
+      <AdminDetailModal
+        open={!!detailRow}
+        title="รายละเอียดสินค้า"
+        wide
+        onClose={() => setDetailRow(null)}
+        footer={
+          <>
+            <button type="button" className="admin-edit-btn cancel" onClick={() => setDetailRow(null)}>
+              ปิด
+            </button>
+            <button type="button" className="admin-edit-btn admin-btn-cart" onClick={addDetailToCart}>
+              <i className="fa-solid fa-cart-plus" /> เพิ่มลงตะกร้า
             </button>
             <button type="button" className="admin-edit-btn save" onClick={saveEdit}>
               บันทึก
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      >
+        {detailRow ? (
+          <>
+            <div className="admin-order-product-preview admin-customer-product-preview">
+              <img src={adminParseImage(detailRow.product_image)} alt="" />
+              <div className="admin-order-product-meta">
+                <div className="admin-order-product-name">{String(detailRow.product_name ?? "-")}</div>
+                <div className="admin-order-product-sub">{String(detailRow.shop_name ?? "-")}</div>
+                <div className="admin-order-product-price">${adminFmtMoney(detailRow.product_price)}</div>
+              </div>
+            </div>
+
+            <dl className="admin-detail-list admin-customer-product-meta">
+              <div className="admin-detail-item">
+                <dt>รหัสสินค้า</dt>
+                <dd>#{String(detailRow.id ?? "-")}</dd>
+              </div>
+              <div className="admin-detail-item">
+                <dt>รหัสผู้ใช้</dt>
+                <dd>#{String(detailRow.user_id ?? "-")}</dd>
+              </div>
+              <div className="admin-detail-item">
+                <dt>หมวดหมู่</dt>
+                <dd>{String(detailRow.product_category ?? "-")}</dd>
+              </div>
+              <div className="admin-detail-item">
+                <dt>ประเภท</dt>
+                <dd>{String(detailRow.product_type ?? "customer")}</dd>
+              </div>
+            </dl>
+
+            <h4 className="admin-detail-section-title">แก้ไขข้อมูลสถิติ</h4>
+            <div className="admin-customer-product-stats">
+              {PRODUCT_STAT_FIELDS.map(({ key, label, type }) => (
+                <div className="admin-form-group" key={key}>
+                  <label htmlFor={`product-stat-${key}`}>{label}</label>
+                  <input
+                    id={`product-stat-${key}`}
+                    className="admin-form-control"
+                    type={type}
+                    step={key === "trust_score" ? "0.1" : "1"}
+                    min={0}
+                    value={editForm[key]}
+                    onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </AdminDetailModal>
       {Toast}
     </>
   )
@@ -303,19 +380,24 @@ export function AdminCartPage() {
   const [qty, setQty] = useState(1)
   const [receiver, setReceiver] = useState({ name: "", address: "", phone: "" })
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [cart, shipping] = await Promise.all([
-        fetchAdminCart("pending"),
-        fetchAdminCart("shipping"),
-      ])
-      setItems(cart.items ?? [])
-      setShippingCount(shipping.items?.length ?? 0)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || items.length === 0) setLoading(true)
+      try {
+        const [cart, shipping] = await Promise.all([
+          fetchAdminCart("pending"),
+          fetchAdminCart("shipping"),
+        ])
+        setItems(cart.items ?? [])
+        setShippingCount(shipping.items?.length ?? 0)
+      } catch {
+        showToast("โหลดตะกร้าไม่สำเร็จ", "error")
+      } finally {
+        if (!silent || items.length === 0) setLoading(false)
+      }
+    },
+    [items.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -328,11 +410,15 @@ export function AdminCartPage() {
   const total = filtered.reduce((s, r) => s + Number(r.total_price ?? 0), 0)
   const commAmount = (total * Number(commPct || 0)) / 100
 
-  const saveCommission = async (pct: string) => {
-    const fd = new FormData()
-    fd.append("percent", pct)
-    await adminPost(API.adminCommission, fd)
-  }
+  const saveCommission = useCallback(
+    async (pct: string) => {
+      const fd = new FormData()
+      fd.append("percent", pct)
+      const res = await adminPost<{ success: boolean; message?: string }>(API.adminCommission, fd)
+      if (res.success === false) showToast(res.message ?? "บันทึกค่าคอมไม่สำเร็จ", "error")
+    },
+    [showToast],
+  )
 
   const openOrder = (row: CartItem) => {
     setOrderModal(row)
@@ -365,7 +451,7 @@ export function AdminCartPage() {
     if (res.success) {
       showToast("บันทึกข้อมูลลงตารางเรียบร้อยแล้ว")
       setOrderModal(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -374,12 +460,12 @@ export function AdminCartPage() {
     const fd = new FormData()
     fd.append("action", "delete")
     fd.append("id", String(deleteId))
-    const res = await adminPost<{ success: boolean }>(API.adminCart, fd)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminCart, fd)
     if (res.success) {
       showToast("ลบแล้ว")
       setDeleteId(null)
-      load()
-    }
+      load(true)
+    } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
   return (
@@ -416,17 +502,15 @@ export function AdminCartPage() {
           <input
             type="number"
             value={commPct}
-            onChange={(e) => {
-              setCommPct(e.target.value)
-              saveCommission(e.target.value)
-            }}
+            onChange={(e) => setCommPct(e.target.value)}
+            onBlur={() => saveCommission(commPct)}
           />
           <span>%</span>
           <strong>${adminFmtMoney(commAmount)}</strong>
         </div>
 
-        <div className="admin-order-table-wrap">
-          {loading ? (
+        <AdminOrderTableWrap>
+          {showAdminTableLoading(loading, items.length) ? (
             <div className="admin-order-empty">กำลังโหลด…</div>
           ) : filtered.length === 0 ? (
             <div className="admin-order-empty">
@@ -482,62 +566,63 @@ export function AdminCartPage() {
               </tbody>
             </table>
           )}
-        </div>
+        </AdminOrderTableWrap>
       </div>
 
-      <div className={`admin-order-modal-overlay${orderModal ? " show" : ""}`} onClick={() => setOrderModal(null)}>
-        <div className="admin-order-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-order-modal-head">รายละเอียดคำสั่งซื้อ</div>
-          <div className="admin-order-modal-body">
-            {orderModal ? (
-              <>
-                <div className="admin-order-product-preview">
-                  <img src={adminParseImage(orderModal.product_image)} alt="" />
-                  <div>
-                    <div>{String(orderModal.product_name)}</div>
-                    <div style={{ color: "#6b7280", fontSize: 13 }}>{String(orderModal.shop_name)}</div>
-                    <div>${adminFmtMoney(orderModal.unit_price)}</div>
-                  </div>
-                </div>
-                <div className="admin-order-qty-row">
-                  <span>จำนวน</span>
-                  <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))}>
-                    -
-                  </button>
-                  <span>{qty}</span>
-                  <button type="button" onClick={() => setQty((q) => q + 1)}>
-                    +
-                  </button>
-                </div>
-                <div className="admin-form-group">
-                  <label>ชื่อผู้รับ</label>
-                  <input className="admin-form-control" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} />
-                </div>
-                <div className="admin-form-group">
-                  <label>ที่อยู่</label>
-                  <textarea className="admin-form-control" value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} />
-                </div>
-                <div className="admin-form-group">
-                  <label>เบอร์โทร</label>
-                  <input className="admin-form-control" value={receiver.phone} onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })} />
-                </div>
-                <p style={{ fontSize: 13 }}>
-                  ค่าคอมมิชชั่น ({commPct}%): $
-                  {adminFmtMoney(Number(orderModal.unit_price ?? 0) * qty * (Number(commPct) / 100))}
-                </p>
-              </>
-            ) : null}
-          </div>
-          <div className="admin-order-modal-foot">
+      <AdminDetailModal
+        open={!!orderModal}
+        title="รายละเอียดคำสั่งซื้อ"
+        onClose={() => setOrderModal(null)}
+        footer={
+          <>
             <button type="button" className="admin-edit-btn cancel" onClick={() => setOrderModal(null)}>
               ยกเลิก
             </button>
             <button type="button" className="admin-edit-btn save" onClick={saveOrder}>
               บันทึก
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      >
+        {orderModal ? (
+          <>
+            <div className="admin-order-product-preview">
+              <img src={adminParseImage(orderModal.product_image)} alt="" />
+              <div className="admin-order-product-meta">
+                <div className="admin-order-product-name">{String(orderModal.product_name)}</div>
+                <div className="admin-order-product-sub">{String(orderModal.shop_name)}</div>
+                <div className="admin-order-product-price">${adminFmtMoney(orderModal.unit_price)}</div>
+              </div>
+            </div>
+            <div className="admin-order-qty-row">
+              <span>จำนวน</span>
+              <button type="button" className="admin-qty-btn" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+                -
+              </button>
+              <span className="admin-qty-value">{qty}</span>
+              <button type="button" className="admin-qty-btn" onClick={() => setQty((q) => q + 1)}>
+                +
+              </button>
+            </div>
+            <div className="admin-form-group">
+              <label>ชื่อผู้รับ</label>
+              <input className="admin-form-control" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} />
+            </div>
+            <div className="admin-form-group">
+              <label>ที่อยู่</label>
+              <textarea className="admin-form-control" value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} />
+            </div>
+            <div className="admin-form-group">
+              <label>เบอร์โทร</label>
+              <input className="admin-form-control" value={receiver.phone} onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })} />
+            </div>
+            <p className="admin-order-comm-note">
+              ค่าคอมมิชชั่น ({commPct}%): $
+              {adminFmtMoney(Number(orderModal.unit_price ?? 0) * qty * (Number(commPct) / 100))}
+            </p>
+          </>
+        ) : null}
+      </AdminDetailModal>
 
       <AdminConfirmModal
         open={deleteId != null}
@@ -579,15 +664,20 @@ function AdminFlowOrdersPage({
   const [reviewStars, setReviewStars] = useState(5)
   const [reviewText, setReviewText] = useState("")
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await fetchAdminOrders(orderStatus)
-      setRows(data.items ?? data.orders ?? [])
-    } finally {
-      setLoading(false)
-    }
-  }, [orderStatus])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || rows.length === 0) setLoading(true)
+      try {
+        const data = await fetchAdminOrders(orderStatus)
+        setRows(data.items ?? data.orders ?? [])
+      } catch {
+        showToast("โหลดรายการไม่สำเร็จ", "error")
+      } finally {
+        if (!silent || rows.length === 0) setLoading(false)
+      }
+    },
+    [orderStatus, rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -610,7 +700,7 @@ function AdminFlowOrdersPage({
     showToast(`ดำเนินการสำเร็จ ${ok} รายการ`)
     setConfirmIds(null)
     setSelected(new Set())
-    load()
+    load(true)
     if (orderStatus === "shipping" && ok > 0) navigate("/admin/receiving-orders")
   }
 
@@ -625,7 +715,7 @@ function AdminFlowOrdersPage({
       showToast("บันทึกรีวิวแล้ว")
       setReviewRow(null)
       setReviewText("")
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกรีวิวไม่สำเร็จ", "error")
   }
 
@@ -675,8 +765,8 @@ function AdminFlowOrdersPage({
           </button>
         </div>
 
-        <div className="admin-order-table-wrap">
-          {loading ? (
+        <AdminOrderTableWrap>
+          {showAdminTableLoading(loading, rows.length) ? (
             <div className="admin-order-empty">กำลังโหลด…</div>
           ) : filtered.length === 0 ? (
             <div className="admin-order-empty">ไม่มีรายการ</div>
@@ -760,45 +850,58 @@ function AdminFlowOrdersPage({
               </tbody>
             </table>
           )}
-        </div>
+        </AdminOrderTableWrap>
       </div>
 
-      <div className={`admin-order-modal-overlay${detailRow ? " show" : ""}`} onClick={() => setDetailRow(null)}>
-        <div className="admin-order-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-order-modal-head">รายละเอียดคำสั่งซื้อ</div>
-          <div className="admin-order-modal-body admin-order-detail-grid">
-            {detailRow ? (
-              <>
-                <div>
-                  <strong>สินค้า:</strong> {String(detailRow.product_name)}
-                </div>
-                <div>
-                  <strong>ผู้รับ:</strong> {String(detailRow.receiver_name ?? "-")}
-                </div>
-                <div>
-                  <strong>ที่อยู่:</strong> {String(detailRow.receiver_address ?? "-")}
-                </div>
-                <div>
-                  <strong>โทร:</strong> {String(detailRow.receiver_phone ?? "-")}
-                </div>
-                <div>
-                  <strong>วันที่:</strong> {formatAdminDate(String(detailRow.ordered_at ?? detailRow.created_at ?? ""))}
-                </div>
-              </>
-            ) : null}
-          </div>
-          <div className="admin-order-modal-foot">
+      <AdminDetailModal
+        open={!!detailRow}
+        title="รายละเอียดคำสั่งซื้อ"
+        onClose={() => setDetailRow(null)}
+        footer={
+          <>
             <button type="button" className="admin-edit-btn cancel" onClick={() => setDetailRow(null)}>
               ปิด
             </button>
             {detailRow ? (
-              <button type="button" className="admin-edit-btn save" onClick={() => { setConfirmIds([Number(detailRow.id)]); setDetailRow(null) }}>
+              <button
+                type="button"
+                className="admin-edit-btn save"
+                onClick={() => {
+                  setConfirmIds([Number(detailRow.id)])
+                  setDetailRow(null)
+                }}
+              >
                 {nextLabel}
               </button>
             ) : null}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      >
+        {detailRow ? (
+          <dl className="admin-detail-list">
+            <div className="admin-detail-item">
+              <dt>สินค้า</dt>
+              <dd>{String(detailRow.product_name)}</dd>
+            </div>
+            <div className="admin-detail-item">
+              <dt>ผู้รับ</dt>
+              <dd>{String(detailRow.receiver_name ?? "-")}</dd>
+            </div>
+            <div className="admin-detail-item">
+              <dt>ที่อยู่</dt>
+              <dd>{String(detailRow.receiver_address ?? "-")}</dd>
+            </div>
+            <div className="admin-detail-item">
+              <dt>โทร</dt>
+              <dd>{String(detailRow.receiver_phone ?? "-")}</dd>
+            </div>
+            <div className="admin-detail-item">
+              <dt>วันที่</dt>
+              <dd>{formatAdminDate(String(detailRow.ordered_at ?? detailRow.created_at ?? ""))}</dd>
+            </div>
+          </dl>
+        ) : null}
+      </AdminDetailModal>
 
       <AdminConfirmModal
         open={confirmIds != null}
@@ -808,34 +911,35 @@ function AdminFlowOrdersPage({
         onConfirm={() => confirmIds && updateStatus(confirmIds)}
       />
 
-      <div className={`admin-order-modal-overlay${reviewRow ? " show" : ""}`} onClick={() => setReviewRow(null)}>
-        <div className="admin-order-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-order-modal-head">รีวิวสินค้า</div>
-          <div className="admin-order-modal-body">
-            <div className="admin-review-stars">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} type="button" className={n <= reviewStars ? "active" : ""} onClick={() => setReviewStars(n)}>
-                  ★
-                </button>
-              ))}
-            </div>
-            <textarea
-              className="admin-form-control"
-              placeholder="เขียนรีวิว…"
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-            />
-          </div>
-          <div className="admin-order-modal-foot">
+      <AdminDetailModal
+        open={!!reviewRow}
+        title="รีวิวสินค้า"
+        onClose={() => setReviewRow(null)}
+        footer={
+          <>
             <button type="button" className="admin-edit-btn cancel" onClick={() => setReviewRow(null)}>
               ยกเลิก
             </button>
             <button type="button" className="admin-edit-btn save" onClick={submitReview}>
               บันทึกรีวิว
             </button>
-          </div>
+          </>
+        }
+      >
+        <div className="admin-review-stars">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} type="button" className={n <= reviewStars ? "active" : ""} onClick={() => setReviewStars(n)}>
+              ★
+            </button>
+          ))}
         </div>
-      </div>
+        <textarea
+          className="admin-form-control"
+          placeholder="เขียนรีวิว…"
+          value={reviewText}
+          onChange={(e) => setReviewText(e.target.value)}
+        />
+      </AdminDetailModal>
       {Toast}
     </>
   )

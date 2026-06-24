@@ -44,8 +44,9 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <AdminTopBar title="Admin" backTo="/" homeIcon />
+      <AdminTopBar title="Admin Panel" backTo="/" homeIcon />
       <main className="admin-container">
+        <p className="admin-dashboard-intro">เมนูจัดการระบบ</p>
         {adminMainNav.map((item) => {
           if (isNavGroup(item)) {
             const groupOpen =

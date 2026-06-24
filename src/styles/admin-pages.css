@@ -6,10 +6,10 @@ body.admin-page {
 }
 
 .admin-page-container {
-  max-width: 98%;
-  width: 98%;
-  margin: 20px auto;
-  padding: 0 10px 40px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
   box-sizing: border-box;
 }
 

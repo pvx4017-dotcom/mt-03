@@ -16,13 +16,13 @@ export function AdminPageShell({ barTitle, pageTitle, icon, children, headerExtr
       <div className="admin-page-container">
         <div className="admin-page-header">
           <h1 className="admin-page-title">
-            <i className={`fa-solid ${icon}`} />
+            <i className={`fa-solid ${icon}`} aria-hidden />
             {pageTitle}
           </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className="admin-page-header-actions">
             {headerExtra}
             <Link to="/admin" className="back-btn">
-              <i className="fa-solid fa-arrow-left" />
+              <i className="fa-solid fa-arrow-left" aria-hidden />
               กลับหน้าหลัก
             </Link>
           </div>

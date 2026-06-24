@@ -6,6 +6,7 @@ import {
   AdminEditModal,
   AdminEmptyRow,
   AdminLoadingRow,
+  AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
@@ -20,6 +21,7 @@ import {
   type AdminSlide,
 } from "@/lib/adminApi"
 import { AdminTopBar } from "@/components/admin/AdminTopBar"
+import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 export function AdminSlideImagesPage() {
@@ -32,14 +34,19 @@ export function AdminSlideImagesPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [editFile, setEditFile] = useState<File | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminSlideImages())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminSlideImages,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -54,7 +61,7 @@ export function AdminSlideImagesPage() {
     if (res.success) {
       showToast("อัปโหลดสำเร็จ")
       setFile(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "อัปโหลดไม่สำเร็จ", "error")
   }
 
@@ -69,7 +76,7 @@ export function AdminSlideImagesPage() {
       showToast("แก้ไขสำเร็จ")
       setEditId(null)
       setEditFile(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "แก้ไขไม่สำเร็จ", "error")
   }
 
@@ -82,7 +89,7 @@ export function AdminSlideImagesPage() {
     if (res.success) {
       showToast("ลบสำเร็จ")
       setConfirmId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -101,7 +108,7 @@ export function AdminSlideImagesPage() {
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -113,7 +120,7 @@ export function AdminSlideImagesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={5} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={5} message="ยังไม่มีสไลด์" />
@@ -135,7 +142,7 @@ export function AdminSlideImagesPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal open={editId != null} title="แก้ไขรูปสไลด์" onClose={() => setEditId(null)} onSave={saveEdit}>
         <div className="admin-form-group">
@@ -174,16 +181,21 @@ export function AdminNotificationsPage() {
     message: "",
   })
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [rows, u] = await Promise.all([fetchAdminNotifications(), fetchAdminUsers()])
-      setHistory(rows)
-      setUsers(u.map((x) => ({ id: x.id, phone: x.phone, email: x.email })))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent || history.length === 0) setLoading(true)
+      try {
+        const [rows, u] = await Promise.all([fetchAdminNotifications(), fetchAdminUsers()])
+        setHistory(rows)
+        setUsers(u.map((x) => ({ id: x.id, phone: x.phone, email: x.email })))
+      } catch {
+        showToast("โหลดข้อมูลไม่สำเร็จ", "error")
+      } finally {
+        if (!silent || history.length === 0) setLoading(false)
+      }
+    },
+    [history.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -213,7 +225,7 @@ export function AdminNotificationsPage() {
       showToast(editId > 0 ? "แก้ไขแล้ว" : "ส่งแจ้งเตือนแล้ว")
       setEditId(0)
       setForm({ notification_type: "platform", recipient_mode: "all", target_user_id: "", title: "", message: "" })
-      load()
+      load(true)
     } else showToast(res.message ?? "ไม่สำเร็จ", "error")
   }
 
@@ -226,7 +238,7 @@ export function AdminNotificationsPage() {
     if (res.success) {
       showToast("ลบแล้ว")
       setDeleteId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -303,11 +315,11 @@ export function AdminNotificationsPage() {
       <div className="admin-card">
         <div className="admin-history-head">
           <h3>รายการแจ้งเตือนล่าสุด</h3>
-          <button type="button" className="admin-history-refresh" onClick={load}>
+          <button type="button" className="admin-history-refresh" onClick={() => load(true)}>
             <i className="fa-solid fa-rotate-right" /> รีเฟรช
           </button>
         </div>
-        {loading ? (
+        {showAdminTableLoading(loading, history.length) ? (
           <p className="admin-empty-row">กำลังโหลด…</p>
         ) : history.length === 0 ? (
           <p className="admin-empty-row">ยังไม่มีประวัติ</p>

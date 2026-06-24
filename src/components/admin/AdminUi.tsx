@@ -31,15 +31,18 @@ type ConfirmProps = {
 
 export function AdminConfirmModal({ open, title, message, onCancel, onConfirm }: ConfirmProps) {
   return (
-    <div className={`admin-confirm-modal${open ? " show" : ""}`}>
-      <div className="admin-confirm-card">
-        <h3 className="admin-edit-title">{title}</h3>
-        <p style={{ margin: 0, fontSize: 14, color: "#4b5563", lineHeight: 1.45 }}>{message}</p>
+    <div className={`admin-confirm-modal admin-sheet-overlay${open ? " show" : ""}`} onClick={onCancel}>
+      <div className="admin-confirm-card admin-sheet-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-sheet-head">
+          <span className="admin-sheet-handle" aria-hidden />
+          <h3 className="admin-edit-title">{title}</h3>
+        </div>
+        <p className="admin-sheet-message">{message}</p>
         <div className="admin-edit-actions">
           <button type="button" className="admin-edit-btn cancel" onClick={onCancel}>
             ยกเลิก
           </button>
-          <button type="button" className="admin-edit-btn save" style={{ background: "#dc2626" }} onClick={onConfirm}>
+          <button type="button" className="admin-edit-btn save admin-btn-danger" onClick={onConfirm}>
             ยืนยัน
           </button>
         </div>
@@ -59,15 +62,20 @@ type EditModalProps = {
 
 export function AdminEditModal({ open, title, onClose, onSave, children, wide }: EditModalProps) {
   return (
-    <div className={`admin-edit-modal${open ? " show" : ""}`} onClick={onClose}>
+    <div className={`admin-edit-modal admin-sheet-overlay${open ? " show" : ""}`} onClick={onClose}>
       <div
-        className="admin-edit-card"
-        style={wide ? { width: "min(94vw, 720px)" } : undefined}
+        className={`admin-edit-card admin-sheet-panel${wide ? " admin-sheet-panel--wide" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="admin-edit-title">{title}</h3>
-        {children}
-        <div className="admin-edit-actions">
+        <div className="admin-sheet-head">
+          <span className="admin-sheet-handle" aria-hidden />
+          <h3 className="admin-edit-title">{title}</h3>
+          <button type="button" className="admin-modal-close-btn" onClick={onClose} aria-label="ปิด">
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+        <div className="admin-sheet-body">{children}</div>
+        <div className="admin-edit-actions admin-sheet-foot">
           <button type="button" className="admin-edit-btn cancel" onClick={onClose}>
             ยกเลิก
           </button>
@@ -75,6 +83,36 @@ export function AdminEditModal({ open, title, onClose, onSave, children, wide }:
             บันทึก
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+type DetailModalProps = {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+  footer?: React.ReactNode
+  wide?: boolean
+}
+
+export function AdminDetailModal({ open, title, onClose, children, footer, wide }: DetailModalProps) {
+  return (
+    <div className={`admin-order-modal-overlay admin-sheet-overlay${open ? " show" : ""}`} onClick={onClose}>
+      <div
+        className={`admin-order-modal admin-sheet-panel${wide ? " admin-sheet-panel--wide" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="admin-order-modal-head admin-sheet-head">
+          <span className="admin-sheet-handle" aria-hidden />
+          <h2 className="admin-sheet-title">{title}</h2>
+          <button type="button" className="admin-modal-close-btn" onClick={onClose} aria-label="ปิด">
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+        <div className="admin-order-modal-body admin-sheet-body">{children}</div>
+        {footer ? <div className="admin-order-modal-foot admin-sheet-foot">{footer}</div> : null}
       </div>
     </div>
   )
@@ -119,5 +157,50 @@ export function AdminEmptyRow({ cols, message }: { cols: number; message: string
         {message}
       </td>
     </tr>
+  )
+}
+
+function AdminTableScrollHint() {
+  return (
+    <p className="admin-table-scroll-hint">
+      <i className="fa-solid fa-arrows-left-right" aria-hidden />
+      เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์
+    </p>
+  )
+}
+
+export function AdminTableWrap({
+  className = "",
+  innerClassName = "",
+  bare = false,
+  children,
+}: {
+  className?: string
+  innerClassName?: string
+  bare?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className={`admin-table-bundle${bare ? " admin-table-bundle--bare" : " admin-card"} ${className}`.trim()}
+    >
+      <AdminTableScrollHint />
+      <div className={`admin-table-wrap ${innerClassName}`.trim()}>{children}</div>
+    </div>
+  )
+}
+
+export function AdminOrderTableWrap({
+  className = "",
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="admin-table-bundle admin-table-bundle--order">
+      <AdminTableScrollHint />
+      <div className={`admin-order-table-wrap ${className}`.trim()}>{children}</div>
+    </div>
   )
 }

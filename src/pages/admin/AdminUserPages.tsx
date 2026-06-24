@@ -3,10 +3,12 @@ import { API } from "@/lib/apiRoutes"
 import { AdminPageShell } from "@/components/admin/AdminPageShell"
 import {
   AdminConfirmModal,
+  AdminDetailModal,
   AdminEditModal,
   AdminEmptyRow,
   AdminLoadingRow,
   AdminSearchBar,
+  AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
@@ -23,6 +25,7 @@ import {
   type AdminUser,
 } from "@/lib/adminApi"
 import { adminFmtMoney } from "@/lib/adminUtils"
+import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 export default function AdminUsersPage() {
@@ -36,16 +39,19 @@ export default function AdminUsersPage() {
   const [status, setStatus] = useState("active")
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminUsers())
-    } catch {
-      showToast("โหลดข้อมูลไม่สำเร็จ", "error")
-    } finally {
-      setLoading(false)
-    }
-  }, [showToast])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminUsers,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -74,7 +80,7 @@ export default function AdminUsersPage() {
     if (res.success) {
       showToast("บันทึกสำเร็จ")
       setEdit(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -86,7 +92,7 @@ export default function AdminUsersPage() {
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminUsers, fd)
     if (res.success) {
       showToast(res.message ?? "สำเร็จ")
-      load()
+      load(true)
     } else showToast(res.message ?? "ดำเนินการไม่สำเร็จ", "error")
   }
 
@@ -99,7 +105,7 @@ export default function AdminUsersPage() {
     if (res.success) {
       showToast(res.message ?? "ลบสำเร็จ")
       setDeleteId(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
 
@@ -110,7 +116,7 @@ export default function AdminUsersPage() {
       icon="fa-users"
       headerExtra={<AdminSearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อผู้ใช้, เบอร์โทร..." />}
     >
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -125,7 +131,7 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={8} />
             ) : filtered.length === 0 ? (
               <AdminEmptyRow cols={8} message="ไม่พบข้อมูลผู้ใช้" />
@@ -195,7 +201,7 @@ export default function AdminUsersPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminConfirmModal
         open={deleteId != null}
@@ -254,16 +260,19 @@ export function AdminCreditManagementPage() {
   const [edit, setEdit] = useState<Record<string, unknown> | null>(null)
   const [credit, setCredit] = useState("")
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminCredits())
-    } catch {
-      showToast("โหลดข้อมูลไม่สำเร็จ", "error")
-    } finally {
-      setLoading(false)
-    }
-  }, [showToast])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminCredits,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -288,7 +297,7 @@ export function AdminCreditManagementPage() {
     if (res.success) {
       showToast("บันทึกสำเร็จ")
       setEdit(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
@@ -299,7 +308,7 @@ export function AdminCreditManagementPage() {
       icon="fa-coins"
       headerExtra={<AdminSearchBar value={search} onChange={setSearch} />}
     >
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -311,7 +320,7 @@ export function AdminCreditManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={5} />
             ) : filtered.length === 0 ? (
               <AdminEmptyRow cols={5} message="ไม่พบข้อมูล" />
@@ -339,7 +348,7 @@ export function AdminCreditManagementPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal open={!!edit} title="แก้ไขเครดิต" onClose={() => setEdit(null)} onSave={save}>
         <div className="admin-form-group">
@@ -365,16 +374,19 @@ export function AdminVerificationPage() {
   const [loading, setLoading] = useState(true)
   const [docRow, setDocRow] = useState<Record<string, unknown> | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminVerifications())
-    } catch {
-      showToast("โหลดข้อมูลไม่สำเร็จ", "error")
-    } finally {
-      setLoading(false)
-    }
-  }, [showToast])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminVerifications,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -398,13 +410,13 @@ export function AdminVerificationPage() {
     )
     if (res.success) {
       showToast(status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธแล้ว")
-      load()
+      load(true)
     } else showToast(res.message ?? "ดำเนินการไม่สำเร็จ", "error")
   }
 
   return (
     <AdminPageShell barTitle="การยืนยันตัวตน" pageTitle="การยืนยันตัวตน" icon="fa-id-card">
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -419,7 +431,7 @@ export function AdminVerificationPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={8} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={8} message="ไม่มีคำขอยืนยันตัวตน" />
@@ -477,27 +489,28 @@ export function AdminVerificationPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
-      <div className={`admin-order-modal-overlay${docRow ? " show" : ""}`} onClick={() => setDocRow(null)}>
-        <div className="admin-order-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-order-modal-head">เอกสารยืนยันตัวตน</div>
-          <div className="admin-order-modal-body admin-doc-grid">
-            {docRow ? (
-              <>
-                {[docRow.id_card_image, docRow.selfie_image, docRow.document_image, docRow.id_card_front, docRow.id_card_back]
-                  .filter(Boolean)
-                  .map((src, i) => (
-                    <img key={i} src={adminAsset(String(src))} alt="" />
-                  ))}
-                {![docRow.id_card_image, docRow.selfie_image, docRow.document_image].some(Boolean) ? (
-                  <p>ไม่มีไฟล์เอกสาร</p>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <AdminDetailModal open={!!docRow} title="เอกสารยืนยันตัวตน" onClose={() => setDocRow(null)} wide>
+        {docRow ? (() => {
+          const docImages = [
+            docRow.id_card_image,
+            docRow.selfie_image,
+            docRow.document_image,
+            docRow.id_card_front,
+            docRow.id_card_back,
+          ].filter(Boolean)
+          return docImages.length ? (
+            <div className="admin-doc-grid">
+              {docImages.map((src, i) => (
+                <img key={i} src={adminAsset(String(src))} alt="" />
+              ))}
+            </div>
+          ) : (
+            <p className="admin-empty-row">ไม่มีไฟล์เอกสาร</p>
+          )
+        })() : null}
+      </AdminDetailModal>
       {Toast}
     </AdminPageShell>
   )
@@ -510,14 +523,19 @@ export function AdminBankAccountsPage() {
   const [loading, setLoading] = useState(true)
   const [edit, setEdit] = useState<Record<string, unknown> | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminBankAccounts())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminBankAccounts,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -536,13 +554,13 @@ export function AdminBankAccountsPage() {
     if (res.success) {
       showToast("บันทึกสำเร็จ")
       setEdit(null)
-      load()
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
   return (
     <AdminPageShell barTitle="ข้อมูลธนาคาร" pageTitle="ข้อมูลบัญชีธนาคารลูกค้า" icon="fa-building-columns">
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -557,7 +575,7 @@ export function AdminBankAccountsPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={8} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={8} message="ยังไม่มีข้อมูลบัญชีธนาคาร" />
@@ -591,7 +609,7 @@ export function AdminBankAccountsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
       <AdminEditModal open={!!edit} title="แก้ไขข้อมูลธนาคาร" onClose={() => setEdit(null)} onSave={save}>
         {edit ? (
@@ -627,14 +645,19 @@ export function AdminWithdrawPasswordsPage() {
   const [edit, setEdit] = useState<Record<string, unknown> | null>(null)
   const [pin, setPin] = useState("")
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminWithdrawPasswords())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminWithdrawPasswords,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   useEffect(() => {
     load()
@@ -642,8 +665,8 @@ export function AdminWithdrawPasswordsPage() {
 
   const save = async () => {
     if (!edit) return
-    if (!/^\d{5,6}$/.test(pin)) {
-      showToast("รหัสการถอนต้องเป็นตัวเลข 5-6 หลัก", "error")
+    if (!/^\d{6}$/.test(pin)) {
+      showToast("รหัสการถอนต้องเป็นตัวเลข 6 หลัก", "error")
       return
     }
     const fd = new FormData()
@@ -657,13 +680,14 @@ export function AdminWithdrawPasswordsPage() {
     if (res.success) {
       showToast("บันทึกสำเร็จ")
       setEdit(null)
-      load()
+      setPin("")
+      load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
   return (
     <AdminPageShell barTitle="ข้อมูลรหัสถอน" pageTitle="ข้อมูลรหัสถอนเงิน" icon="fa-key">
-      <div className="admin-card admin-table-wrap">
+      <AdminTableWrap>
         <table>
           <thead>
             <tr>
@@ -676,7 +700,7 @@ export function AdminWithdrawPasswordsPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {showAdminTableLoading(loading, rows.length) ? (
               <AdminLoadingRow cols={6} />
             ) : rows.length === 0 ? (
               <AdminEmptyRow cols={6} message="ยังไม่มีข้อมูลรหัสถอน" />
@@ -712,7 +736,7 @@ export function AdminWithdrawPasswordsPage() {
                         title="แก้ไขรหัสถอน"
                         onClick={() => {
                           setEdit(row)
-                          setPin(String(row.withdraw_password_hash ?? row.withdraw_password ?? ""))
+                          setPin("")
                         }}
                       >
                         <i className="fa-solid fa-pen" />
@@ -724,15 +748,17 @@ export function AdminWithdrawPasswordsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </AdminTableWrap>
 
-      <AdminEditModal open={!!edit} title="แก้ไขรหัสถอน" onClose={() => setEdit(null)} onSave={save}>
+      <AdminEditModal open={!!edit} title="แก้ไขรหัสถอน" onClose={() => { setEdit(null); setPin("") }} onSave={save}>
         <div className="admin-form-group">
-          <label>รหัสถอน (5-6 หลัก)</label>
+          <label>รหัสถอนใหม่ (6 หลัก)</label>
           <input
             className="admin-form-control"
             value={pin}
             maxLength={6}
+            inputMode="numeric"
+            placeholder="กรอกรหัส 6 หลัก"
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
           />
         </div>
@@ -757,14 +783,19 @@ export function AdminCustomerTopupPage() {
   const [editBalance, setEditBalance] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setRows(await fetchAdminTopupWallets())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (silent = false) => {
+      await runAdminListLoad({
+        silent,
+        hasRows: rows.length > 0,
+        setLoading,
+        fetchRows: fetchAdminTopupWallets,
+        onRows: setRows,
+        onError: (msg) => showToast(msg, "error"),
+      })
+    },
+    [rows.length, showToast],
+  )
 
   const loadUsers = useCallback(async () => {
     try {
@@ -831,7 +862,7 @@ export function AdminCustomerTopupPage() {
         setAmount("")
         setUserSearch("")
         setSelectedUserId("")
-        load()
+        load(true)
       } else showToast(res.message ?? "เติมเงินไม่สำเร็จ", "error")
     } finally {
       setSubmitting(false)
@@ -855,7 +886,7 @@ export function AdminCustomerTopupPage() {
       if (res.success) {
         showToast(res.message ?? "แก้ไขยอดเงินสำเร็จ")
         setWalletEdit(null)
-        load()
+        load(true)
       } else showToast(res.message ?? "แก้ไขยอดเงินไม่สำเร็จ", "error")
     } finally {
       setSubmitting(false)
@@ -883,7 +914,7 @@ export function AdminCustomerTopupPage() {
           <i className="fa-solid fa-wallet" />
           ข้อมูลกระเป๋าเงินผู้ใช้
         </h3>
-        <div className="admin-table-wrap">
+        <AdminTableWrap bare>
           <table>
             <thead>
               <tr>
@@ -895,7 +926,7 @@ export function AdminCustomerTopupPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {showAdminTableLoading(loading, rows.length) ? (
                 <AdminLoadingRow cols={5} />
               ) : filtered.length === 0 ? (
                 <AdminEmptyRow
@@ -929,86 +960,93 @@ export function AdminCustomerTopupPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </AdminTableWrap>
       </div>
 
-      <div className={`admin-topup-modal${topupOpen ? " show" : ""}`} onClick={() => setTopupOpen(false)}>
-        <div className="admin-topup-modal-content admin-card" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-topup-modal-head">
+      <div className={`admin-topup-modal admin-sheet-overlay${topupOpen ? " show" : ""}`} onClick={() => setTopupOpen(false)}>
+        <div className="admin-topup-modal-content admin-card admin-sheet-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="admin-topup-modal-head admin-sheet-head">
+            <span className="admin-sheet-handle" aria-hidden />
             <h3>ป้อนข้อมูลการเติมเงิน</h3>
             <button type="button" className="admin-modal-close-btn" onClick={() => setTopupOpen(false)}>
               <i className="fa-solid fa-xmark" />
             </button>
           </div>
-          <div className="admin-form-group">
-            <label>ค้นหาผู้ใช้ (ID / เบอร์ / อีเมล)</label>
-            <input
-              className="admin-form-control"
-              placeholder="พิมพ์เพื่อค้นหา..."
-              value={userSearch}
-              onChange={(e) => {
-                setUserSearch(e.target.value)
-                setSelectedUserId("")
-              }}
-            />
-          </div>
-          <div className="admin-form-group">
-            <label>เลือกผู้ใช้</label>
-            <select
-              className="admin-form-control"
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-            >
-              {filteredTopupUsers.length === 0 ? (
-                <option value="">ไม่พบผู้ใช้</option>
-              ) : (
-                filteredTopupUsers.map((u) => (
-                  <option key={String(u.id)} value={String(u.id)}>
-                    ID: {String(u.id)} | {String(u.phone ?? u.email ?? "-")}
-                  </option>
-                ))
-              )}
-            </select>
-            <div className="admin-user-hint">
-              {filteredTopupUsers.length
-                ? `พบผู้ใช้ ${filteredTopupUsers.length} รายการ`
-                : "ไม่พบผู้ใช้ตามคำค้นหา"}
+          <div className="admin-sheet-body">
+            <div className="admin-form-group">
+              <label>ค้นหาผู้ใช้ (ID / เบอร์ / อีเมล)</label>
+              <input
+                className="admin-form-control"
+                placeholder="พิมพ์เพื่อค้นหา..."
+                value={userSearch}
+                onChange={(e) => {
+                  setUserSearch(e.target.value)
+                  setSelectedUserId("")
+                }}
+              />
+            </div>
+            <div className="admin-form-group">
+              <label>เลือกผู้ใช้</label>
+              <select
+                className="admin-form-control"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+              >
+                {filteredTopupUsers.length === 0 ? (
+                  <option value="">ไม่พบผู้ใช้</option>
+                ) : (
+                  filteredTopupUsers.map((u) => (
+                    <option key={String(u.id)} value={String(u.id)}>
+                      ID: {String(u.id)} | {String(u.phone ?? u.email ?? "-")}
+                    </option>
+                  ))
+                )}
+              </select>
+              <div className="admin-user-hint">
+                {filteredTopupUsers.length
+                  ? `พบผู้ใช้ ${filteredTopupUsers.length} รายการ`
+                  : "ไม่พบผู้ใช้ตามคำค้นหา"}
+              </div>
+            </div>
+            <div className="admin-form-group">
+              <label>จำนวนเงินที่ต้องการเติม</label>
+              <input
+                className="admin-form-control"
+                type="number"
+                min={1}
+                step="0.01"
+                placeholder="เช่น 100"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
           </div>
-          <div className="admin-form-group">
-            <label>จำนวนเงินที่ต้องการเติม</label>
-            <input
-              className="admin-form-control"
-              type="number"
-              min={1}
-              step="0.01"
-              placeholder="เช่น 100"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+          <div className="admin-sheet-foot">
+            <button
+              type="button"
+              className="admin-submit-topup-btn"
+              disabled={submitting}
+              onClick={doTopup}
+            >
+              {submitting ? "กำลังบันทึก..." : "ยืนยันเติมเงิน"}
+            </button>
           </div>
-          <button
-            type="button"
-            className="admin-submit-topup-btn"
-            disabled={submitting}
-            onClick={doTopup}
-          >
-            {submitting ? "กำลังบันทึก..." : "ยืนยันเติมเงิน"}
-          </button>
         </div>
       </div>
 
       <div
-        className={`admin-wallet-edit-modal${walletEdit ? " show" : ""}`}
+        className={`admin-wallet-edit-modal admin-sheet-overlay${walletEdit ? " show" : ""}`}
         onClick={() => setWalletEdit(null)}
       >
-        <div className="admin-wallet-edit-card" onClick={(e) => e.stopPropagation()}>
-          <div className="admin-topup-modal-head">
+        <div className="admin-wallet-edit-card admin-sheet-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="admin-topup-modal-head admin-sheet-head">
+            <span className="admin-sheet-handle" aria-hidden />
             <h3>แก้ไขยอดเงิน</h3>
             <button type="button" className="admin-modal-close-btn" onClick={() => setWalletEdit(null)}>
               <i className="fa-solid fa-xmark" />
             </button>
           </div>
+          <div className="admin-sheet-body">
           <div className="admin-form-group">
             <label>กรอกยอดเงินใหม่</label>
             <input
@@ -1021,7 +1059,8 @@ export function AdminCustomerTopupPage() {
               onChange={(e) => setEditBalance(e.target.value)}
             />
           </div>
-          <div className="admin-wallet-edit-actions">
+          </div>
+          <div className="admin-wallet-edit-actions admin-sheet-foot">
             <button type="button" className="admin-wallet-edit-btn cancel" onClick={() => setWalletEdit(null)}>
               ยกเลิก
             </button>
