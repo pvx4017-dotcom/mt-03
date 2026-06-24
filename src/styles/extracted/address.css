@@ -1,0 +1,222 @@
+:root {
+            --bg: #f4f6fb;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --line: #e8edf4;
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --green-bg: #ecfdf3;
+            --green-text: #15803d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Kanit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body.page-address {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: #fff;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .back-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #111827;
+        }
+
+        .title {
+            flex: 1;
+            text-align: center;
+            margin-right: 34px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .page {
+            padding: 14px;
+            padding-bottom: 86px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+            color: #fff;
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.24);
+            margin-bottom: 12px;
+        }
+
+        .summary-card h2 {
+            font-size: 16px;
+            line-height: 1.2;
+        }
+
+        .summary-card p {
+            margin-top: 5px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .address-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .address-card {
+            background: var(--card);
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            box-shadow: 0 2px 8px rgba(2, 6, 23, 0.04);
+            overflow: hidden;
+        }
+
+        .address-main {
+            padding: 12px;
+        }
+
+        .address-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .receiver {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .receiver span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .default-badge {
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: var(--green-bg);
+            color: var(--green-text);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .address-text {
+            font-size: 12px;
+            color: #374151;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .address-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 10px;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .address-footer {
+            border-top: 1px dashed var(--line);
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .set-default-btn {
+            border: 1px solid #d1d9e6;
+            background: #fff;
+            color: #4b5563;
+            border-radius: 10px;
+            padding: 7px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .set-default-btn.active {
+            border-color: #86efac;
+            color: var(--green-text);
+            background: #f0fdf4;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            border: 0;
+            border-radius: 10px;
+            padding: 7px 11px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .edit-btn {
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .delete-btn {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .add-address-wrap {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 40;
+            background: linear-gradient(to top, #fff 68%, rgba(255, 255, 255, 0));
+            padding: 10px 14px 14px;
+        }
+
+        .add-address-btn {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+            cursor: pointer;
+        }

@@ -1,0 +1,38 @@
+import { StrictMode } from "react"
+import { createRoot } from "react-dom/client"
+import "@fortawesome/fontawesome-free/css/all.min.css"
+import "@fontsource/inter/400.css"
+import "@fontsource/inter/500.css"
+import "@fontsource/inter/600.css"
+import "@fontsource/kanit/300.css"
+import "@fontsource/kanit/400.css"
+import "@fontsource/kanit/500.css"
+import "@fontsource/kanit/600.css"
+import "./styles/style.css"
+import "./styles/home-polish.css"
+import "./styles/admin-style.css"
+import "./styles/admin-pages.css"
+import "./styles/admin-order.css"
+import "./styles/admin-extra.css"
+import "./styles/categories-style.css"
+import "./styles/page-style.css"
+import "./styles/cart-style.css"
+import "./styles/profile-style.css"
+import "./styles/login.css"
+import "./styles/order-list-style.css"
+import "./styles/withdraw-style.css"
+import "./styles/deposit-style.css"
+import "./styles/privacy-style.css"
+import "./styles/extracted/product-detail.css"
+import "./styles/extracted/shop-detail.css"
+import "./styles/extracted/settings.css"
+import "./styles/extracted/address.css"
+import "./styles/extracted/notifications.css"
+import "./index.css"
+import App from "./App.tsx"
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

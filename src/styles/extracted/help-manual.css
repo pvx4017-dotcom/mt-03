@@ -1,0 +1,134 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+        body.page-help-manual {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+            background: #f1f5f9;
+            font-family: 'Kanit', sans-serif;
+            color: #111827;
+            min-height: 100vh;
+            padding-bottom: 0;
+        }
+        .top-navbar {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #1e40af 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            width: 100%;
+            height: 54px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.25);
+        }
+        .back-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,.12);
+            color: #fff;
+            text-decoration: none;
+            transition: background .2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,.2); }
+        .nav-title {
+            flex: 1;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            padding-right: 38px;
+        }
+        .page-wrap {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .intro {
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px 18px 16px;
+            margin-bottom: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06);
+        }
+        .intro h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .intro h1 i { color: #2563eb; }
+        .intro p.lead {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.55;
+        }
+        .section-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px 18px 16px;
+            margin-bottom: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06);
+        }
+        .section-card h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e7ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-card h2 i { font-size: 16px; opacity: .9; }
+        .section-card p,
+        .section-card li {
+            font-size: 13px;
+            line-height: 1.75;
+            color: #334155;
+            margin-bottom: 10px;
+        }
+        .section-card ul {
+            padding-left: 1.15rem;
+            margin-bottom: 4px;
+        }
+        .section-card li { margin-bottom: 8px; }
+        .tip-box {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            border-radius: 12px;
+            border: 1px solid #bfdbfe;
+            font-size: 12px;
+            color: #1e3a8a;
+            line-height: 1.65;
+        }
+        .tip-box strong { font-weight: 600; }
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+        .link-chat {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .link-chat:hover { text-decoration: underline; }

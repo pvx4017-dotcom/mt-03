@@ -1,0 +1,471 @@
+/* Step 2/3 polish — notifications, topup, chat, finance */
+
+.admin-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.admin-history-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.admin-history-refresh {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.admin-history-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.admin-history-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.admin-history-card-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.admin-history-card-meta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.admin-history-card-msg {
+  font-size: 13px;
+  color: #374151;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.admin-history-menu {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-history-menu button {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-history-menu .edit { background: #dbeafe; color: #1d4ed8; }
+.admin-history-menu .delete { background: #fee2e2; color: #dc2626; }
+
+.admin-user-picker-wrap {
+  position: relative;
+}
+
+.admin-user-picker-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.admin-user-picker-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-user-picker-item:hover {
+  background: #f3f4f6;
+}
+
+.admin-wallet-card {
+  margin-top: 0;
+}
+
+.admin-wallet-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-topup-trigger-wrap {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.admin-open-topup-btn {
+  order: 2;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: #16a34a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.admin-open-topup-btn:hover {
+  background: #15803d;
+}
+
+.admin-wallet-search-input {
+  order: 1;
+  flex: 1 1 320px;
+  max-width: 420px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.admin-wallet-search-input:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.admin-wallet-action-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-wallet-action-btn:hover {
+  background: #1d4ed8;
+}
+
+.admin-topup-modal,
+.admin-wallet-edit-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1400;
+  padding: 14px;
+}
+
+.admin-topup-modal.show,
+.admin-wallet-edit-modal.show {
+  display: flex;
+}
+
+.admin-topup-modal-content {
+  width: min(96vw, 920px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.admin-topup-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 8px;
+}
+
+.admin-topup-modal-head h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.admin-modal-close-btn {
+  border: none;
+  background: #f3f4f6;
+  color: #374151;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-user-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.admin-submit-topup-btn {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: #16a34a;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.admin-submit-topup-btn:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.admin-submit-topup-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.admin-wallet-edit-card {
+  width: min(94vw, 460px);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+  padding: 18px;
+}
+
+.admin-wallet-edit-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-wallet-edit-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-wallet-edit-btn.cancel {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.admin-wallet-edit-btn.save {
+  background: #2563eb;
+  color: #fff;
+}
+
+.admin-password-cell {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+  color: #666;
+  font-size: 12px;
+}
+
+.admin-code-pill-warn {
+  background: #fff9db;
+  color: #e67700;
+}
+
+.admin-finance-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.admin-finance-toolbar select {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fff;
+}
+
+.admin-finance-count {
+  font-size: 13px;
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.admin-user-cell-main {
+  font-weight: 500;
+}
+
+.admin-user-cell-sub {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.admin-finance-status-pending { background: #fff9db; color: #e67700; }
+.admin-finance-status-approved { background: #e6fcf5; color: #0ca678; }
+.admin-finance-status-cancelled,
+.admin-finance-status-rejected { background: #fff5f5; color: #fa5252; }
+
+/* Chat ref parity */
+body.admin-chat-page {
+  overflow: hidden;
+}
+
+body.admin-chat-page[data-view="chat"] .admin-chat-sidebar {
+  display: none;
+}
+
+body.admin-chat-page[data-view="chat"] .admin-chat-panel {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+}
+
+.admin-chat-date-divider {
+  text-align: center;
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 12px 0 8px;
+}
+
+.admin-chat-bubble time {
+  display: block;
+  font-size: 10px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+.admin-chat-bubble.with-actions {
+  position: relative;
+  padding-right: 28px;
+}
+
+.admin-chat-msg-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.admin-chat-image-btn {
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-chat-bubble img.bubble-chat-img {
+  max-width: 200px;
+  border-radius: 8px;
+  display: block;
+}
+
+.admin-chat-msg-menu {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 2000;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.admin-chat-msg-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #fff;
+  padding: 10px 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.admin-chat-msg-menu button:hover {
+  background: #f9fafb;
+}
+
+.admin-thread-unread {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+
+.admin-thread-avatar-wrap {
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  body.admin-chat-page[data-view="chat"] .admin-chat-sidebar {
+    display: flex;
+  }
+
+  body.admin-chat-page[data-view="chat"] .admin-chat-panel {
+    position: relative;
+    top: auto;
+  }
+}

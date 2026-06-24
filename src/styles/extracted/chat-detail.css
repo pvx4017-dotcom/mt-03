@@ -1,0 +1,35 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Kanit', sans-serif; }
+        body.page-chat-detail { background: #fff; height: 100vh; display: flex; flex-direction: column; }
+        .chat-header {
+            display: flex; align-items: center; padding: 10px 16px; background: #001529; color: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .back-btn { color: #fff; text-decoration: none; margin-right: 12px; font-size: 18px; width: 30px; text-align: center; }
+        .header-info { display: flex; align-items: center; gap: 10px; }
+        .header-avatar { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; background: #fff; }
+        .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .header-name { font-size: 14px; font-weight: 600; }
+        .header-status { font-size: 11px; color: #86efac; }
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc;
+        }
+        .message-bubble { max-width: 78%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+        .msg-left { align-self: flex-start; background: #fff; border: 1px solid #e5e7eb; color: #111827; }
+        .msg-right { align-self: flex-end; background: #1d4ed8; color: #fff; }
+        .msg-time { display: block; margin-top: 4px; font-size: 10px; opacity: .75; }
+        .chat-input-bar {
+            padding: 8px 10px; border-top: 1px solid #e5e7eb; display: flex; align-items: center; gap: 8px; background: #fff;
+        }
+        .chat-input-bar input {
+            flex: 1; border: 1px solid #d1d5db; border-radius: 20px; padding: 9px 12px; font-size: 13px; outline: none;
+        }
+        .send-btn {
+            width: 38px; height: 38px; border: none; border-radius: 999px; background: #1d4ed8; color: #fff; cursor: pointer;
+        }
+        .system-msg { text-align: center; font-size: 11px; color: #64748b; margin: 8px 0; }
+        .date-divider { margin: 4px 0 8px; }
+        .date-divider:first-child { margin-top: 0; }
+        .date-divider span {
+            font-size: 10px; font-weight: 600; color: #64748b;
+            background: rgba(100, 116, 139, 0.12); padding: 5px 14px; border-radius: 999px;
+        }

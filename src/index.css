@@ -1,0 +1,80 @@
+/* Global overrides — base styles live in ./styles/*.css */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+html {
+  overflow-y: auto;
+}
+
+#root {
+  display: block;
+  min-height: 100vh;
+}
+
+body.page-home {
+  overflow-y: auto;
+  height: auto;
+  min-height: 100vh;
+}
+
+body.page-home #app {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+/* Sidebar accordion — support both .active (reference) and .open (React) */
+.sidebar-menu-item.active .subcategory-list,
+.sidebar-menu-item.open .subcategory-list {
+  max-height: 500px;
+}
+
+.back-btn-inline {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.content-area {
+  flex: 1;
+}
+
+.notification-expand-hint {
+  font-size: 11px;
+  color: #2563eb;
+  margin-top: 2px;
+}
+
+.notification-full {
+  display: none;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #dbeafe;
+  font-size: 13px;
+  color: #111827;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.notification-item.expanded .notification-full {
+  display: block;
+}
+
+.tabs-container .tab.active {
+  background: #1e3a8a;
+  color: #ffffff;
+}
+
+.spacer {
+  height: 80px;
+}

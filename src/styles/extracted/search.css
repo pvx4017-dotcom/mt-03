@@ -1,0 +1,8 @@
+/* Specific tweak for this page's inline back button */
+        .back-btn-inline {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+        }

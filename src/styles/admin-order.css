@@ -1,0 +1,431 @@
+/* Order-flow admin pages (cart, shipping, receiving, customer products) */
+
+.admin-order-topbar {
+  background: #1e293b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.admin-order-topbar a.admin-order-back {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.admin-order-topbar h1 {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
+.admin-order-topbar .admin-order-top-action {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.admin-order-wrap {
+  padding: 16px 12px 40px;
+  background: #f1f5f9;
+  min-height: calc(100vh - 56px);
+}
+
+.admin-order-search {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.admin-order-search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-family: inherit;
+  font-size: 13px;
+  background: transparent;
+}
+
+.admin-order-summary {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-order-commission {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.admin-order-commission input {
+  width: 64px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: inherit;
+}
+
+.admin-order-table-wrap {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.admin-order-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 720px;
+}
+
+.admin-order-table-wrap th {
+  background: #1e293b;
+  color: #fff;
+  padding: 11px 10px;
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.admin-order-table-wrap td {
+  padding: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.admin-order-table-wrap tr:hover td {
+  background: #f8fafc;
+}
+
+.admin-order-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.admin-order-act {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.admin-order-act.ok { background: #dcfce7; color: #16a34a; }
+.admin-order-act.del { background: #fee2e2; color: #dc2626; }
+.admin-order-act.info { background: #dbeafe; color: #2563eb; }
+
+.admin-order-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-order-status--pending { background: #fef3c7; color: #b45309; }
+.admin-order-status--shipping { background: #dbeafe; color: #1d4ed8; }
+.admin-order-status--receiving { background: #ede9fe; color: #6d28d9; }
+.admin-order-status--done { background: #dcfce7; color: #15803d; }
+.admin-order-status--cancel { background: #fee2e2; color: #dc2626; }
+
+.admin-selection-bar {
+  display: none;
+  background: #16a34a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.admin-selection-bar.show { display: flex; }
+
+.admin-selection-bar button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.admin-bulk-bar {
+  display: none;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.admin-bulk-bar.show { display: flex; }
+
+.admin-bulk-bar button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-order-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.admin-order-empty a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #16a34a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.admin-order-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 14px;
+}
+
+.admin-order-modal-overlay.show { display: flex; }
+
+.admin-order-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: min(94vw, 480px);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.admin-order-modal-head {
+  padding: 16px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.admin-order-modal-body { padding: 16px 18px; }
+
+.admin-order-modal-foot {
+  padding: 12px 18px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.admin-order-product-preview {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.admin-order-product-preview img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.admin-order-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.admin-order-qty-row button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-order-detail-grid {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.admin-product-table tr.row-selected td { background: #f0fdf4; }
+
+.admin-cart-badge-inline {
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+
+.admin-add-product-modal { width: min(94vw, 720px); }
+
+.admin-add-product-table-wrap { overflow-x: auto; }
+
+.admin-add-product-table-wrap table { min-width: 1400px; }
+
+.admin-notif-history { display: flex; flex-direction: column; gap: 10px; }
+
+.admin-notif-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.admin-doc-grid img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.admin-code-pill {
+  background: #f1f3f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.admin-icon-actions { display: flex; gap: 6px; }
+
+.admin-icon-actions button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-icon-actions .edit { background: #fff4e6; color: #fd7e14; }
+
+.admin-top-count-badge {
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+}
+
+.admin-review-stars { display: flex; gap: 6px; margin: 10px 0; }
+
+.admin-review-stars button {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  color: #d1d5db;
+}
+
+.admin-review-stars button.active { color: #f59e0b; }

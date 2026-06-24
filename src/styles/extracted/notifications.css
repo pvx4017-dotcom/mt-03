@@ -1,0 +1,63 @@
+body.page-notifications { max-width: 100%; overflow-x: hidden; }
+        body.page-sub #app { max-width: 100%; overflow-x: hidden; }
+        .tabs-container { max-width: 100%; overflow-x: hidden; }
+        .tab { min-width: 0; }
+        .tabs-container .tab.active {
+            background: #1e3a8a;
+            color: #ffffff;
+        }
+        .notification-item { cursor: pointer; }
+        .notification-item { overflow: hidden; }
+        .notification-content { min-width: 0; width: 100%; overflow: hidden; }
+        .notification-time {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+        .notification-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .notification-snippet {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            width: 100%;
+        }
+        .notification-item.expanded .notification-snippet {
+            white-space: pre-wrap;
+            overflow: visible;
+            display: block;
+            -webkit-line-clamp: unset;
+            -webkit-box-orient: initial;
+        }
+        @media (max-width: 768px) {
+            .notification-title {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .notification-snippet {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
+        .notification-expand-hint {
+            font-size: 11px;
+            color: #2563eb;
+            margin-top: 2px;
+        }
+        .notification-full {
+            display: none;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #dbeafe;
+            font-size: 13px;
+            color: #111827;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .notification-item.expanded .notification-full { display: block; }
