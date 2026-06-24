@@ -124,7 +124,45 @@ export async function dbFetchCartOrders() {
     .eq("user_id", uid)
     .eq("status", "pending")
     .order("id")
-  return data ?? []
+  const rows = data ?? []
+  const missingIds = [
+    ...new Set(
+      rows
+        .filter((r) => !String(r.product_image ?? "").trim() && r.product_id)
+        .map((r) => Number(r.product_id)),
+    ),
+  ].filter((id) => id > 0)
+  if (!missingIds.length) return rows
+
+  const { data: products } = await sb
+    .from("store_products")
+    .select("id, product_image, product_images")
+    .in("id", missingIds)
+  const imageById = new Map<number, string>()
+  for (const p of products ?? []) {
+    const id = Number(p.id)
+    let img = String(p.product_image ?? "").trim()
+    if (!img && p.product_images) {
+      const multi = p.product_images as unknown
+      if (Array.isArray(multi) && multi.length) img = String(multi[0] ?? "").trim()
+      else {
+        try {
+          const parsed = JSON.parse(String(multi)) as unknown
+          if (Array.isArray(parsed) && parsed.length) img = String(parsed[0] ?? "").trim()
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (img) imageById.set(id, img)
+  }
+
+  return rows.map((r) => {
+    if (String(r.product_image ?? "").trim()) return r
+    const pid = Number(r.product_id)
+    const img = imageById.get(pid)
+    return img ? { ...r, product_image: img } : r
+  })
 }
 
 export async function dbCreateProductOrder(fd: FormData) {

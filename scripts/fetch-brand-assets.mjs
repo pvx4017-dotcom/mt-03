@@ -29,6 +29,17 @@ const BRAND_FILES = [
   { url: `${LIVE_BASE}/menu/personal.png`, dest: "menu/personal.png" },
 ]
 
+const PARTNER_FILES = [
+  "noCart.png",
+  "smsufermalls.png",
+  "bdo.png",
+  "nector.png",
+  "zelle.png",
+  "crypto.png",
+  "standard.png",
+  "my-bg.png",
+]
+
 async function download(url, dest) {
   const full = path.join(publicRoot, dest)
   fs.mkdirSync(path.dirname(full), { recursive: true })
@@ -40,10 +51,13 @@ async function download(url, dest) {
 
 async function main() {
   for (const f of BRAND_FILES) await download(f.url, f.dest)
+  for (const name of PARTNER_FILES) {
+    await download(`${LIVE_BASE}/partner/${name}`, `partner/${name}`)
+  }
   for (const code of FLAG_CODES) {
     await download(`https://flagcdn.com/w40/${code}.png`, `flags/w40/${code}.png`)
   }
-  console.log("Done — assets in public/logo, public/flags, public/images, public/menu")
+  console.log("Done — assets in public/logo, public/flags, public/images, public/menu, public/partner")
 }
 
 main().catch((e) => {

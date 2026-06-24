@@ -4,6 +4,7 @@ import { asset, formatPrice } from "@/lib/assets"
 import { createProductOrder } from "@/lib/customerApi"
 import {
   fetchProducts,
+  getPrimaryImagePath,
   mapApiProduct,
   shopPath,
   type ApiProduct,
@@ -68,7 +69,7 @@ export default function ProductDetailPage() {
       fd.append("product_id", String(rawProduct.id))
       fd.append("shop_name", String(rawProduct.shop_name ?? ""))
       fd.append("product_name", String(rawProduct.product_name ?? ""))
-      fd.append("product_image", String(rawProduct.product_image ?? ""))
+      fd.append("product_image", getPrimaryImagePath(rawProduct))
       fd.append("unit_price", String(rawProduct.product_price ?? 0))
       fd.append("quantity", String(qty))
       fd.append("selected_color", "")

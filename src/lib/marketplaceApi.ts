@@ -29,21 +29,35 @@ export type ApiProduct = {
   product_price: string | number
 }
 
-function getPrimaryImage(row: ApiProduct): string {
-  const multiRaw = String(row.product_images || "").trim()
+export function getPrimaryImagePath(row: Pick<ApiProduct, "product_image" | "product_images">): string {
+  const multiRaw = row.product_images as unknown
   if (multiRaw) {
-    try {
-      const parsed = JSON.parse(multiRaw) as unknown
-      if (Array.isArray(parsed)) {
-        const first = parsed.map(String).find((v) => v.trim())
-        if (first) return asset(first.trim())
+    if (Array.isArray(multiRaw)) {
+      const first = multiRaw.map(String).find((v) => v.trim())
+      if (first) return first.trim()
+    } else {
+      const s = String(multiRaw).trim()
+      if (s) {
+        try {
+          const parsed = JSON.parse(s) as unknown
+          if (Array.isArray(parsed)) {
+            const first = parsed.map(String).find((v) => v.trim())
+            if (first) return first.trim()
+          }
+        } catch {
+          if (s.startsWith("images/")) return s
+        }
       }
-    } catch {
-      /* legacy data */
     }
   }
   const legacy = String(row.product_image || "").trim()
-  if (legacy) return asset(legacy)
+  if (legacy) return legacy
+  return ""
+}
+
+function getPrimaryImage(row: ApiProduct): string {
+  const path = getPrimaryImagePath(row)
+  if (path) return asset(path)
   return asset("logo/shop logo.webp")
 }
 
