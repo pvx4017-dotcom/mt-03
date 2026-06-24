@@ -9,7 +9,6 @@ import {
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
-  adminAsset,
   adminPost,
   fetchAdminCategories,
   fetchAdminGeneralShops,
@@ -18,6 +17,7 @@ import {
   type AdminCategory,
   type AdminShop,
 } from "@/lib/adminApi"
+import { adminParseImage } from "@/lib/adminUtils"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 export default function AdminProductCategoriesPage() {
@@ -31,13 +31,18 @@ export default function AdminProductCategoriesPage() {
   const [editName, setEditName] = useState("")
   const [editFile, setEditFile] = useState<File | null>(null)
   const [confirmId, setConfirmId] = useState<number | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       setRows(await fetchAdminCategories())
-    } catch {
-      showToast("โหลดข้อมูลไม่สำเร็จ", "error")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ"
+      setLoadError(message)
+      setRows([])
+      showToast(message, "error")
     } finally {
       setLoading(false)
     }
@@ -132,6 +137,12 @@ export default function AdminProductCategoriesPage() {
         </div>
       </div>
 
+      {loadError ? (
+        <div className="admin-card" style={{ color: "#dc2626", fontSize: 14 }}>
+          โหลดหมวดหมู่ไม่สำเร็จ: {loadError}
+        </div>
+      ) : null}
+
       <div className="admin-card admin-table-wrap">
         <table>
           <thead>
@@ -155,7 +166,11 @@ export default function AdminProductCategoriesPage() {
                   <td>{row.id}</td>
                   <td>
                     {row.category_image ? (
-                      <img className="admin-thumb" src={adminAsset(row.category_image)} alt="" />
+                      <img
+                        className="admin-thumb"
+                        src={adminParseImage(row.category_image)}
+                        alt={row.category_name}
+                      />
                     ) : (
                       "-"
                     )}
@@ -426,7 +441,7 @@ export function AdminShopsPage({
                 <tr key={row.id}>
                   <td>{row.id}</td>
                   <td>
-                    <img className="admin-thumb" src={adminAsset(row.shop_image)} alt="" />
+                    <img className="admin-thumb" src={adminParseImage(row.shop_image)} alt="" />
                   </td>
                   <td>{row.shop_name}</td>
                   <td>{row.review_count}</td>

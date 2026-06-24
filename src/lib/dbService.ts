@@ -84,8 +84,8 @@ export async function dbLogout() {
 
 export async function dbFetchCategories() {
   const sb = getSupabase()
-  const { data, error } = await sb.from("product_categories").select("*").order("id")
-  if (error) return []
+  const { data, error } = await sb.from("product_categories").select("*").order("id", { ascending: false })
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
@@ -545,11 +545,12 @@ export async function dbFetchChatMessages(userId?: number) {
   const uid = userId ?? getSessionUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
-  const { data } = await sb
+  const { data, error } = await sb
     .from("support_chat_messages")
     .select("*")
     .eq("user_id", uid)
     .order("created_at")
+  if (error) return fail(error.message)
   return { success: true, rows: data ?? [] }
 }
 
@@ -580,10 +581,12 @@ export async function dbUploadChatImage(file: File) {
 
 export async function dbFetchChatThreads() {
   const sb = getSupabase()
-  const [{ data: messages }, { data: readStates }] = await Promise.all([
+  const [{ data: messages, error: msgErr }, { data: readStates, error: readErr }] = await Promise.all([
     sb.from("support_chat_messages").select("user_id, created_at, message, sender_type").order("created_at"),
     sb.from("chat_admin_read").select("user_id, read_at"),
   ])
+  if (msgErr) throw new Error(msgErr.message)
+  if (readErr) throw new Error(readErr.message)
   const readMap = new Map((readStates ?? []).map((r) => [Number(r.user_id), r.read_at]))
   const map = new Map<number, Record<string, unknown>>()
   for (const row of messages ?? []) {
@@ -604,25 +607,38 @@ export async function dbFetchChatThreads() {
     }
   }
   const userIds = [...map.keys()]
+  const sortThreads = (rows: Record<string, unknown>[]) =>
+    rows.sort(
+      (a, b) => new Date(String(b.last_at ?? 0)).getTime() - new Date(String(a.last_at ?? 0)).getTime(),
+    )
+
   if (userIds.length) {
-    const { data: users } = await sb.from("users").select("id, phone, email, username").in("id", userIds)
+    const { data: users, error: userErr } = await sb
+      .from("users")
+      .select("id, phone, email, username")
+      .in("id", userIds)
+    if (userErr) throw new Error(userErr.message)
     const userMap = new Map((users ?? []).map((u) => [Number(u.id), u]))
-    return [...map.values()].map((t) => {
-      const u = userMap.get(Number(t.user_id))
-      const unread = Number(t.unread ?? 0)
-      return {
-        ...t,
-        message_count: unread,
-        phone: u?.phone,
-        email: u?.email,
-        username: u?.username,
-      }
-    })
+    return sortThreads(
+      [...map.values()].map((t) => {
+        const u = userMap.get(Number(t.user_id))
+        const unread = Number(t.unread ?? 0)
+        return {
+          ...t,
+          message_count: unread,
+          phone: u?.phone,
+          email: u?.email,
+          username: u?.username,
+        }
+      }),
+    )
   }
-  return [...map.values()].map((t) => ({
-    ...t,
-    message_count: Number(t.unread ?? 0),
-  }))
+  return sortThreads(
+    [...map.values()].map((t) => ({
+      ...t,
+      message_count: Number(t.unread ?? 0),
+    })),
+  )
 }
 
 export async function dbResetChatReadState(userId: number) {

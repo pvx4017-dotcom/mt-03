@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export function useAdminToast() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
@@ -9,8 +9,10 @@ export function useAdminToast() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const showToast = (message: string, type: "success" | "error" = "success") =>
-    setToast({ message, type })
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" = "success") => setToast({ message, type }),
+    [],
+  )
 
   const Toast = toast ? (
     <div className={`admin-center-toast${toast.type === "error" ? " error" : ""}`}>{toast.message}</div>

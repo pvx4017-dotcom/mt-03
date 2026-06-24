@@ -402,8 +402,8 @@ textarea.admin-form-control {
 .admin-chat-sidebar {
   background: #fff;
   border-right: 1px solid #e5e7eb;
-  width: 100%;
-  max-width: 360px;
+  flex-shrink: 0;
+  width: min(360px, 100%);
   display: flex;
   flex-direction: column;
 }
@@ -456,6 +456,26 @@ textarea.admin-form-control {
   gap: 8px;
 }
 
+.admin-chat-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 8px;
+}
+
+.admin-chat-row--in {
+  align-items: flex-start;
+}
+
+.admin-chat-row--out {
+  align-items: flex-end;
+}
+
+.admin-chat-date-divider {
+  align-self: center;
+  width: 100%;
+}
+
 .admin-chat-bubble {
   max-width: 75%;
   padding: 10px 14px;
@@ -465,13 +485,11 @@ textarea.admin-form-control {
 }
 
 .admin-chat-bubble.user {
-  align-self: flex-start;
   background: #fff;
   border: 1px solid #e5e7eb;
 }
 
 .admin-chat-bubble.admin {
-  align-self: flex-end;
   background: #2563eb;
   color: #fff;
 }

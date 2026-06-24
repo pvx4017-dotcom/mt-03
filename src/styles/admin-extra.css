@@ -350,6 +350,13 @@
 /* Chat ref parity */
 body.admin-chat-page {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body.admin-chat-page[data-view="list"] .admin-chat-panel {
+  display: none;
 }
 
 body.admin-chat-page[data-view="chat"] .admin-chat-sidebar {
@@ -460,6 +467,7 @@ body.admin-chat-page[data-view="chat"] .admin-chat-panel {
 }
 
 @media (min-width: 768px) {
+  body.admin-chat-page[data-view="list"] .admin-chat-panel,
   body.admin-chat-page[data-view="chat"] .admin-chat-sidebar {
     display: flex;
   }

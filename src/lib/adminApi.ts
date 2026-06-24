@@ -117,7 +117,15 @@ export async function fetchAdminBadges() {
 }
 
 export async function fetchAdminCategories() {
-  return dbFetchCategories() as Promise<AdminCategory[]>
+  ensureConfigured()
+  const data = await adminGet<{ success?: boolean; categories?: AdminCategory[]; message?: string }>(
+    API.adminProductCategories,
+  )
+  if (data.success === false) {
+    throw new Error(String(data.message ?? "โหลดหมวดหมู่ไม่สำเร็จ"))
+  }
+  if (Array.isArray(data.categories)) return data.categories
+  return (await dbFetchCategories()) as AdminCategory[]
 }
 
 export async function fetchAdminRecommendedShops() {
@@ -227,11 +235,27 @@ export async function fetchCustomerShopProducts() {
 }
 
 export async function fetchChatThreads() {
+  ensureConfigured()
+  const data = await adminGet<{ success?: boolean; rows?: Record<string, unknown>[]; message?: string }>(
+    apiPath(API.supportChat, { mode: "threads" }),
+  )
+  if (data.success === false) {
+    throw new Error(String(data.message ?? "โหลดรายการแชทไม่สำเร็จ"))
+  }
+  if (Array.isArray(data.rows)) return data.rows
   return dbFetchChatThreads()
 }
 
 export async function fetchChatMessages(userId: string | number) {
-  const data = await dbFetchChatMessages(Number(userId))
-  if ("rows" in data && Array.isArray(data.rows)) return data.rows
+  ensureConfigured()
+  const data = await adminGet<{ success?: boolean; rows?: Record<string, unknown>[]; message?: string }>(
+    apiPath(API.supportChat, { mode: "messages", user_id: String(userId) }),
+  )
+  if (data.success === false) {
+    throw new Error(String(data.message ?? "โหลดข้อความไม่สำเร็จ"))
+  }
+  if (Array.isArray(data.rows)) return data.rows
+  const fallback = await dbFetchChatMessages(Number(userId))
+  if ("rows" in fallback && Array.isArray(fallback.rows)) return fallback.rows
   return []
 }

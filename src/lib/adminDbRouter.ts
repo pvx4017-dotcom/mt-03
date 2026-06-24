@@ -298,7 +298,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     case API.adminProductCategories: {
       const id = Number(fd.get("id") ?? 0)
       if (action === "delete") {
-        await sb.from("product_categories").delete().eq("id", id)
+        const { error } = await sb.from("product_categories").delete().eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: "ลบแล้ว" })
       }
       let existingImage = ""
@@ -313,13 +314,18 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         return fail("อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
       }
       const row = {
-        category_name: String(fd.get("category_name") ?? ""),
+        category_name: String(fd.get("category_name") ?? "").trim(),
         category_image: categoryImage,
       }
+      if (!row.category_name) return fail("กรุณาใส่ชื่อหมวดหมู่")
       if (isEditAction(action) && id) {
-        await sb.from("product_categories").update(row).eq("id", id)
+        const { error } = await sb.from("product_categories").update(row).eq("id", id)
+        if (error) return fail(error.message)
+      } else if (action === "create" || !id) {
+        const { error } = await sb.from("product_categories").insert(row)
+        if (error) return fail(error.message)
       } else {
-        await sb.from("product_categories").insert(row)
+        return fail("action ไม่ถูกต้อง")
       }
       return ok({ message: "บันทึกแล้ว" })
     }

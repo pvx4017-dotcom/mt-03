@@ -360,13 +360,31 @@ function renderChatBody(msg: string, onImageClick?: (url: string) => void) {
   return msg
 }
 
+function chatRowsSignature(rows: Record<string, unknown>[]) {
+  if (!rows.length) return "0"
+  const last = rows[rows.length - 1]
+  return `${rows.length}:${String(last.id ?? "")}:${String(last.created_at ?? "")}`
+}
+
+function threadsSignature(rows: Record<string, unknown>[]) {
+  return rows
+    .map(
+      (t) =>
+        `${String(t.user_id ?? "")}:${String(t.last_at ?? "")}:${String(t.message_count ?? "")}:${String(t.last_message ?? t.message ?? "")}`,
+    )
+    .join("|")
+}
+
 export function AdminChatPage() {
   useBodyClass("admin-page admin-chat-page")
   const { showToast, Toast } = useAdminToast()
   const [view, setView] = useState<"list" | "chat">("list")
   const [threads, setThreads] = useState<Record<string, unknown>[]>([])
+  const [threadsLoading, setThreadsLoading] = useState(true)
+  const [threadsError, setThreadsError] = useState<string | null>(null)
   const [activeUser, setActiveUser] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, unknown>[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
   const [text, setText] = useState("")
   const [search, setSearch] = useState("")
   const [menu, setMenu] = useState<{ id: number; x: number; y: number; canEdit: boolean } | null>(null)
@@ -375,33 +393,91 @@ export function AdminChatPage() {
   const [imageViewer, setImageViewer] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesBoxRef = useRef<HTMLDivElement>(null)
+  const threadsSigRef = useRef("")
+  const messagesSigRef = useRef("")
+
+  const scrollMessagesToEnd = useCallback((behavior: ScrollBehavior = "auto") => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" })
+    })
+  }, [])
+
+  const isNearBottom = useCallback(() => {
+    const el = messagesBoxRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 96
+  }, [])
 
   useEffect(() => {
     document.body.setAttribute("data-view", view)
     return () => document.body.removeAttribute("data-view")
   }, [view])
 
-  const loadThreads = useCallback(() => {
-    fetchChatThreads().then(setThreads).catch(() => {})
-  }, [])
+  const loadThreads = useCallback(async (silent = false) => {
+    if (!silent) {
+      setThreadsLoading(true)
+      setThreadsError(null)
+    }
+    try {
+      const rows = await fetchChatThreads()
+      const sig = threadsSignature(rows)
+      if (sig !== threadsSigRef.current) {
+        threadsSigRef.current = sig
+        setThreads(rows)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "โหลดรายการแชทไม่สำเร็จ"
+      setThreadsError(message)
+      if (!silent) {
+        setThreads([])
+        showToast(message, "error")
+      }
+    } finally {
+      if (!silent) setThreadsLoading(false)
+    }
+  }, [showToast])
 
   useEffect(() => {
-    loadThreads()
-    const t = setInterval(loadThreads, 15000)
+    loadThreads(false)
+    const t = setInterval(() => loadThreads(true), 15000)
     return () => clearInterval(t)
   }, [loadThreads])
 
-  const loadMessages = useCallback((uid: string) => {
-    fetchChatMessages(uid).then((rows) => {
-      setMessages(rows)
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
-    })
-  }, [])
+  const loadMessages = useCallback(
+    async (uid: string, options?: { silent?: boolean; scroll?: boolean }) => {
+      const silent = options?.silent ?? false
+      const scroll = options?.scroll ?? !silent
+      if (!silent) setMessagesLoading(true)
+      try {
+        const rows = await fetchChatMessages(uid)
+        const sig = chatRowsSignature(rows)
+        const changed = sig !== messagesSigRef.current
+        if (changed) {
+          const stick = scroll || isNearBottom()
+          messagesSigRef.current = sig
+          setMessages(rows)
+          if (stick) scrollMessagesToEnd(silent ? "auto" : "smooth")
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "โหลดข้อความไม่สำเร็จ"
+        if (!silent) {
+          showToast(message, "error")
+          setMessages([])
+          messagesSigRef.current = ""
+        }
+      } finally {
+        if (!silent) setMessagesLoading(false)
+      }
+    },
+    [isNearBottom, scrollMessagesToEnd, showToast],
+  )
 
   useEffect(() => {
     if (!activeUser) return
-    loadMessages(activeUser)
-    const t = setInterval(() => loadMessages(activeUser), 5000)
+    messagesSigRef.current = ""
+    loadMessages(activeUser, { silent: false, scroll: true })
+    const t = setInterval(() => loadMessages(activeUser, { silent: true }), 5000)
     return () => clearInterval(t)
   }, [activeUser, loadMessages])
 
@@ -424,8 +500,7 @@ export function AdminChatPage() {
     fd.append("mode", "reset_message_count")
     fd.append("user_id", uid)
     await adminPost(API.supportChat, fd).catch(() => {})
-    loadThreads()
-    loadMessages(uid)
+    loadThreads(true)
   }
 
   const sendMessage = async () => {
@@ -437,8 +512,9 @@ export function AdminChatPage() {
     const res = await adminPost<{ success: boolean; message?: string }>(API.supportChat, fd)
     if (res.success) {
       setText("")
-      loadMessages(activeUser)
-      loadThreads()
+      messagesSigRef.current = ""
+      await loadMessages(activeUser, { silent: true, scroll: true })
+      loadThreads(true)
     } else showToast(res.message ?? "ส่งไม่สำเร็จ", "error")
   }
 
@@ -451,8 +527,9 @@ export function AdminChatPage() {
     fd.append("image", file)
     const res = await adminPost<{ success: boolean; message?: string }>(API.supportChat, fd)
     if (res.success) {
-      loadMessages(activeUser)
-      loadThreads()
+      messagesSigRef.current = ""
+      await loadMessages(activeUser, { silent: true, scroll: true })
+      loadThreads(true)
     } else showToast(res.message ?? "อัปโหลดรูปไม่สำเร็จ", "error")
   }
 
@@ -466,7 +543,8 @@ export function AdminChatPage() {
     const res = await adminPost<{ success: boolean }>(API.supportChat, fd)
     if (res.success) {
       setEditMsg(null)
-      loadMessages(activeUser)
+      messagesSigRef.current = ""
+      loadMessages(activeUser, { silent: true })
     } else showToast("แก้ไขไม่สำเร็จ", "error")
   }
 
@@ -479,7 +557,8 @@ export function AdminChatPage() {
     const res = await adminPost<{ success: boolean }>(API.supportChat, fd)
     if (res.success) {
       setDeleteMsgId(null)
-      loadMessages(activeUser)
+      messagesSigRef.current = ""
+      loadMessages(activeUser, { silent: true })
     } else showToast("ลบไม่สำเร็จ", "error")
   }
 
@@ -495,7 +574,10 @@ export function AdminChatPage() {
     if (dayKey) lastDay = dayKey
     const timeStr = Number.isFinite(dt.getTime()) ? dt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : ""
     return (
-      <div key={String(m.id ?? i)}>
+      <div
+        key={String(m.id ?? i)}
+        className={`admin-chat-row${isAdmin ? " admin-chat-row--out" : " admin-chat-row--in"}`}
+      >
         {divider}
         <div className={`admin-chat-bubble ${isAdmin ? "admin" : "user"}${isAdmin ? " with-actions" : ""}`}>
           {isAdmin ? (
@@ -531,8 +613,12 @@ export function AdminChatPage() {
               <i className="fa-solid fa-magnifying-glass" style={{ color: "#9ca3af", alignSelf: "center" }} />
               <input placeholder="ค้นหา ID / เบอร์ / ข้อความ…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1, border: "1px solid #d1d5db", borderRadius: 8, padding: "8px 10px" }} />
             </div>
-            <div className="thread-list" style={{ maxHeight: "calc(100vh - 148px)", overflowY: "auto" }}>
-              {filteredThreads.length === 0 ? (
+            <div className="thread-list" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+              {threadsLoading && threads.length === 0 ? (
+                <div style={{ padding: 16, color: "#6b7280", fontSize: 13 }}>กำลังโหลดบทสนทนา...</div>
+              ) : threadsError && threads.length === 0 ? (
+                <div style={{ padding: 16, color: "#dc2626", fontSize: 13 }}>{threadsError}</div>
+              ) : filteredThreads.length === 0 ? (
                 <div style={{ padding: 16, color: "#6b7280", fontSize: 13 }}>ยังไม่มีแชทในระบบ</div>
               ) : (
                 filteredThreads.map((t, i) => {
@@ -565,8 +651,14 @@ export function AdminChatPage() {
                   </button>
                   <strong style={{ fontSize: 14 }}>{headLabel}</strong>
                 </div>
-                <div className="admin-chat-messages">
-                  {messageNodes}
+                <div className="admin-chat-messages" ref={messagesBoxRef}>
+                  {messagesLoading && messages.length === 0 ? (
+                    <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center", padding: 24 }}>
+                      กำลังโหลดข้อความ...
+                    </div>
+                  ) : (
+                    messageNodes
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
                 <div className="admin-chat-input-row">

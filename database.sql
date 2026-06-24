@@ -537,6 +537,11 @@ INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_sc
 INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_score, sales_volume, is_recommended, created_at) VALUES (2, 'Mouth', 'images/general_shop_mouth_1776799164051.jpg', 567, 3541, 87, 3514, false, '2026-04-21 19:19:24'::timestamptz);
 INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_score, sales_volume, is_recommended, created_at) VALUES (1, 'alisa online shop', 'images/general_shop_alisa_online_shop_1776799071735.png', 156, 5646, 88, 5456, false, '2026-04-21 19:17:51'::timestamptz);
 
+-- Recommended shops (3)
+INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_score, sales_volume, is_recommended, created_at) VALUES (101, 'Adam Online Shopping', 'images/shop_adam_online_shopping_1776768680396.jpg', 87675, 356688, 100, 5769644, true, '2026-04-21 10:26:17'::timestamptz);
+INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_score, sales_volume, is_recommended, created_at) VALUES (102, 'JJ Mobile', 'images/shop_jj_mobile_1778165606908.jpg', 3548, 6876, 99.9, 6541, true, '2026-04-21 10:27:00'::timestamptz);
+INSERT INTO shops (id, shop_name, shop_image, review_count, view_count, trust_score, sales_volume, is_recommended, created_at) VALUES (103, 'MJ shopping', 'images/shop_mj_shopping_1777911062301.jpg', 1567, 5643, 99.9, 3421, true, '2026-05-04 16:10:35'::timestamptz);
+
 -- Slides (7)
 INSERT INTO slide_images (id, slide_image, image_path, created_at) VALUES (8, 'images/slide_1777896396204.jpeg', 'images/slide_1777896396204.jpeg', '2026-04-21 09:31:13'::timestamptz);
 INSERT INTO slide_images (id, slide_image, image_path, created_at) VALUES (7, 'images/slide_1777897183665.jpg', 'images/slide_1777897183665.jpg', '2026-04-21 09:29:15'::timestamptz);
