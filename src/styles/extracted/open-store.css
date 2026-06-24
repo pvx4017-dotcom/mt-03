@@ -2,7 +2,11 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-size: 12px;
+        }
+
+        body.page-open-store {
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
         }
 
         body.page-open-store {

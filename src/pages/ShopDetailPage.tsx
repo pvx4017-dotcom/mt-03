@@ -17,6 +17,7 @@ import {
 } from "@/lib/marketplaceApi"
 import type { Product } from "@/data/products"
 import "@/styles/extracted/shop-detail.css"
+import "@/styles/store-mobile.css"
 
 export default function ShopDetailPage() {
   useBodyClass("page-shop-detail")
@@ -98,12 +99,22 @@ export default function ShopDetailPage() {
       <main>
         <section className="profile-container">
           <div className="shop-profile-card">
-            <div className="shop-logo-wrap">
-              <img
-                src={shop ? mapApiShopImage(shop.shop_image) : asset("logo/shop logo.webp")}
-                alt="Shop"
-                className="shop-logo"
-              />
+            <div className="shop-profile-header">
+              <div className="shop-logo-wrap">
+                <img
+                  src={shop ? mapApiShopImage(shop.shop_image) : asset("logo/shop logo.webp")}
+                  alt="Shop"
+                  className="shop-logo"
+                />
+              </div>
+              <div
+                className={`follow-btn-wrap${following ? " is-following" : ""}`}
+                role="button"
+                onClick={handleFollow}
+              >
+                <i className={`${following ? "fa-solid fa-heart" : "fa-regular fa-heart"} follow-icon`} />
+                <span className="follow-label">{following ? "ติดตามแล้ว" : "ติดตาม"}</span>
+              </div>
             </div>
             <div className="shop-info-main">
               <div className="shop-name">
@@ -119,10 +130,24 @@ export default function ShopDetailPage() {
                 <span>ปริมาณซื้อขาย : {shop ? formatNumberText(shop.sales_volume) : "—"}</span>
                 <span>ยอดวิว : {shop ? formatNumberText(shop.view_count) : "—"}</span>
               </div>
-            </div>
-            <div className="follow-btn-wrap" role="button" onClick={handleFollow}>
-              <i className={`${following ? "fa-solid fa-heart" : "fa-regular fa-heart"} follow-icon`} />
-              <span className="follow-label">{following ? "ติดตามแล้ว" : "ติดตาม"}</span>
+              <div className="shop-metrics-grid">
+                <div className="metric-chip">
+                  <div className="label">คะแนนความน่าเชื่อถือ</div>
+                  <div className="value">{shop?.trust_score ?? "—"}</div>
+                </div>
+                <div className="metric-chip">
+                  <div className="label">ความคิดเห็นที่ดี</div>
+                  <div className="value">{shop ? formatNumberText(shop.review_count) : "—"}</div>
+                </div>
+                <div className="metric-chip">
+                  <div className="label">ปริมาณซื้อขาย</div>
+                  <div className="value">{shop ? formatNumberText(shop.sales_volume) : "—"}</div>
+                </div>
+                <div className="metric-chip">
+                  <div className="label">ยอดวิว</div>
+                  <div className="value">{shop ? formatNumberText(shop.view_count) : "—"}</div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

@@ -687,19 +687,223 @@ body.admin-chat-page .admin-chat-layout {
   padding: 0;
 }
 
-/* ── Order detail content ── */
-.admin-order-product-preview {
+.admin-order-detail-body {
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 14px;
-  padding-bottom: 8px;
+  gap: 16px;
+  padding: 16px max(16px, env(safe-area-inset-left)) 20px max(16px, env(safe-area-inset-right));
 }
 
-.admin-order-product-preview img {
-  width: 112px;
-  height: 112px;
+.admin-order-detail-body--form {
+  gap: 14px;
+}
+
+.admin-order-detail-hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.admin-order-detail-img {
+  width: 88px;
+  height: 88px;
   object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.admin-order-detail-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-order-detail-status {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 11px !important;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.admin-order-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-order-metric {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.admin-order-metric span {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.admin-order-metric strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  word-break: break-word;
+}
+
+.admin-detail-list--emphasis .admin-detail-item {
+  background: #fff;
+  border-color: #e5e7eb;
+}
+
+.admin-detail-item--wide dd {
+  line-height: 1.55;
+}
+
+.admin-detail-phone {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-detail-phone:hover {
+  text-decoration: underline;
+}
+
+.admin-order-qty-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-right: auto;
+}
+
+.admin-order-detail-body .admin-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.admin-order-detail-body .admin-form-control {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  font-family: inherit;
+}
+
+.admin-order-detail-body textarea.admin-form-control {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.admin-order-detail-body .admin-order-qty-row {
+  justify-content: flex-start;
+  margin: 0;
+}
+
+@media (max-width: 639px) {
+  .admin-order-modal.admin-sheet-panel {
+    max-height: min(94dvh, 820px);
+  }
+
+  .admin-sheet-title {
+    font-size: 16px;
+    padding: 0 36px;
+  }
+
+  .admin-order-detail-hero {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .admin-order-detail-img {
+    width: 120px;
+    height: 120px;
+  }
+
+  .admin-order-detail-hero-text {
+    width: 100%;
+  }
+
+  .admin-order-product-name {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .admin-order-product-price {
+    font-size: 20px;
+  }
+
+  .admin-detail-item dt {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .admin-detail-item dd {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .admin-detail-section-title {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+
+  .admin-order-metric strong {
+    font-size: 15px;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot .admin-edit-btn {
+    width: 100%;
+    min-height: 50px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot .admin-edit-btn.cancel {
+    grid-column: 1;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot .admin-edit-btn.save {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-order-detail-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-order-modal-foot.admin-sheet-foot .admin-edit-btn.cancel,
+  .admin-order-modal-foot.admin-sheet-foot .admin-edit-btn.save {
+    grid-column: 1;
+  }
 }
 
 .admin-order-product-name {

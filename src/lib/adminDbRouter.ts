@@ -671,15 +671,19 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         Number(fd.get("product_id")),
         String(fd.get("catalog_source") ?? "admin") === "mirror" ? "mirror" : "admin",
       )
-    case API.storeSubmit:
+    case API.storeSubmit: {
+      const shopImageRaw = fd.get("shop_image")
+      const shopImage =
+        shopImageRaw instanceof File && shopImageRaw.size > 0 ? shopImageRaw : null
       return (await import("@/lib/dbService")).dbSubmitStore(
         action === "update" ? "update" : "save",
         {
           shop_name: String(fd.get("shop_name") ?? ""),
           main_category: String(fd.get("main_category") ?? ""),
-          shop_image: (fd.get("shop_image") as File) || null,
+          shop_image: shopImage,
         },
       )
+    }
     case API.bankSubmit:
       return (await import("@/lib/dbService")).dbSubmitBankAccount({
         bank_name: String(fd.get("bank_name") ?? ""),

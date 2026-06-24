@@ -13,6 +13,7 @@ import {
   type StoreProductRow,
 } from "@/lib/customerApi"
 import "@/styles/extracted/collections.css"
+import "@/styles/store-mobile.css"
 
 function formatCount(v: unknown) {
   const n = Number(v ?? 0)
@@ -20,7 +21,7 @@ function formatCount(v: unknown) {
 }
 
 export default function MyStoreProductsPage() {
-  useBodyClass("page-collections")
+  useBodyClass("page-collections page-my-store")
   const [rows, setRows] = useState<StoreProductRow[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
@@ -177,60 +178,62 @@ export default function MyStoreProductsPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <div className="tabs">
-          <button className="tab-btn active" type="button">
-            ทั้งหมด
-          </button>
-        </div>
-        <section className="list">
+        <section className="my-store-grid">
           {loading ? (
-            <div className="empty">กำลังโหลดข้อมูล...</div>
+            <div className="empty my-store-grid-empty">กำลังโหลดข้อมูล...</div>
           ) : filtered.length === 0 ? (
-            <div className="empty">ยังไม่มีสินค้าในร้าน — ไปที่คอลเลกชันเพื่อเพิ่มสินค้า</div>
+            <div className="empty my-store-grid-empty">
+              ยังไม่มีสินค้าในร้าน
+              <Link to="/collections" className="my-store-empty-link">
+                ไปคอลเลกชันเพื่อเพิ่มสินค้า
+              </Link>
+            </div>
           ) : (
             filtered.map((row) => {
               const id = Number(row.id ?? 0)
+              const productTo = `/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}`
               return (
-                <article key={id} className="card" style={{ position: "relative" }}>
-                  <div className="row-top">
-                    <div className="shop">
-                      <img
-                        className="thumb"
-                        src={parseProductRowImage(row)}
-                        alt={String(row.product_name ?? "product")}
-                      />
-                      <div className="shop-text">
-                        <div className="name">{row.product_name || "-"}</div>
-                        <span className="badge">{row.product_category || "-"}</span>
-                      </div>
+                <article key={id} className="my-store-product-card">
+                  <Link to={productTo} className="my-store-product-media">
+                    <img
+                      src={parseProductRowImage(row)}
+                      alt={String(row.product_name ?? "product")}
+                      loading="lazy"
+                    />
+                    {row.product_category ? (
+                      <span className="my-store-product-cat">{row.product_category}</span>
+                    ) : null}
+                  </Link>
+                  <div className="my-store-product-body">
+                    <Link to={productTo} className="my-store-product-title">
+                      {row.product_name || "-"}
+                    </Link>
+                    <div className="my-store-product-price">${fmtMoney(row.product_price)}</div>
+                    <div className="my-store-product-mini-stats">
+                      <span>
+                        <i className="fa-solid fa-box" aria-hidden />
+                        {formatCount(row.product_stock)}
+                      </span>
+                      <span>
+                        <i className="fa-solid fa-eye" aria-hidden />
+                        {formatCount(row.view_count)}
+                      </span>
+                      <span>
+                        <i className="fa-solid fa-chart-line" aria-hidden />
+                        {formatCount(row.sales_volume)}
+                      </span>
                     </div>
-                    <div className="row-actions">
-                      <Link
-                        className="visit"
-                        to={`/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}`}
-                      >
-                        ดูสินค้า
+                    <div className="my-store-product-actions">
+                      <Link to={productTo} className="my-store-act view">
+                        ดู
                       </Link>
+                      <button type="button" className="my-store-act edit" onClick={() => openEdit(row)}>
+                        <i className="fa-solid fa-pen-to-square" aria-hidden />
+                      </button>
+                      <button type="button" className="my-store-act delete" onClick={() => handleDelete(id)}>
+                        <i className="fa-solid fa-trash-can" aria-hidden />
+                      </button>
                     </div>
-                  </div>
-                  <div className="stats">
-                    <div className="stat">ราคา: ${fmtMoney(row.product_price)}</div>
-                    <div className="stat">สต็อก: {formatCount(row.product_stock)}</div>
-                    <div className="stat">ยอดวิว: {formatCount(row.view_count)}</div>
-                    <div className="stat">ยอดขาย: {formatCount(row.sales_volume)}</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button type="button" className="store-summary-view-btn" onClick={() => openEdit(row)}>
-                      แก้ไข
-                    </button>
-                    <button
-                      type="button"
-                      className="store-summary-view-btn"
-                      style={{ color: "#dc2626" }}
-                      onClick={() => handleDelete(id)}
-                    >
-                      ลบ
-                    </button>
                   </div>
                 </article>
               )
@@ -241,35 +244,20 @@ export default function MyStoreProductsPage() {
       <BottomNav />
 
       {editRow && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: 16,
-          }}
-          onClick={() => setEditRow(null)}
-        >
-          <div
-            style={{ background: "#fff", borderRadius: 12, padding: 20, width: "100%", maxWidth: 360 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: "0 0 12px", fontFamily: "Kanit" }}>แก้ไขสินค้า</h3>
+        <div className="store-sheet-overlay" onClick={() => setEditRow(null)}>
+          <div className="store-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="store-sheet-handle" />
+            <h3 className="store-sheet-title">แก้ไขสินค้า</h3>
             {[
               ["stock", "สต็อก"],
               ["views", "ยอดวิว"],
               ["trust", "คะแนน"],
               ["sales", "ยอดขาย"],
             ].map(([key, label]) => (
-              <label key={key} style={{ display: "block", marginBottom: 10, fontSize: 13 }}>
-                {label}
+              <label key={key} className="store-sheet-field">
+                <span>{label}</span>
                 <input
                   type="number"
-                  style={{ width: "100%", marginTop: 4, padding: 8, fontFamily: "Kanit" }}
                   value={editForm[key as keyof typeof editForm]}
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, [key]: Number(e.target.value) }))
@@ -277,11 +265,11 @@ export default function MyStoreProductsPage() {
                 />
               </label>
             ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button type="button" className="store-summary-view-btn" onClick={() => setEditRow(null)}>
+            <div className="store-sheet-actions">
+              <button type="button" className="btn-cancel" onClick={() => setEditRow(null)}>
                 ยกเลิก
               </button>
-              <button type="button" className="store-summary-view-btn" onClick={saveEdit}>
+              <button type="button" className="btn-save" onClick={saveEdit}>
                 บันทึก
               </button>
             </div>

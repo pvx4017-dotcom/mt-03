@@ -1262,8 +1262,7 @@ DO $$ DECLARE t TEXT; BEGIN
   END LOOP;
 END $$;
 
--- Storage bucket สำหรับอัปโหลด (chat, KYC, ร้านค้า) — สร้างใน Supabase Dashboard > Storage ชื่อ uploads
--- GRANT ให้ anon/authenticated ตามต้องการ
+-- Storage bucket สำหรับอัปโหลด (chat, KYC, ร้านค้า) — รัน scripts/setup-storage-uploads.sql ใน Supabase SQL Editor
 
 -- บัญชีทดลอง:
 --   Admin: admin@meta.local / admin123

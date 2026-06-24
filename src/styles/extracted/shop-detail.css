@@ -67,6 +67,10 @@
             position: relative;
         }
 
+        .shop-profile-header {
+            display: contents;
+        }
+
         .shop-logo-wrap {
             width: 70px;
             height: 70px;

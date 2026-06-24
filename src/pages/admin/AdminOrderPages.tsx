@@ -54,6 +54,85 @@ const PRODUCT_STAT_FIELDS = [
   { key: "sales_volume" as const, label: "ยอดขายสะสม", type: "number" },
 ]
 
+function AdminOrderDetailPanel({ row }: { row: CartItem }) {
+  const st = adminStatusBadge(row.order_status ?? row.status)
+  const phone = String(row.receiver_phone ?? row.contact_phone ?? "").trim()
+  const receiverName = String(row.receiver_name ?? row.contact_name ?? "-")
+  const receiverAddress = String(row.receiver_address ?? row.contact_address ?? "-")
+  const orderedAt = formatAdminDate(String(row.ordered_at ?? row.created_at ?? ""))
+
+  return (
+    <div className="admin-order-detail-body">
+      <div className="admin-order-detail-hero">
+        <img
+          className="admin-order-detail-img"
+          src={adminParseImage(row.product_image)}
+          alt={String(row.product_name ?? "product")}
+        />
+        <div className="admin-order-detail-hero-text">
+          <span className={`admin-order-detail-status ${st.className}`}>{st.label}</span>
+          <div className="admin-order-product-name">{String(row.product_name ?? "-")}</div>
+          <div className="admin-order-product-sub">{String(row.shop_name ?? "-")}</div>
+          <div className="admin-order-product-price">${adminFmtMoney(row.total_price ?? row.unit_price)}</div>
+        </div>
+      </div>
+
+      <div className="admin-order-detail-metrics">
+        <div className="admin-order-metric">
+          <span>รหัสคำสั่งซื้อ</span>
+          <strong>#{String(row.id ?? "-")}</strong>
+        </div>
+        <div className="admin-order-metric">
+          <span>รหัสผู้ใช้</span>
+          <strong>#{String(row.user_id ?? "-")}</strong>
+        </div>
+        <div className="admin-order-metric">
+          <span>จำนวน</span>
+          <strong>{adminFmtNum(row.quantity ?? 1)}</strong>
+        </div>
+        <div className="admin-order-metric">
+          <span>ราคาต่อชิ้น</span>
+          <strong>${adminFmtMoney(row.unit_price)}</strong>
+        </div>
+      </div>
+
+      <h4 className="admin-detail-section-title">ข้อมูลผู้รับ</h4>
+      <dl className="admin-detail-list admin-detail-list--emphasis">
+        <div className="admin-detail-item">
+          <dt>ชื่อผู้รับ</dt>
+          <dd>{receiverName}</dd>
+        </div>
+        <div className="admin-detail-item admin-detail-item--wide">
+          <dt>ที่อยู่จัดส่ง</dt>
+          <dd>{receiverAddress}</dd>
+        </div>
+        <div className="admin-detail-item">
+          <dt>เบอร์โทร</dt>
+          <dd>
+            {phone ? (
+              <a className="admin-detail-phone" href={`tel:${phone.replace(/\s/g, "")}`}>
+                {phone}
+              </a>
+            ) : (
+              "-"
+            )}
+          </dd>
+        </div>
+        <div className="admin-detail-item">
+          <dt>วันที่สั่งซื้อ</dt>
+          <dd>{orderedAt}</dd>
+        </div>
+      </dl>
+
+      {Number(row.commission_amount ?? 0) > 0 ? (
+        <p className="admin-order-comm-note">
+          ค่าคอมมิชชั่น: ${adminFmtMoney(row.commission_amount)}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function AdminCustomerStoreProductsPage() {
   useBodyClass("admin-page")
   const { showToast, Toast } = useAdminToast()
@@ -585,19 +664,39 @@ export function AdminCartPage() {
         }
       >
         {orderModal ? (
-          <>
-            <div className="admin-order-product-preview">
-              <img src={adminParseImage(orderModal.product_image)} alt="" />
-              <div className="admin-order-product-meta">
+          <div className="admin-order-detail-body admin-order-detail-body--form">
+            <div className="admin-order-detail-hero">
+              <img
+                className="admin-order-detail-img"
+                src={adminParseImage(orderModal.product_image)}
+                alt={String(orderModal.product_name ?? "product")}
+              />
+              <div className="admin-order-detail-hero-text">
+                <span className="admin-order-detail-status admin-order-status admin-order-status--pending">
+                  รอดำเนินการ
+                </span>
                 <div className="admin-order-product-name">{String(orderModal.product_name)}</div>
                 <div className="admin-order-product-sub">{String(orderModal.shop_name)}</div>
                 <div className="admin-order-product-price">${adminFmtMoney(orderModal.unit_price)}</div>
               </div>
             </div>
+
+            <div className="admin-order-detail-metrics">
+              <div className="admin-order-metric">
+                <span>รหัสรายการ</span>
+                <strong>#{String(orderModal.id ?? "-")}</strong>
+              </div>
+              <div className="admin-order-metric">
+                <span>รหัสผู้ใช้</span>
+                <strong>#{String(orderModal.user_id ?? "-")}</strong>
+              </div>
+            </div>
+
+            <h4 className="admin-detail-section-title">จำนวนและผู้รับ</h4>
             <div className="admin-order-qty-row">
-              <span>จำนวน</span>
+              <span className="admin-order-qty-label">จำนวน</span>
               <button type="button" className="admin-qty-btn" onClick={() => setQty((q) => Math.max(1, q - 1))}>
-                -
+                −
               </button>
               <span className="admin-qty-value">{qty}</span>
               <button type="button" className="admin-qty-btn" onClick={() => setQty((q) => q + 1)}>
@@ -606,21 +705,38 @@ export function AdminCartPage() {
             </div>
             <div className="admin-form-group">
               <label>ชื่อผู้รับ</label>
-              <input className="admin-form-control" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} />
+              <input
+                className="admin-form-control"
+                value={receiver.name}
+                onChange={(e) => setReceiver({ ...receiver, name: e.target.value })}
+                autoComplete="name"
+              />
             </div>
             <div className="admin-form-group">
-              <label>ที่อยู่</label>
-              <textarea className="admin-form-control" value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} />
+              <label>ที่อยู่จัดส่ง</label>
+              <textarea
+                className="admin-form-control"
+                rows={3}
+                value={receiver.address}
+                onChange={(e) => setReceiver({ ...receiver, address: e.target.value })}
+              />
             </div>
             <div className="admin-form-group">
               <label>เบอร์โทร</label>
-              <input className="admin-form-control" value={receiver.phone} onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })} />
+              <input
+                className="admin-form-control"
+                type="tel"
+                inputMode="tel"
+                value={receiver.phone}
+                onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })}
+                autoComplete="tel"
+              />
             </div>
             <p className="admin-order-comm-note">
               ค่าคอมมิชชั่น ({commPct}%): $
               {adminFmtMoney(Number(orderModal.unit_price ?? 0) * qty * (Number(commPct) / 100))}
             </p>
-          </>
+          </div>
         ) : null}
       </AdminDetailModal>
 
@@ -877,30 +993,7 @@ function AdminFlowOrdersPage({
           </>
         }
       >
-        {detailRow ? (
-          <dl className="admin-detail-list">
-            <div className="admin-detail-item">
-              <dt>สินค้า</dt>
-              <dd>{String(detailRow.product_name)}</dd>
-            </div>
-            <div className="admin-detail-item">
-              <dt>ผู้รับ</dt>
-              <dd>{String(detailRow.receiver_name ?? "-")}</dd>
-            </div>
-            <div className="admin-detail-item">
-              <dt>ที่อยู่</dt>
-              <dd>{String(detailRow.receiver_address ?? "-")}</dd>
-            </div>
-            <div className="admin-detail-item">
-              <dt>โทร</dt>
-              <dd>{String(detailRow.receiver_phone ?? "-")}</dd>
-            </div>
-            <div className="admin-detail-item">
-              <dt>วันที่</dt>
-              <dd>{formatAdminDate(String(detailRow.ordered_at ?? detailRow.created_at ?? ""))}</dd>
-            </div>
-          </dl>
-        ) : null}
+        {detailRow ? <AdminOrderDetailPanel row={detailRow} /> : null}
       </AdminDetailModal>
 
       <AdminConfirmModal

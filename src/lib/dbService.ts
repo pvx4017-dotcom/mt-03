@@ -24,9 +24,28 @@ function flattenUserJoin<T extends Record<string, unknown>>(row: T) {
   }
 }
 
+function sanitizeUploadFileName(name: string) {
+  const base = String(name ?? "").trim().replace(/\\/g, "/").split("/").pop() ?? "file"
+  return base.replace(/\s+/g, "_").replace(/[^\w.\-()+]/g, "") || "file"
+}
+
+function storageUploadFailMessage(err: unknown, fallback: string) {
+  const msg = err instanceof Error ? err.message : String(err ?? "")
+  if (/bucket.*not found|Bucket not found|does not exist/i.test(msg)) {
+    return `${fallback} — ยังไม่มี Storage bucket "uploads" (รัน scripts/setup-storage-uploads.sql ใน Supabase)`
+  }
+  if (/policy|denied|Unauthorized|403|row-level security/i.test(msg)) {
+    return `${fallback} — ไม่มีสิทธิ์เขียน Storage (รัน scripts/setup-storage-uploads.sql ใน Supabase)`
+  }
+  return msg ? `${fallback}: ${msg}` : fallback
+}
+
 async function uploadFile(bucket: string, path: string, file: File) {
   const sb = getSupabase()
-  const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: true })
+  const { error } = await sb.storage.from(bucket).upload(path, file, {
+    upsert: true,
+    contentType: file.type || undefined,
+  })
   if (error) throw error
   return path
 }
@@ -825,13 +844,18 @@ export async function dbSubmitStore(
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   let imagePath: string | null = null
-  if (fields.shop_image) {
-    imagePath = `uploads/stores/${uid}_${Date.now()}_${fields.shop_image.name}`
+  const shopImage =
+    fields.shop_image instanceof File && fields.shop_image.size > 0 ? fields.shop_image : null
+  if (shopImage) {
+    const safeName = sanitizeUploadFileName(shopImage.name)
+    imagePath = `stores/${uid}_${Date.now()}_${safeName}`
     try {
-      await uploadFile("uploads", imagePath, fields.shop_image)
-    } catch {
-      return fail("อัปโหลดรูปร้านไม่สำเร็จ")
+      await uploadFile("uploads", imagePath, shopImage)
+    } catch (err) {
+      return fail(storageUploadFailMessage(err, "อัปโหลดรูปร้านไม่สำเร็จ"))
     }
+  } else if (action === "save") {
+    return fail("กรุณาเลือกรูปร้าน")
   }
   const sb = getSupabase()
   const row = {

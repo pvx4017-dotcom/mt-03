@@ -29,6 +29,7 @@ import "@/styles/extracted/reviews.css"
 import "@/styles/extracted/help-center.css"
 import "@/styles/extracted/chat-detail.css"
 import "@/styles/extracted/open-store.css"
+import "@/styles/store-mobile.css"
 import "@/styles/extracted/help-manual.css"
 import "@/styles/extracted/following-shops.css"
 import "@/styles/extracted/collections.css"
@@ -338,6 +339,7 @@ export function OpenStorePage() {
   const [category, setCategory] = useState("")
   const [categories, setCategories] = useState<string[]>([])
   const [shopImage, setShopImage] = useState<File | null>(null)
+  const [shopImagePreview, setShopImagePreview] = useState("")
   const [hasStore, setHasStore] = useState(false)
   const [currentStoreName, setCurrentStoreName] = useState("")
   const [storeThumb, setStoreThumb] = useState("")
@@ -368,6 +370,16 @@ export function OpenStorePage() {
   useEffect(() => {
     loadStatus()
   }, [loadStatus])
+
+  useEffect(() => {
+    if (!shopImage) {
+      setShopImagePreview("")
+      return
+    }
+    const url = URL.createObjectURL(shopImage)
+    setShopImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [shopImage])
 
   const fillEdit = () => {
     if (!hasStore) {
@@ -405,6 +417,7 @@ export function OpenStorePage() {
       showToast(res.message || "ลงทะเบียนเปิดร้านเรียบร้อยแล้ว")
       setShopName("")
       setShopImage(null)
+      setShopImagePreview("")
       setCategory("")
       await loadStatus()
       await refreshStoreStatus()
@@ -431,7 +444,7 @@ export function OpenStorePage() {
           onClick={fillEdit}
         >
           {hasStore && storeThumb ? (
-            <img src={storeThumb} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
+            <img src={storeThumb} alt="" className="hero-store-thumb" />
           ) : (
             <i className="fa-solid fa-store" />
           )}
@@ -461,11 +474,24 @@ export function OpenStorePage() {
           </div>
           <div className="input-group">
             <label>รูปร้านค้า</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,.gif"
-              onChange={(e) => setShopImage(e.target.files?.[0] ?? null)}
-            />
+            <label className="shop-image-upload">
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,.gif,image/*"
+                onChange={(e) => setShopImage(e.target.files?.[0] ?? null)}
+              />
+              <div className={`shop-image-upload-box${shopImagePreview ? " has-preview" : ""}`}>
+                {shopImagePreview ? (
+                  <img src={shopImagePreview} alt="ตัวอย่างรูปร้าน" className="shop-image-preview" />
+                ) : (
+                  <>
+                    <i className="fa-solid fa-camera shop-image-upload-icon" />
+                    <span className="shop-image-upload-text">แตะเพื่อเลือกรูปร้าน</span>
+                    <span className="shop-image-upload-hint">JPG, PNG, WEBP สูงสุด 5MB</span>
+                  </>
+                )}
+              </div>
+            </label>
           </div>
           <div className="input-group">
             <label>หมวดหมู่สินค้าหลัก</label>
