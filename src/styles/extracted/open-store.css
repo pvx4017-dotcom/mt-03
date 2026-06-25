@@ -59,7 +59,7 @@
         }
 
         .os-hero {
-            background: linear-gradient(135deg, #001529 0%, #003366 100%);
+            background: linear-gradient(165deg, #0062e0 0%, #0052c4 36%, #3b82f6 70%, #93c5fd 100%);
             padding: 50px 20px 80px; /* Increased bottom padding for overlap */
             color: #fff;
             text-align: center;
@@ -246,14 +246,14 @@
         .submit-btn {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, #001529 0%, #003366 100%);
+            background: linear-gradient(135deg, #0062e0 0%, #0052c4 100%);
             color: #fff;
             border: none;
             border-radius: 15px;
             font-weight: 600;
             cursor: pointer;
             margin-top: 10px;
-            box-shadow: 0 8px 15px rgba(0, 21, 41, 0.2);
+            box-shadow: 0 8px 15px rgba(0, 98, 224, 0.25);
             transition: all 0.3s;
         }
 

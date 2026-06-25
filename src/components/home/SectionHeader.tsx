@@ -5,14 +5,19 @@ type Props = {
   subtitle?: string
   actionLabel?: string
   actionTo?: string
-  icon?: string
+  /** Font Awesome classes, e.g. "fa-solid fa-tags" */
+  iconClass?: string
 }
 
-export function SectionHeader({ title, subtitle, actionLabel, actionTo, icon }: Props) {
+export function SectionHeader({ title, subtitle, actionLabel, actionTo, iconClass }: Props) {
   return (
     <div className="section-header-pro">
       <div className="section-header-pro__left">
-        {icon ? <span className="section-header-pro__icon" aria-hidden="true">{icon}</span> : null}
+        {iconClass ? (
+          <span className="section-header-pro__icon" aria-hidden="true">
+            <i className={iconClass} />
+          </span>
+        ) : null}
         <div>
           <h3 className="section-header-pro__title">{title}</h3>
           {subtitle ? <p className="section-header-pro__subtitle">{subtitle}</p> : null}

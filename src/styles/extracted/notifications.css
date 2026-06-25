@@ -3,7 +3,7 @@ body.page-notifications { max-width: 100%; overflow-x: hidden; }
         .tabs-container { max-width: 100%; overflow-x: hidden; }
         .tab { min-width: 0; }
         .tabs-container .tab.active {
-            background: #1e3a8a;
+            background: #0062e0;
             color: #ffffff;
         }
         .notification-item { cursor: pointer; }

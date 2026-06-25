@@ -23,6 +23,7 @@ import {
   dbSaveCommissionSettings,
   dbSavePaymentLimits,
   dbSendChatMessage,
+  dbDeleteChatMessage,
 } from "@/lib/dbService"
 
 type Json = Record<string, unknown>
@@ -163,14 +164,22 @@ export async function handleAdminGet(path: string): Promise<Json> {
     }
     case API.supportChat: {
       const mode = params.get("mode")
-      if (mode === "thread_user_count") {
-        const threads = await dbFetchChatThreads()
-        return ok({ count: threads.length })
+      if (mode === "thread_user_count" || mode === "threads") {
+        if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
+        if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+        if (mode === "thread_user_count") {
+          const threads = await dbFetchChatThreads()
+          return ok({ count: threads.length })
+        }
+        return ok({ rows: await dbFetchChatThreads() })
       }
-      if (mode === "threads") return ok({ rows: await dbFetchChatThreads() })
       if (mode === "messages") {
         const userId = params.get("user_id")
-        return dbFetchChatMessages(userId ? Number(userId) : undefined)
+        if (userId) {
+          if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+          return dbFetchChatMessages(Number(userId))
+        }
+        return dbFetchChatMessages()
       }
       return fail("mode ไม่ถูกต้อง")
     }
@@ -603,6 +612,16 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     case API.supportChat: {
       const mode = String(fd.get("mode") ?? "")
       const userId = Number(fd.get("user_id") ?? 0)
+      const adminOnly =
+        mode === "reset_message_count" ||
+        mode === "upload_image" ||
+        mode === "delete_message" ||
+        mode === "update_message" ||
+        (!mode && String(fd.get("sender_type") ?? "") === "admin")
+      if (adminOnly) {
+        if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
+        if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+      }
       if (mode === "reset_message_count") {
         return dbResetChatReadState(userId)
       }
@@ -618,8 +637,10 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         return ok({ message: "ส่งแล้ว" })
       }
       if (mode === "delete_message") {
-        await sb.from("support_chat_messages").delete().eq("id", Number(fd.get("message_id")))
-        return ok({})
+        return dbDeleteChatMessage(Number(fd.get("message_id")), {
+          asAdmin: true,
+          threadUserId: userId || undefined,
+        })
       }
       if (mode === "update_message") {
         await sb

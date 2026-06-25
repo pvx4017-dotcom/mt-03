@@ -451,20 +451,20 @@ body.page-orders {
 
 .btn-primary {
     padding: 8px 18px;
-    background: linear-gradient(135deg, #111, #333);
+    background: linear-gradient(135deg, #0062e0, #0052c4);
     border: none;
     border-radius: 25px;
     font-size: 11px;
     font-weight: 600;
     color: #fff;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 14px rgba(0, 98, 224, 0.28);
     transition: all 0.2s;
 }
 
 .btn-primary:active {
     transform: scale(0.96);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 8px rgba(0, 98, 224, 0.22);
 }
 
 /* Empty State */

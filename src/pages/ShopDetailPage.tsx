@@ -16,8 +16,6 @@ import {
   type ApiShop,
 } from "@/lib/marketplaceApi"
 import type { Product } from "@/data/products"
-import "@/styles/extracted/shop-detail.css"
-import "@/styles/store-mobile.css"
 
 export default function ShopDetailPage() {
   useBodyClass("page-shop-detail")

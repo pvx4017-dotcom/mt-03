@@ -12,7 +12,7 @@
 }
 
 body.page-profile {
-    background-color: #fff;
+    background-color: #e8ecf1;
     color: var(--text-black);
     font-family: 'Kanit', sans-serif;
     -webkit-tap-highlight-color: transparent;
@@ -20,7 +20,7 @@ body.page-profile {
 
 body.page-profile #app {
     width: 100%;
-    background: #fff;
+    background: #e8ecf1;
     min-height: 100vh;
 }
 
@@ -30,7 +30,7 @@ body.page-profile #app {
 .profile-hero {
     position: relative;
     min-height: 280px;
-    background: linear-gradient(135deg, #4a6cf7 0%, #7b5cf0 100%);
+    background: linear-gradient(165deg, #0062e0 0%, #0052c4 36%, #3b82f6 70%, #93c5fd 100%);
     display: flex;
     flex-direction: column;
     color: #fff;
@@ -41,13 +41,9 @@ body.page-profile #app {
 .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        160deg,
-        rgba(0, 0, 0, 0.72) 0%,
-        rgba(0, 62, 160, 0.55) 60%,
-        rgba(0, 0, 0, 0.40) 100%
-    );
-    backdrop-filter: blur(1px);
+    background:
+        radial-gradient(ellipse 80% 70% at 100% 0%, rgba(255, 255, 255, 0.14) 0%, transparent 50%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, transparent 55%);
     z-index: 0;
 }
 
@@ -343,23 +339,25 @@ body.page-profile .balance-amount .currency {
 }
 
 .btn-outline {
-    background: transparent;
-    border: 1.5px solid #ddd;
-    color: var(--text-black);
+    background: #fff;
+    border: 1.5px solid rgba(0, 98, 224, 0.35);
+    color: var(--primary-blue);
 }
 
 .btn-outline:hover {
     border-color: var(--primary-blue);
     color: var(--primary-blue);
+    background: var(--primary-light);
 }
 
 .btn-solid {
-    background: linear-gradient(135deg, #111, #333);
+    background: linear-gradient(135deg, #0062e0 0%, #0052c4 100%);
     color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 98, 224, 0.28);
 }
 
 .btn-solid:hover {
-    background: linear-gradient(135deg, #222, #000);
+    background: linear-gradient(135deg, #0052c4 0%, #004bb5 100%);
 }
 
 /* Orders Card */
@@ -377,12 +375,12 @@ body.page-profile .balance-amount .currency {
 
 .see-all {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--primary-blue);
     text-decoration: none;
     display: flex;
     align-items: center;
     gap: 4px;
-    font-weight: 400;
+    font-weight: 500;
 }
 
 .see-all i {
@@ -488,12 +486,18 @@ body.page-profile .balance-amount .currency {
 
 .order-status-item i {
     font-size: 22px;
-    color: #333;
+    color: var(--primary-blue);
 }
+
+.order-status-item:nth-child(1) i { color: #0062e0; }
+.order-status-item:nth-child(2) i { color: #2563eb; }
+.order-status-item:nth-child(3) i { color: #3b82f6; }
+.order-status-item:nth-child(4) i { color: #6366f1; }
+.order-status-item:nth-child(5) i { color: #0284c7; }
 
 .order-status-item > span:not(.order-status-icon-wrap) {
     font-size: 11px;
-    color: #333;
+    color: #475569;
     text-align: center;
     white-space: nowrap;
     font-weight: 400;
@@ -501,7 +505,7 @@ body.page-profile .balance-amount .currency {
 
 /* Store Banner */
 .store-banner {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background: linear-gradient(135deg, #0062e0 0%, #3b82f6 52%, #6366f1 100%);
     color: #fff;
     padding: 16px;
     border-radius: 14px;
@@ -511,10 +515,13 @@ body.page-profile .balance-amount .currency {
     align-items: center;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 8px 24px rgba(0, 82, 196, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .store-banner:hover {
     transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(0, 82, 196, 0.28);
 }
 
 .banner-left {
@@ -526,13 +533,14 @@ body.page-profile .balance-amount .currency {
 .store-banner-icon {
     width: 40px;
     height: 40px;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.28);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
+    color: #fff;
 }
 
 .store-banner-title {
@@ -589,14 +597,30 @@ body.page-profile .balance-amount .currency {
 .menu-icon-wrap {
     width: 36px;
     height: 36px;
-    border-radius: 9px;
-    background: var(--bg-light);
+    border-radius: 10px;
+    background: #e8f4ff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 16px;
-    color: var(--text-black);
+    color: var(--primary-blue);
     flex-shrink: 0;
+    border: 1px solid rgba(0, 98, 224, 0.1);
+}
+
+.menu-list-item:nth-child(1) .menu-icon-wrap {
+    background: #e8f4ff;
+    color: #0062e0;
+}
+
+.menu-list-item:nth-child(2) .menu-icon-wrap {
+    background: #eef2ff;
+    color: #6366f1;
+}
+
+.menu-list-item:nth-child(3) .menu-icon-wrap {
+    background: #e0f2fe;
+    color: #0284c7;
 }
 
 .item-inner span {
@@ -606,7 +630,7 @@ body.page-profile .balance-amount .currency {
 
 .menu-arrow {
     font-size: 11px;
-    color: #ccc;
+    color: #94a3b8;
 }
 
 /* ==============================
@@ -884,16 +908,16 @@ body.page-profile .balance-amount .currency {
     margin: 0 12px 8px;
     padding: 12px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #1f67ff 0%, #2563eb 55%, #1d4ed8 100%);
+    background: linear-gradient(135deg, #0062e0 0%, #3b82f6 55%, #6366f1 100%);
     color: #fff;
-    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+    box-shadow: 0 10px 24px rgba(0, 98, 224, 0.25);
     justify-content: space-between;
     gap: 12px;
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .checkin-highlight:active {
-    background: linear-gradient(135deg, #1a56da 0%, #1d4ed8 55%, #1e40af 100%);
+    background: linear-gradient(135deg, #0052c4 0%, #2563eb 55%, #4f46e5 100%);
 }
 
 .checkin-main {
@@ -941,18 +965,47 @@ body.page-profile .balance-amount .currency {
     padding: 6px 10px;
     border-radius: 999px;
     background: #fff;
-    color: #1d4ed8;
+    color: #0062e0;
     flex-shrink: 0;
 }
 
 .drawer-icon-wrap {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    color: #444;
+    font-size: 15px;
+    color: #0062e0;
+    background: #e8f4ff;
+    border: 1px solid rgba(0, 98, 224, 0.1);
+    flex-shrink: 0;
+}
+
+.drawer-item:nth-child(2) .drawer-icon-wrap {
+    background: #e8f4ff;
+    color: #0062e0;
+}
+
+.drawer-item:nth-child(3) .drawer-icon-wrap {
+    background: #eef2ff;
+    color: #6366f1;
+}
+
+.drawer-item:nth-child(4) .drawer-icon-wrap {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.drawer-item:nth-child(5) .drawer-icon-wrap {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.drawer-item:nth-child(6) .drawer-icon-wrap {
+    background: #f0f9ff;
+    color: #0ea5e9;
 }
 
 .drawer-item span {
@@ -964,4 +1017,20 @@ body.page-profile .balance-amount .currency {
     height: 1px;
     background: #f1f1f1;
     margin: 6px 20px;
+}
+
+.profile-store-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #0062e0, #0052c4);
+    color: #fff;
+    padding: 12px 28px;
+    border-radius: 999px;
+    z-index: 9999;
+    font-weight: 600;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 98, 224, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }

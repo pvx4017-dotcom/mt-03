@@ -22,5 +22,18 @@ export const asset = (path: string) => {
   return `${ASSET_BASE}/${p}`
 }
 
+/** รูปแชท — object key ใน bucket uploads คือ support_chat/... (ไม่มี uploads/ นำหน้า) */
+export function chatImageAsset(relPath: string): string | null {
+  let raw = String(relPath ?? "").trim().replace(/^\/+/, "")
+  if (!raw) return null
+  if (raw.startsWith("CHATIMG:")) raw = raw.slice(8).trim()
+  if (/^https?:\/\//i.test(raw)) return raw
+  if (!/^uploads\/support_chat\//.test(raw) && !/^support_chat\//.test(raw)) return null
+
+  const bucketKey = raw.startsWith("uploads/") ? raw.slice("uploads/".length) : raw
+  if (!ASSET_BASE) return staticAsset(`uploads/${bucketKey}`)
+  return `${ASSET_BASE}/${bucketKey}`
+}
+
 export const formatPrice = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

@@ -9,6 +9,7 @@ import {
   AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
+import { chatImageAsset } from "@/lib/assets"
 import {
   adminAsset,
   adminPost,
@@ -354,9 +355,8 @@ export function AdminNotificationsPage() {
 
 function renderChatBody(msg: string, onImageClick?: (url: string) => void) {
   if (msg.startsWith("CHATIMG:")) {
-    const rel = msg.slice(8).trim()
-    if (/^uploads\/support_chat\//.test(rel)) {
-      const url = adminAsset(rel)
+    const url = chatImageAsset(msg)
+    if (url) {
       return (
         <img
           className="bubble-chat-img"
@@ -399,7 +399,7 @@ export function AdminChatPage() {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [text, setText] = useState("")
   const [search, setSearch] = useState("")
-  const [menu, setMenu] = useState<{ id: number; x: number; y: number; canEdit: boolean } | null>(null)
+  const [menu, setMenu] = useState<{ id: number; x: number; y: number; canEdit: boolean; isUserMessage?: boolean } | null>(null)
   const [editMsg, setEditMsg] = useState<{ id: number; text: string } | null>(null)
   const [deleteMsgId, setDeleteMsgId] = useState<number | null>(null)
   const [imageViewer, setImageViewer] = useState<string | null>(null)
@@ -591,15 +591,19 @@ export function AdminChatPage() {
         className={`admin-chat-row${isAdmin ? " admin-chat-row--out" : " admin-chat-row--in"}`}
       >
         {divider}
-        <div className={`admin-chat-bubble ${isAdmin ? "admin" : "user"}${isAdmin ? " with-actions" : ""}`}>
-          {isAdmin ? (
-            <button type="button" className="admin-chat-msg-actions" onClick={(e) => {
-              const rect = (e.target as HTMLElement).getBoundingClientRect()
-              setMenu({ id: Number(m.id), x: rect.left, y: rect.bottom + 4, canEdit: !raw.startsWith("CHATIMG:") })
-            }}>
-              <i className="fa-solid fa-ellipsis-vertical" />
-            </button>
-          ) : null}
+        <div className={`admin-chat-bubble ${isAdmin ? "admin" : "user"} with-actions`}>
+          <button type="button" className="admin-chat-msg-actions" onClick={(e) => {
+            const rect = (e.target as HTMLElement).getBoundingClientRect()
+            setMenu({
+              id: Number(m.id),
+              x: rect.left,
+              y: rect.bottom + 4,
+              canEdit: isAdmin && !raw.startsWith("CHATIMG:"),
+              isUserMessage: !isAdmin,
+            })
+          }}>
+            <i className="fa-solid fa-ellipsis-vertical" />
+          </button>
           {renderChatBody(raw, setImageViewer)}
           <time>{timeStr}</time>
         </div>

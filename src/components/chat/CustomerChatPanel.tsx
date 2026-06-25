@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { asset } from "@/lib/assets"
+import { asset, chatImageAsset } from "@/lib/assets"
 import {
   fetchChatMessages,
   sendChatMessage,
   uploadChatImage,
+  deleteChatMessage,
   type ChatMessageRow,
 } from "@/lib/customerApi"
 
@@ -59,9 +60,8 @@ function signRows(rows: ChatMessageRow[]) {
 
 function renderMessageBody(raw: string, onImageClick: (src: string) => void) {
   if (raw.startsWith("CHATIMG:")) {
-    const rel = raw.slice(8).trim()
-    if (/^uploads\/support_chat\/[A-Za-z0-9._]+$/.test(rel)) {
-      const src = asset(rel)
+    const src = chatImageAsset(raw)
+    if (src) {
       return (
         <img
           src={src}
@@ -77,6 +77,8 @@ function renderMessageBody(raw: string, onImageClick: (src: string) => void) {
   return raw
 }
 
+const LONG_PRESS_MS = 500
+
 type Props = {
   backTo: string
   title: string
@@ -91,10 +93,12 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
   const [message, setMessage] = useState("")
   const [hint, setHint] = useState("กำลังโหลด...")
   const [modalSrc, setModalSrc] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
   const sigRef = useRef("")
   const messagesRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const depositSentRef = useRef(false)
+  const longPressTimerRef = useRef<number | null>(null)
 
   const loadMessages = useCallback(async () => {
     try {
@@ -163,6 +167,44 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
     if (el) el.scrollTop = el.scrollHeight
   }, [rows])
 
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  const startLongPress = useCallback(
+    (messageId: number) => {
+      clearLongPressTimer()
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null
+        setDeleteTargetId(messageId)
+      }, LONG_PRESS_MS)
+    },
+    [clearLongPressTimer],
+  )
+
+  useEffect(() => {
+    if (deleteTargetId == null) return
+    const dismiss = (e: Event) => {
+      const el = e.target as HTMLElement | null
+      if (el?.closest(".msg-delete-btn") || el?.closest(".message-bubble.is-delete-active")) return
+      setDeleteTargetId(null)
+    }
+    const timer = window.setTimeout(() => {
+      document.addEventListener("click", dismiss)
+      document.addEventListener("touchstart", dismiss)
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener("click", dismiss)
+      document.removeEventListener("touchstart", dismiss)
+    }
+  }, [deleteTargetId])
+
+  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer])
+
   const handleSend = async () => {
     const text = message.trim()
     if (!text || !loggedIn) return
@@ -187,6 +229,20 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
       return
     }
     sigRef.current = ""
+    setDeleteTargetId(null)
+    await loadMessages()
+  }
+
+  const handleDelete = async (messageId: number) => {
+    if (!loggedIn || !messageId) return
+    if (!window.confirm("ลบข้อความนี้?")) return
+    const res = await deleteChatMessage(messageId)
+    if (!res.success) {
+      window.alert(res.message || "ลบไม่สำเร็จ")
+      return
+    }
+    sigRef.current = ""
+    setDeleteTargetId(null)
     await loadMessages()
   }
 
@@ -234,8 +290,48 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
         }
       }
       const isUser = String(row.sender_type) === "user"
+      const messageId = Number(row.id)
+      const showDelete = isUser && messageId > 0 && deleteTargetId === messageId
       messageNodes.push(
-        <div key={String(row.id ?? i)} className={`message-bubble ${isUser ? "msg-right" : "msg-left"}`}>
+        <div
+          key={String(row.id ?? i)}
+          className={`message-bubble ${isUser ? "msg-right" : "msg-left"}${showDelete ? " is-delete-active" : ""}`}
+          onMouseDown={
+            isUser && messageId > 0
+              ? () => startLongPress(messageId)
+              : undefined
+          }
+          onMouseUp={clearLongPressTimer}
+          onMouseLeave={clearLongPressTimer}
+          onTouchStart={
+            isUser && messageId > 0
+              ? () => startLongPress(messageId)
+              : undefined
+          }
+          onTouchEnd={clearLongPressTimer}
+          onTouchCancel={clearLongPressTimer}
+          onContextMenu={
+            isUser && messageId > 0
+              ? (e) => {
+                  e.preventDefault()
+                  setDeleteTargetId(messageId)
+                }
+              : undefined
+          }
+        >
+          {showDelete ? (
+            <button
+              type="button"
+              className="msg-delete-btn"
+              aria-label="ลบข้อความ"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(messageId)
+              }}
+            >
+              <i className="fa-solid fa-trash-can" />
+            </button>
+          ) : null}
           {renderMessageBody(String(row.message ?? ""), setModalSrc)}
           <span className="msg-time" title={fullDateTimeTitle(row.created_at)}>
             {formatTimeOnly(row.created_at)}
@@ -245,73 +341,55 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
     })
   }
 
-  const inputBar =
-    variant === "chat-detail" ? (
-      <footer className="chat-input-bar">
+  const inputBar = (
+    <footer className="chat-input-bar">
+      <div className="input-actions">
+        <i
+          className="fa-solid fa-image"
+          role="button"
+          aria-label="ส่งรูปภาพ"
+          style={{ opacity: inputDisabled ? 0.45 : 1, pointerEvents: inputDisabled ? "none" : "auto" }}
+          onClick={() => fileRef.current?.click()}
+        />
         <input
-          type="text"
-          placeholder="พิมพ์ข้อความ..."
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ""
+            if (file) handleImage(file)
+          }}
+        />
+      </div>
+      <div className="input-field-wrap">
+        <textarea
+          rows={1}
+          placeholder="พิมพ์ข้อความที่นี่..."
+          title="Enter ส่งข้อความ · Shift+Enter ขึ้นบรรทัดใหม่"
           value={message}
           disabled={inputDisabled}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault()
               handleSend()
             }
           }}
         />
-        <button type="button" className="send-btn" disabled={inputDisabled} onClick={handleSend}>
-          <i className="fa-solid fa-paper-plane" />
-        </button>
-      </footer>
-    ) : (
-      <footer className="chat-input-bar">
-        <div className="input-actions">
-          <i
-            className="fa-solid fa-image"
-            role="button"
-            style={{ opacity: inputDisabled ? 0.45 : 1, pointerEvents: inputDisabled ? "none" : "auto" }}
-            onClick={() => fileRef.current?.click()}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ""
-              if (file) handleImage(file)
-            }}
-          />
-        </div>
-        <div className="input-field-wrap">
-          <textarea
-            rows={1}
-            placeholder="พิมพ์ข้อความที่นี่..."
-            title="Enter ส่งข้อความ · Shift+Enter ขึ้นบรรทัดใหม่"
-            value={message}
-            disabled={inputDisabled}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-          />
-        </div>
-        <div
-          className="send-btn"
-          role="button"
-          style={{ opacity: inputDisabled ? 0.45 : 1, pointerEvents: inputDisabled ? "none" : "auto" }}
-          onClick={handleSend}
-        >
-          <i className="fa-solid fa-paper-plane" />
-        </div>
-      </footer>
-    )
+      </div>
+      <div
+        className="send-btn"
+        role="button"
+        aria-label="ส่งข้อความ"
+        style={{ opacity: inputDisabled ? 0.45 : 1, pointerEvents: inputDisabled ? "none" : "auto" }}
+        onClick={handleSend}
+      >
+        <i className="fa-solid fa-paper-plane" />
+      </div>
+    </footer>
+  )
 
   return (
     <div id="app">

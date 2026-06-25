@@ -18,13 +18,12 @@ html {
   min-height: 100vh;
 }
 
-body.page-home {
-  overflow-y: auto;
-  height: auto;
-  min-height: 100vh;
+body.page-customer {
+  background: var(--app-bg, #e8ecf1);
 }
 
-body.page-home #app {
+body.page-customer #app,
+body.page-customer .home-shell {
   display: block;
   height: auto;
   min-height: 100vh;
@@ -70,8 +69,8 @@ body.page-home #app {
   display: block;
 }
 
-.tabs-container .tab.active {
-  background: #1e3a8a;
+body.page-customer .tabs-container .tab.active {
+  background: #0062e0;
   color: #ffffff;
 }
 

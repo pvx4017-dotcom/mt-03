@@ -107,7 +107,7 @@ export default function CartPage() {
   }
 
   return (
-    <div id="app">
+    <div id="app" className="app-shell">
       <header className="cart-header">
         <h2>ตะกร้าสินค้า</h2>
         <Link to="/orders" className="cart-history-top-btn" aria-label="ประวัติ">
@@ -209,8 +209,10 @@ export default function CartPage() {
         </>
       )}
 
-      <Footer variant="dark" />
-      <div className="spacer" />
+      <div className="app-footer-zone">
+        <Footer variant="dark" />
+        <div className="spacer" />
+      </div>
       <BottomNav />
 
       <div

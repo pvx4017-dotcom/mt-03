@@ -506,7 +506,7 @@ body.page-home {
 }
 
 .visit-shop-btn {
- background: #000;
+ background: linear-gradient(135deg, #0062e0, #0052c4);
  color: var(--white);
  border: none;
  padding: 8px 16px;
@@ -520,6 +520,7 @@ body.page-home {
  white-space: nowrap;
  line-height: 1;
  flex-shrink: 0;
+ box-shadow: 0 4px 12px rgba(0, 98, 224, 0.25);
 }
 
 .shop-stats {

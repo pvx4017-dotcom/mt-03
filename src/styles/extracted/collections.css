@@ -98,7 +98,7 @@
         .badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 999px; padding: 2px 8px; font-size: 11px; }
         .visit {
             text-decoration: none;
-            background: #111827;
+            background: linear-gradient(135deg, #0062e0, #0052c4);
             color: #fff;
             border-radius: 999px;
             padding: 7px 12px;
@@ -112,7 +112,7 @@
             border: none;
             border-radius: 0;
             background: transparent;
-            color: #16a34a;
+            color: #0062e0;
             font-size: 26px;
             line-height: 1;
             cursor: pointer;

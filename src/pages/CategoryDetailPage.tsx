@@ -36,9 +36,9 @@ export default function CategoryDetailPage() {
   const displayProducts = items
 
   return (
-    <div id="app" className="fade-in">
+    <div id="app" className="app-shell fade-in">
       <PageHeader title={catParam || "หมวดหมู่สินค้า"} backTo="/" />
-      <main style={{ padding: "12px 12px 80px", background: "#f8f9fa" }}>
+      <main className="category-detail-main">
         <div className="product-feed home-product-feed">
           {displayProducts.map((p) => (
             <ProductCard key={p.id} product={p} variant="feed" />

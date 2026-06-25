@@ -12,8 +12,6 @@ import {
   updateMirrorProduct,
   type StoreProductRow,
 } from "@/lib/customerApi"
-import "@/styles/extracted/collections.css"
-import "@/styles/store-mobile.css"
 
 function formatCount(v: unknown) {
   const n = Number(v ?? 0)

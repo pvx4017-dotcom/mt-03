@@ -151,6 +151,34 @@
             word-break: break-word;
         }
 
+        .msg-delete-btn {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.72);
+            color: #fff;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            animation: msg-delete-pop 0.15s ease-out;
+        }
+
+        @keyframes msg-delete-pop {
+            from { transform: scale(0.6); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .msg-delete-btn:active {
+            transform: scale(0.94);
+        }
+
         /* à¸à¸±à¹ˆà¸‡à¹à¸­à¸”à¸¡à¸´à¸™ (à¸‹à¹‰à¸²à¸¢) */
         .msg-left {
             align-self: flex-start;
@@ -163,9 +191,11 @@
         /* à¸à¸±à¹ˆà¸‡à¸œà¸¹à¹‰à¹ƒà¸Šà¹‰ (à¸‚à¸§à¸²) */
         .msg-right {
             align-self: flex-end;
-            background: linear-gradient(135deg, #001529 0%, #003366 100%);
+            background: linear-gradient(135deg, #0062e0 0%, #0052c4 100%);
             color: #fff;
             border-radius: 18px 18px 4px 18px;
+            -webkit-touch-callout: none;
+            user-select: none;
         }
 
         .msg-time {
@@ -289,7 +319,7 @@
         }
 
         .send-btn {
-            color: #003366;
+            color: #0062e0;
             font-size: 20px;
             cursor: pointer;
             width: 36px;
@@ -301,7 +331,7 @@
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            background: #f0f7ff;
+            background: #e8f4ff;
             transition: transform 0.2s;
         }
 
@@ -366,7 +396,7 @@
             padding: 32px; text-align: center; color: #444; gap: 12px; background: #f8fbff;
         }
         .not-logged-in a {
-            display: inline-block; margin-top: 8px; padding: 10px 20px; background: #001529; color: #fff;
+            display: inline-block; margin-top: 8px; padding: 10px 20px; background: linear-gradient(135deg, #0062e0, #0052c4); color: #fff;
             text-decoration: none; border-radius: 10px; font-size: 14px; font-weight: 500;
         }
         .chat-load-hint { text-align: center; color: #888; font-size: 12px; padding: 20px; }

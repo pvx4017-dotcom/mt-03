@@ -281,7 +281,7 @@ body.page-cart #app {
     height: 36px;
     border: none;
     border-radius: 999px;
-    background: #0a63f6;
+    background: linear-gradient(135deg, #0062e0, #0052c4);
     color: #fff;
     font-family: var(--font-thai);
     font-size: 12px;
@@ -380,7 +380,7 @@ body.page-cart #app {
     height: 38px;
     border: none;
     border-radius: 999px;
-    background: #0a63f6;
+    background: linear-gradient(135deg, #0062e0, #0052c4);
     color: #fff;
     font-family: var(--font-thai);
     font-size: 13px;

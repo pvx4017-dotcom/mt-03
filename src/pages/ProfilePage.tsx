@@ -61,7 +61,7 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div id="app">
+    <div id="app" className="app-shell">
       <header className="profile-hero">
         <div className="hero-overlay" />
         <div className="hero-top-bar">
@@ -191,7 +191,9 @@ export default function ProfilePage() {
         </section>
       </main>
 
-      <Footer variant="dark" />
+      <div className="app-footer-zone">
+        <Footer variant="dark" />
+      </div>
       <BottomNav />
 
       <div
@@ -235,20 +237,7 @@ export default function ProfilePage() {
       </div>
 
       {storeToast ? (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "#d97706",
-            color: "#fff",
-            padding: "12px 28px",
-            borderRadius: 999,
-            zIndex: 9999,
-            fontWeight: 600,
-          }}
-        >
+        <div className="profile-store-toast">
           ⚠ กรุณาเปิดร้านก่อน
         </div>
       ) : null}

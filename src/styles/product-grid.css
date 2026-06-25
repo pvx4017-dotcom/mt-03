@@ -55,8 +55,8 @@
 .feed-card:hover,
 .recommend-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
-  border-color: #d0d9e4;
+  box-shadow: 0 8px 22px rgba(0, 98, 224, 0.1);
+  border-color: rgba(0, 98, 224, 0.2);
 }
 
 .feed-card--pro:hover .product-card-media img,

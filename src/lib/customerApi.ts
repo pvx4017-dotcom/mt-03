@@ -335,6 +335,11 @@ export async function uploadChatImage(file: File) {
   return db.dbUploadChatImage(file)
 }
 
+export async function deleteChatMessage(messageId: number) {
+  ensureConfigured()
+  return db.dbDeleteChatMessage(messageId)
+}
+
 export async function fetchMyReviews() {
   ensureConfigured()
   return handleAdminGet(API.reviewsList) as Promise<{ success: boolean; items?: ReviewItem[]; message?: string }>

@@ -23,18 +23,6 @@ import {
   type FollowShopRow,
   type StoreProductRow,
 } from "@/lib/customerApi"
-import "@/styles/extracted/checkin.css"
-import "@/styles/extracted/coupon.css"
-import "@/styles/extracted/reviews.css"
-import "@/styles/extracted/help-center.css"
-import "@/styles/extracted/chat-detail.css"
-import "@/styles/extracted/open-store.css"
-import "@/styles/store-mobile.css"
-import "@/styles/extracted/help-manual.css"
-import "@/styles/extracted/following-shops.css"
-import "@/styles/extracted/collections.css"
-import "@/styles/extracted/feedback.css"
-import "@/styles/extracted/about.css"
 
 export function CheckinPage() {
   useBodyClass("page-checkin")
@@ -276,7 +264,7 @@ export function ReviewsPage() {
                       </div>
                       <button
                         type="button"
-                        className="admin-submit-btn"
+                        className="submit-btn"
                         style={{ marginTop: 10, width: "100%" }}
                         disabled={submittingId === orderId}
                         onClick={() => submitReview(orderId)}

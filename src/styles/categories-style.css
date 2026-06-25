@@ -1,5 +1,5 @@
 :root {
-    --primary-blue: #0084ff;
+    --primary-blue: #0062E0;
     --bg-gray: #f7f8fa;
     --text-black: #333333;
     --text-muted: #666666;
@@ -77,12 +77,30 @@ body.page-categories {
 }
 
 .filter-tab.active {
-    font-weight: bold;
+    font-weight: 700;
+    color: var(--primary-blue);
+    position: relative;
+}
+
+.filter-tab.active::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary-blue);
 }
 
 .filter-tab i {
     font-size: 10px;
-    color: #ccc;
+    color: #94a3b8;
+}
+
+.filter-tab.active i {
+    color: var(--primary-blue);
 }
 
 /* Product Grid Feed */
@@ -524,7 +542,7 @@ body.page-categories {
     bottom: 80px;
     width: 40px;
     height: 40px;
-    background: #1a1a1a;
+    background: linear-gradient(135deg, #0062e0, #0052c4);
     color: #fff;
     border: none;
     border-radius: 50%; /* Changed to circle */

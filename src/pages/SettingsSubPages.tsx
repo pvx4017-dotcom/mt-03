@@ -46,17 +46,6 @@ const fieldStyle: React.CSSProperties = {
   boxSizing: "border-box",
 }
 
-const btnStyle: React.CSSProperties = {
-  width: "100%",
-  marginTop: 20,
-  padding: 14,
-  background: "#2563eb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 24,
-  fontFamily: "Kanit",
-  fontSize: 15,
-}
 
 export function VerificationPage() {
   const { refreshUser } = useApp()
@@ -152,7 +141,7 @@ export function VerificationPage() {
         ))}
       </div>
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
-      <button type="button" style={btnStyle} disabled={busy} onClick={submit}>
+      <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
         {busy ? "กำลังส่ง..." : "ส่งคำขอยืนยันตัวตน"}
       </button>
     </SettingsFormPage>
@@ -239,7 +228,7 @@ export function LinkAccountPage() {
         </label>
       </div>
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
-      <button type="button" style={btnStyle} disabled={busy} onClick={submit}>
+      <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
         {busy ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
       </button>
     </SettingsFormPage>
@@ -303,7 +292,7 @@ export function ChangePasswordPage() {
         />
       </div>
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
-      <button type="button" style={btnStyle} disabled={busy} onClick={submit}>
+      <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
         {busy ? "กำลังบันทึก..." : "เปลี่ยนรหัสผ่าน"}
       </button>
     </SettingsFormPage>
@@ -361,7 +350,7 @@ export function WithdrawPasswordPage() {
         />
       </div>
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
-      <button type="button" style={btnStyle} disabled={busy} onClick={submit}>
+      <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
         {busy ? "กำลังบันทึก..." : "บันทึกรหัสการถอน"}
       </button>
     </SettingsFormPage>

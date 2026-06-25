@@ -1,10 +1,10 @@
 :root {
-  --login-bg: #f4f6fb;
+  --login-bg: #e8ecf1;
   --login-text: #111827;
   --login-muted: #6b7280;
   --login-line: #dbe3ef;
-  --login-primary: #5d95ea;
-  --login-primary-dark: #3e7de0;
+  --login-primary: #0062e0;
+  --login-primary-dark: #0052c4;
   --login-white: #ffffff;
 }
 
@@ -87,7 +87,7 @@ body.page-login {
 }
 
 .login-page .tab-btn.active {
-  background: #111;
+  background: #0062e0;
   color: #fff;
   font-weight: 500;
 }

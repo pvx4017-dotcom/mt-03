@@ -17,7 +17,6 @@ import {
 import type { Product } from "@/data/products"
 import { useApp } from "@/context/AppContext"
 import { useBodyClass } from "@/hooks/useBodyClass"
-import "@/styles/extracted/product-detail.css"
 
 type TabKey = "product" | "review" | "detail"
 

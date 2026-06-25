@@ -52,7 +52,7 @@ export default function CategoriesPage() {
       : filteredProducts
 
   return (
-    <div id="app">
+    <div id="app" className="app-shell">
       <CategorySidebar />
       <HeaderRedesign title={categoryLabel} backTo="/" />
 
@@ -85,9 +85,11 @@ export default function CategoriesPage() {
         <ProductFeed products={displayProducts} />
       </div>
 
-      <Footer />
-      <ScrollTopButton />
-      <div className="spacer" />
+      <div className="app-footer-zone">
+        <Footer />
+        <ScrollTopButton />
+        <div className="spacer" />
+      </div>
       <BottomNav />
     </div>
   )

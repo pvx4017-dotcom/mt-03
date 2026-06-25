@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase"
-import { clearSession, getSessionUserId, requireUserId, setSession } from "@/lib/session"
+import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 
 type Result<T> = { success: boolean; message?: string } & T
 
@@ -595,13 +595,43 @@ export async function dbSendChatMessage(text: string, userId?: number) {
 export async function dbUploadChatImage(file: File) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
-  const path = `support_chat/${uid}_${Date.now()}_${file.name}`
+  const path = `support_chat/${uid}_${Date.now()}_${sanitizeUploadFileName(file.name)}`
   try {
     await uploadFile("uploads", path, file)
   } catch {
     return fail("อัปโหลดไม่สำเร็จ — สร้าง bucket uploads ใน Supabase Storage")
   }
   return dbSendChatMessage(`CHATIMG:uploads/${path}`)
+}
+
+/** ลบข้อความ — ลูกค้าลบได้เฉพาะข้อความตัวเอง, แอดมินลบได้ทุกข้อความในห้อง */
+export async function dbDeleteChatMessage(
+  messageId: number,
+  opts?: { threadUserId?: number; asAdmin?: boolean },
+) {
+  const sessionUid = getSessionUserId()
+  if (!sessionUid) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  const { data: msg, error: fetchErr } = await sb
+    .from("support_chat_messages")
+    .select("id, user_id, sender_type")
+    .eq("id", messageId)
+    .maybeSingle()
+  if (fetchErr || !msg) return fail("ไม่พบข้อความ")
+
+  const threadUid = Number(msg.user_id)
+  const asAdmin = opts?.asAdmin ?? false
+
+  if (asAdmin) {
+    if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์")
+    if (opts?.threadUserId && threadUid !== opts.threadUserId) return fail("ไม่มีสิทธิ์")
+  } else {
+    if (threadUid !== sessionUid || msg.sender_type !== "user") return fail("ลบข้อความนี้ไม่ได้")
+  }
+
+  const { error } = await sb.from("support_chat_messages").delete().eq("id", messageId)
+  if (error) return fail(error.message)
+  return ok()
 }
 
 export async function dbFetchChatThreads() {
