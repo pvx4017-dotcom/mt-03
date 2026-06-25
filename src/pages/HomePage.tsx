@@ -12,7 +12,6 @@ import { MainHeader } from "@/components/layout/MainHeader"
 import { CategorySidebar } from "@/components/layout/CategorySidebar"
 import { LanguageMenu } from "@/components/layout/LanguageMenu"
 import { BottomNav } from "@/components/layout/BottomNav"
-import { LoginModal } from "@/components/layout/LoginModal"
 import { ScrollTopButton } from "@/components/layout/ScrollTopButton"
 import { SectionHeader } from "@/components/home/SectionHeader"
 import { ProductSkeleton } from "@/components/home/ProductSkeleton"
@@ -419,7 +418,6 @@ export default function HomePage() {
 
       <ScrollTopButton />
       <BottomNav />
-      <LoginModal />
     </div>
   )
 }

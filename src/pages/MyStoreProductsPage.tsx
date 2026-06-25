@@ -189,7 +189,7 @@ export default function MyStoreProductsPage() {
           ) : (
             filtered.map((row) => {
               const id = Number(row.id ?? 0)
-              const productTo = `/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}`
+              const productTo = `/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}&source=mirror`
               return (
                 <article key={id} className="my-store-product-card">
                   <Link to={productTo} className="my-store-product-media">

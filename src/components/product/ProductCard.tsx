@@ -5,8 +5,9 @@ import { formatCompactCount, trustScoreToRating } from "@/lib/marketplaceApi"
 
 type Props = {
   product: Product
-  variant?: "feed" | "recommend" | "slider"
+  variant?: "feed" | "recommend" | "slider" | "shop"
   showShop?: boolean
+  linkTo?: string
 }
 
 function ProductImage({ src, alt }: { src: string; alt: string }) {
@@ -141,8 +142,27 @@ function ProductCardBodyContent({
   )
 }
 
-export function ProductCard({ product, variant = "feed", showShop = true }: Props) {
+export function ProductCard({ product, variant = "feed", showShop = true, linkTo }: Props) {
   const priceText = formatPrice(product.price)
+  const href = linkTo ?? `/product/${product.id}`
+
+  if (variant === "shop") {
+    return (
+      <Link to={href} className="product-card-link shop-product-link">
+        <div className="feed-card feed-card--pro shop-product-card">
+          <div className="feed-img-container product-card-media shop-product-card__media">
+            <ProductCardBadges product={product} />
+            <ProductImage src={product.image} alt={product.title} />
+          </div>
+          <div className="product-card-body feed-info shop-product-card__body">
+            <div className="feed-title shop-product-card__title">{product.title}</div>
+            <ProductCardMeta product={product} compact />
+            <div className="feed-price shop-product-card__price">{priceText}</div>
+          </div>
+        </div>
+      </Link>
+    )
+  }
 
   if (variant === "slider") {
     return (

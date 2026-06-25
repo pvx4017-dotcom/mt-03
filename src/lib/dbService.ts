@@ -707,6 +707,39 @@ export async function dbResetChatReadState(userId: number) {
 
 // ─── Shop follows ───────────────────────────────────────────────────────────
 
+export async function dbFetchCustomerStoreByShop(shopName: string) {
+  const target = String(shopName ?? "").trim()
+  if (!target) return null
+  const sb = getSupabase()
+  const { data: exact } = await sb.from("customer_stores").select("*").eq("shop_name", target).maybeSingle()
+  if (exact) return exact
+  const { data: rows } = await sb.from("customer_stores").select("*")
+  const norm = target
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+  return (
+    (rows ?? []).find((row) => {
+      const name = String(row.shop_name ?? "")
+        .normalize("NFKD")
+        .replace(/\p{M}/gu, "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, "")
+      return name === norm || name.includes(norm) || norm.includes(name)
+    }) ?? null
+  )
+}
+
+export async function dbFetchCustomerStoreByUserId(userId: number) {
+  if (!userId) return null
+  const sb = getSupabase()
+  const { data } = await sb.from("customer_stores").select("*").eq("user_id", userId).maybeSingle()
+  return data
+}
+
 export async function dbFetchFollowingShops() {
   const uid = requireUserId()
   if (!uid) return []
@@ -773,8 +806,11 @@ export async function dbToggleFollow(payload: {
 
 export async function dbFetchOtherStoreProducts() {
   const sb = getSupabase()
-  const { data } = await sb.from("store_products").select("*").order("id")
-  return (data ?? []).map((r) => ({ ...r, catalog_source: "admin" }))
+  const uid = getSessionUserId()
+  let q = sb.from("customer_store_products_mirror").select("*").order("id", { ascending: false })
+  if (uid) q = q.neq("user_id", uid)
+  const { data } = await q
+  return (data ?? []).map((r) => ({ ...r, catalog_source: "mirror" }))
 }
 
 export async function dbFetchCustomerShopProducts(userId?: number) {

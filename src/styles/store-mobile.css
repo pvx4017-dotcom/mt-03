@@ -512,7 +512,7 @@ body.page-my-store .my-store-act.delete {
   }
 
   body.page-shop-detail .follow-btn-wrap.is-following .follow-icon {
-    color: #dc2626;
+    color: #ff4d4f !important;
   }
 
   body.page-shop-detail .follow-icon {
@@ -587,6 +587,23 @@ body.page-my-store .my-store-act.delete {
   body.page-shop-detail .product-grid {
     padding: 12px max(12px, env(safe-area-inset-left)) calc(16px + var(--store-safe-bottom)) max(12px, env(safe-area-inset-right));
     gap: 10px;
+  }
+
+  body.page-shop-detail .shop-product-grid {
+    padding: 12px max(12px, env(safe-area-inset-left)) calc(20px + var(--store-safe-bottom)) max(12px, env(safe-area-inset-right));
+    gap: 10px;
+  }
+
+  body.page-shop-detail .shop-product-card__media {
+    padding: 8px;
+  }
+
+  body.page-shop-detail .shop-product-card__title {
+    font-size: 11px;
+  }
+
+  body.page-shop-detail .shop-product-card__price {
+    font-size: 14px;
   }
 
   body.page-shop-detail .product-img-wrap {

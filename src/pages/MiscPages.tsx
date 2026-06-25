@@ -23,6 +23,7 @@ import {
   type FollowShopRow,
   type StoreProductRow,
 } from "@/lib/customerApi"
+import { shopPath } from "@/lib/marketplaceApi"
 
 export function CheckinPage() {
   useBodyClass("page-checkin")
@@ -661,7 +662,7 @@ export function FollowingShopsPage() {
                         </button>
                       </div>
                     </div>
-                    <Link className="visit" to={`/shop/${encodeURIComponent(name)}`}>
+                    <Link className="visit" to={shopPath(name)}>
                       เข้าชมร้านค้า
                     </Link>
                   </div>
@@ -893,7 +894,7 @@ export function CollectionsPage() {
                     <div className="row-actions">
                       <Link
                         className="visit"
-                        to={`/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}`}
+                        to={`/product/${id}?shop=${encodeURIComponent(String(row.shop_name ?? ""))}&source=mirror`}
                       >
                         ดูสินค้า
                       </Link>

@@ -35,6 +35,7 @@ export type ApiProduct = {
   view_count?: number
   sales_volume?: number
   trust_score?: number | string
+  user_id?: number
 }
 
 export function getProductImagePaths(row: Pick<ApiProduct, "product_image" | "product_images">): string[] {
@@ -152,6 +153,106 @@ export async function fetchProducts(): Promise<ApiProduct[]> {
   return (await dbFetchProducts()) as ApiProduct[]
 }
 
-export function shopPath(name: string): string {
-  return `/shop/${encodeURIComponent(name.trim())}`
+export async function fetchMirrorProducts(): Promise<ApiProduct[]> {
+  if (!isSupabaseConfigured()) return []
+  const { dbFetchAllCustomerShopProducts } = await import("@/lib/dbService")
+  return (await dbFetchAllCustomerShopProducts()) as ApiProduct[]
+}
+
+export async function fetchShopsForLookup(): Promise<ApiShop[]> {
+  if (!isSupabaseConfigured()) return []
+  const { dbFetchShops } = await import("@/lib/dbService")
+  const [recommended, general] = await Promise.all([dbFetchShops(true), dbFetchShops(false)])
+  const byName = new Map<string, ApiShop>()
+  for (const row of [...recommended, ...general]) {
+    const name = String(row.shop_name ?? "").trim()
+    if (name) byName.set(name, row as ApiShop)
+  }
+  return [...byName.values()]
+}
+
+export function parseVariantValues(raw: string): string[] {
+  return String(raw ?? "")
+    .split(/[;,|]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+export function resolveProductForDetail(
+  productId: number,
+  adminRows: ApiProduct[],
+  mirrorRows: ApiProduct[],
+  options: { source?: string; shop?: string },
+): { product: ApiProduct | null; catalogSource: "admin" | "mirror" } {
+  const findById = (rows: ApiProduct[], id: number) =>
+    rows.find((row) => Number(row.id) === id) ?? null
+
+  const source = String(options.source ?? "").trim().toLowerCase()
+  const shop = String(options.shop ?? "").trim()
+
+  if (source === "mirror") {
+    const mirror = findById(mirrorRows, productId)
+    if (mirror) return { product: mirror, catalogSource: "mirror" }
+    const admin = findById(adminRows, productId)
+    return { product: admin, catalogSource: "admin" }
+  }
+  if (source === "admin") {
+    const admin = findById(adminRows, productId)
+    if (admin) return { product: admin, catalogSource: "admin" }
+    const mirror = findById(mirrorRows, productId)
+    return { product: mirror, catalogSource: "mirror" }
+  }
+  if (shop) {
+    const adminMatch = adminRows.find(
+      (row) => Number(row.id) === productId && String(row.shop_name ?? "").trim() === shop,
+    )
+    if (adminMatch) return { product: adminMatch, catalogSource: "admin" }
+    const mirrorMatch = mirrorRows.find(
+      (row) => Number(row.id) === productId && String(row.shop_name ?? "").trim() === shop,
+    )
+    if (mirrorMatch) return { product: mirrorMatch, catalogSource: "mirror" }
+  }
+  const admin = findById(adminRows, productId)
+  if (admin) return { product: admin, catalogSource: "admin" }
+  const mirror = findById(mirrorRows, productId)
+  return { product: mirror, catalogSource: "mirror" }
+}
+
+export function normalizeShopName(value: string): string {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\u200B/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .replace(/\s+/g, "")
+}
+
+export async function fetchCustomerStoreByShop(shopName: string) {
+  if (!isSupabaseConfigured()) return null
+  const { dbFetchCustomerStoreByShop } = await import("@/lib/dbService")
+  return dbFetchCustomerStoreByShop(shopName)
+}
+
+export function shopPath(name: string, options?: { source?: string }): string {
+  const shop = name.trim()
+  const params = new URLSearchParams()
+  const source = String(options?.source ?? "").trim().toLowerCase()
+  if (source) params.set("source", source)
+  const qs = params.toString()
+  return `/shop/${encodeURIComponent(shop)}${qs ? `?${qs}` : ""}`
+}
+
+export function productPath(
+  id: string | number,
+  options?: { shop?: string; source?: string },
+): string {
+  const params = new URLSearchParams()
+  const shop = String(options?.shop ?? "").trim()
+  const source = String(options?.source ?? "").trim().toLowerCase()
+  if (shop) params.set("shop", shop)
+  if (source) params.set("source", source)
+  const qs = params.toString()
+  return `/product/${id}${qs ? `?${qs}` : ""}`
 }
