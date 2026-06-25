@@ -12,6 +12,7 @@ import {
   parseCustomerImage,
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
+import { useApp } from "@/context/AppContext"
 import { BottomNav } from "@/components/layout/BottomNav"
 import "@/styles/order-list-style.css"
 
@@ -215,10 +216,19 @@ export function OrderHubPage({
   emptyDesc: string
 }) {
   useBodyClass("page-orders")
+  const { requireLogin } = useApp()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
+  const [needLogin, setNeedLogin] = useState(false)
 
   const load = useCallback(async () => {
+    if (!requireLogin()) {
+      setNeedLogin(true)
+      setRows([])
+      setLoading(false)
+      return
+    }
+    setNeedLogin(false)
     setLoading(true)
     try {
       setRows(await loadOrders())
@@ -227,7 +237,7 @@ export function OrderHubPage({
     } finally {
       setLoading(false)
     }
-  }, [loadOrders])
+  }, [loadOrders, requireLogin])
 
   useEffect(() => {
     load()
@@ -253,7 +263,18 @@ export function OrderHubPage({
             </Link>
           ))}
         </div>
-        {loading ? (
+        {needLogin ? (
+          <div className="empty-state" style={{ display: "block" }}>
+            <div className="empty-icon-wrap">
+              <i className="fa-regular fa-user" />
+            </div>
+            <h3 className="empty-title">กรุณาเข้าสู่ระบบ</h3>
+            <p className="empty-desc">เข้าสู่ระบบเพื่อดูคำสั่งซื้อของคุณ</p>
+            <Link to="/login" className="see-all" style={{ display: "inline-block", marginTop: 12 }}>
+              ไปเข้าสู่ระบบ
+            </Link>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>กำลังโหลด...</div>
         ) : rows.length === 0 ? (
           <div className="empty-state" style={{ display: "block" }}>

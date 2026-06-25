@@ -29,6 +29,7 @@ import "./styles/extracted/shop-detail.css"
 import "./styles/extracted/settings.css"
 import "./styles/extracted/address.css"
 import "./styles/extracted/notifications.css"
+import "./styles/product-grid.css"
 import "./index.css"
 import App from "./App.tsx"
 

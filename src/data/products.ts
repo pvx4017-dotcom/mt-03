@@ -5,6 +5,10 @@ export type Product = {
   image: string
   category: string
   shopName?: string
+  reviewCount?: number
+  viewCount?: number
+  salesVolume?: number
+  trustScore?: number
 }
 
 export const popularSearches = [

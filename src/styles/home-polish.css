@@ -186,10 +186,9 @@ body.page-home {
 }
 
 .home-catalog-section .feed-info,
-.recommend-card--pro .recommend-info {
-  grid-template-rows: auto auto auto;
-  row-gap: 3px;
-  padding: 8px 10px 10px;
+.recommend-card--pro .recommend-info,
+.recommend-card--pro .product-card-body {
+  padding: 10px 10px 12px;
 }
 
 .home-catalog-section .feed-price,

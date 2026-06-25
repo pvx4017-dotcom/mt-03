@@ -6,11 +6,30 @@ import "@/styles/extracted/settings.css"
 
 export default function SettingsPage() {
   useBodyClass("page-settings")
-  const { logout, user, refreshUser } = useApp()
+  const { logout, user, refreshUser, isLoggedIn } = useApp()
 
   useEffect(() => {
-    refreshUser()
-  }, [refreshUser])
+    if (isLoggedIn) refreshUser()
+  }, [isLoggedIn, refreshUser])
+
+  if (!isLoggedIn) {
+    return (
+      <div className="settings-container">
+        <nav className="top-navbar">
+          <Link to="/profile" className="back-link">
+            <i className="fa-solid fa-chevron-left" />
+          </Link>
+          <div className="page-title">การตั้งค่า</div>
+        </nav>
+        <div className="settings-group" style={{ padding: 24, textAlign: "center" }}>
+          <p style={{ color: "#65676b", marginBottom: 16 }}>กรุณาเข้าสู่ระบบเพื่อใช้งานการตั้งค่า</p>
+          <Link to="/login" style={{ color: "#2563eb", fontWeight: 600, textDecoration: "none" }}>
+            ไปเข้าสู่ระบบ
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="settings-container">

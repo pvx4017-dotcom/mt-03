@@ -1,23 +1,31 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { asset, formatPrice } from "@/lib/assets"
+import { asset, formatPrice, staticAsset } from "@/lib/assets"
 import { createProductOrder } from "@/lib/customerApi"
 import {
   fetchProducts,
+  fetchShops,
+  formatNumberText,
   getPrimaryImagePath,
+  getProductImageUrls,
   mapApiProduct,
+  mapApiShopImage,
   shopPath,
   type ApiProduct,
+  type ApiShop,
 } from "@/lib/marketplaceApi"
 import type { Product } from "@/data/products"
 import { useApp } from "@/context/AppContext"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import "@/styles/extracted/product-detail.css"
 
+type TabKey = "product" | "review" | "detail"
+
 export default function ProductDetailPage() {
   useBodyClass("page-product-detail")
   const { id } = useParams()
   const { requireLogin, refreshCartCount } = useApp()
+  const sliderRef = useRef<HTMLDivElement>(null)
   const [product, setProduct] = useState<Product>({
     id: "",
     title: "กำลังโหลด…",
@@ -26,6 +34,10 @@ export default function ProductDetailPage() {
     category: "",
   })
   const [rawProduct, setRawProduct] = useState<ApiProduct | null>(null)
+  const [images, setImages] = useState<string[]>([asset("logo/shop logo.webp")])
+  const [shopMeta, setShopMeta] = useState<ApiShop | null>(null)
+  const [activeSlide, setActiveSlide] = useState(0)
+  const [activeTab, setActiveTab] = useState<TabKey>("product")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [qty, setQty] = useState(1)
   const [notice, setNotice] = useState<string | null>(null)
@@ -33,13 +45,15 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     let cancelled = false
-    fetchProducts().then((rows) => {
+    Promise.all([fetchProducts(), fetchShops()]).then(([rows, shops]) => {
       if (cancelled) return
       const found = rows.find((row) => String(row.id) === id)
-      if (found) {
-        setProduct(mapApiProduct(found))
-        setRawProduct(found)
-      }
+      if (!found) return
+      setProduct(mapApiProduct(found))
+      setRawProduct(found)
+      setImages(getProductImageUrls(found))
+      const shop = shops.find((s) => s.shop_name === found.shop_name)
+      if (shop) setShopMeta(shop)
     })
     return () => {
       cancelled = true
@@ -47,11 +61,28 @@ export default function ProductDetailPage() {
   }, [id])
 
   const shopName = product.shopName ?? "ร้านค้า"
+  const description =
+    String(rawProduct?.product_description ?? "").trim() || product.title
+  const stock = Math.max(0, Number(rawProduct?.product_stock ?? 99))
+  const sizes = String(rawProduct?.product_sizes ?? "").trim()
+  const colors = String(rawProduct?.product_colors ?? "").trim()
 
   const showNotice = (msg: string) => {
     setNotice(msg)
     setTimeout(() => setNotice(null), 1800)
   }
+
+  const scrollToSection = (tab: TabKey, sectionId: string) => {
+    setActiveTab(tab)
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const onSliderScroll = useCallback(() => {
+    const el = sliderRef.current
+    if (!el || !el.clientWidth) return
+    const index = Math.round(el.scrollLeft / el.clientWidth)
+    setActiveSlide(Math.max(0, Math.min(index, images.length - 1)))
+  }, [images.length])
 
   const openDrawer = () => {
     if (!requireLogin()) return
@@ -89,147 +120,200 @@ export default function ProductDetailPage() {
     }
   }
 
+  const priceParts = formatPrice(product.price)
+  const priceValue = priceParts.replace(/^\$/, "")
+
   return (
-    <>
+    <div className="product-detail-shell">
       <header className="product-header">
-        <Link to="/" className="back-btn">
+        <Link to="/" className="back-btn" aria-label="กลับ">
           <i className="fa-solid fa-chevron-left" />
         </Link>
         <div className="tab-nav">
-          <a href="#imageSlider" className="tab-item active">
+          <button
+            type="button"
+            className={`tab-item${activeTab === "product" ? " active" : ""}`}
+            onClick={() => scrollToSection("product", "imageSlider")}
+          >
             สินค้า
-          </a>
-          <a href="#review-section" className="tab-item">
+          </button>
+          <button
+            type="button"
+            className={`tab-item${activeTab === "review" ? " active" : ""}`}
+            onClick={() => scrollToSection("review", "review-section")}
+          >
             รีวิว
-          </a>
-          <a href="#detail-section" className="tab-item">
+          </button>
+          <button
+            type="button"
+            className={`tab-item${activeTab === "detail" ? " active" : ""}`}
+            onClick={() => scrollToSection("detail", "detail-section")}
+          >
             รายละเอียด
-          </a>
+          </button>
         </div>
-        <button type="button" className="share-btn" style={{ background: "none", border: "none" }}>
+        <button type="button" className="share-btn" aria-label="แชร์">
           <i className="fa-regular fa-share-from-square" />
         </button>
       </header>
 
-      <main className="product-main">
-        <section className="image-slider" id="imageSlider">
-          <div className="slider-track">
-            <div className="slide active">
-              <img src={product.image} alt={product.title} className="product-main-img" />
-            </div>
+      <section className="image-section" id="imageSlider">
+        <div className="slider-wrapper" ref={sliderRef} onScroll={onSliderScroll}>
+          {images.map((src, i) => (
+            <img key={`${src}-${i}`} src={src} alt={product.title} className="main-image" />
+          ))}
+        </div>
+        {images.length > 1 ? (
+          <div className="image-dots">
+            {images.map((_, i) => (
+              <span key={i} className={`dot${i === activeSlide ? " active" : ""}`} />
+            ))}
           </div>
-        </section>
+        ) : null}
+      </section>
 
-        <section className="price-section">
-          <div className="price-row">
-            <span className="current-price">{formatPrice(product.price)}</span>
+      <section className="info-card">
+        <div className="price-row">
+          <span className="current-price">
+            <small>$</small>
+            {priceValue}
+          </span>
+        </div>
+        <h1 className="product-title">{product.title}</h1>
+        {product.category ? (
+          <div className="section-item">
+            <span className="item-label">หมวดหมู่</span>
+            <span className="item-value">{product.category}</span>
+            <i className="fa-solid fa-chevron-right chevron" />
           </div>
-          <h1 className="product-title">{product.title}</h1>
-        </section>
+        ) : null}
+        {sizes ? (
+          <div className="section-item">
+            <span className="item-label">ไซส์</span>
+            <span className="item-value">{sizes.replace(/,/g, ", ")}</span>
+          </div>
+        ) : null}
+        {colors ? (
+          <div className="section-item">
+            <span className="item-label">สี</span>
+            <span className="item-value">{colors.replace(/,/g, ", ")}</span>
+          </div>
+        ) : null}
+      </section>
 
-        <section className="store-card">
-          <div className="store-info">
-            <div className="store-logo">
-              <img src={product.image} alt="store" />
-            </div>
-            <div>
-              <div className="store-name">{shopName}</div>
-              <div className="store-meta">ร้านค้าแนะนำ</div>
+      <section className="empty-review" id="review-section">
+        <img src={staticAsset("partner/noCart.png")} alt="" />
+        <p>ยังไม่มีรีวิวสำหรับสินค้านี้</p>
+      </section>
+
+      <section className="store-card">
+        <div className="store-header">
+          <div className="store-profile">
+            <img
+              src={shopMeta ? mapApiShopImage(shopMeta.shop_image) : product.image}
+              alt={shopName}
+              className="store-avatar"
+            />
+            <div className="store-name-wrap">
+              <h4>{shopName}</h4>
+              <div className="store-verify">ร้านค้าแนะนำ · ยืนยันแล้ว</div>
             </div>
           </div>
           <Link to={shopPath(shopName)} className="visit-btn">
             เข้าชมร้านค้า
           </Link>
-        </section>
-
-        <section className="detail-section" id="detail-section">
-          <h3>รายละเอียดสินค้า</h3>
-          <p>{product.title}</p>
-        </section>
-      </main>
-
-      <footer className="product-footer">
-        <div className="footer-icons">
-          <Link to="/help-center" className="icon-item">
-            <i className="fa-solid fa-headset" />
-            <span>บริการ</span>
-          </Link>
-          <Link to={shopPath(shopName)} className="icon-item">
-            <i className="fa-solid fa-store" />
-            <span>ร้านค้า</span>
-          </Link>
         </div>
-        <div className="footer-actions">
-          <button type="button" className="btn-action btn-add-cart" onClick={openDrawer}>
-            เพิ่มลงตะกร้า
+        <div className="store-stats">
+          <div>
+            <span className="stat-val">
+              {formatNumberText(shopMeta?.review_count ?? rawProduct?.review_count ?? 0)}
+            </span>
+            <span className="stat-label">รีวิว</span>
+          </div>
+          <div>
+            <span className="stat-val">
+              {formatNumberText(shopMeta?.view_count ?? rawProduct?.view_count ?? 0)}
+            </span>
+            <span className="stat-label">เข้าชม</span>
+          </div>
+          <div>
+            <span className="stat-val">
+              {formatNumberText(shopMeta?.sales_volume ?? rawProduct?.sales_volume ?? 0)}
+            </span>
+            <span className="stat-label">ขายแล้ว</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="detail-section" id="detail-section">
+        <h3 className="detail-header">รายละเอียดสินค้า</h3>
+        <p className="detail-body">{description}</p>
+      </section>
+
+      <footer className="pd-bottom-bar">
+        <div className="pd-bottom-bar__inner">
+          <div className="pd-bottom-bar__icons">
+            <Link to="/help-center" className="pd-icon-btn" aria-label="บริการลูกค้า">
+              <i className="fa-solid fa-headset" />
+              <span>บริการ</span>
+            </Link>
+            <Link to={shopPath(shopName)} className="pd-icon-btn" aria-label="ร้านค้า">
+              <i className="fa-solid fa-store" />
+              <span>ร้านค้า</span>
+            </Link>
+          </div>
+          <button type="button" className="pd-btn pd-btn--cart" onClick={openDrawer}>
+            <i className="fa-solid fa-cart-plus" aria-hidden />
+            ตะกร้า
           </button>
-          <button
-            type="button"
-            className="btn-action btn-buy-now"
-            onClick={() => {
-              openDrawer()
-            }}
-          >
+          <button type="button" className="pd-btn pd-btn--buy" onClick={openDrawer}>
             ซื้อเลย
           </button>
         </div>
       </footer>
 
       <div
-        className={`variant-drawer-overlay${drawerOpen ? " open" : ""}`}
+        className={`drawer-overlay${drawerOpen ? " active" : ""}`}
         onClick={() => setDrawerOpen(false)}
+        aria-hidden={!drawerOpen}
       />
-      <div className={`variant-drawer${drawerOpen ? " open" : ""}`}>
+      <div className={`variant-drawer${drawerOpen ? " active" : ""}`}>
         <div className="drawer-header">
-          <img src={product.image} alt="" className="drawer-thumb" />
+          <img src={images[0]} alt="" className="drawer-product-img" />
           <div>
-            <div className="drawer-price">{formatPrice(product.price)}</div>
-            <div className="drawer-stock">คงเหลือ: 99</div>
+            <div className="share-price">{formatPrice(product.price)}</div>
+            <div className="store-verify">คงเหลือ: {stock > 0 ? stock : "—"}</div>
           </div>
-          <button type="button" className="drawer-close" onClick={() => setDrawerOpen(false)}>
+          <button type="button" className="close-drawer" onClick={() => setDrawerOpen(false)} aria-label="ปิด">
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
-        <div className="qty-row">
-          <span>จำนวน</span>
-          <div className="qty-control">
-            <button type="button" onClick={() => setQty(Math.max(1, qty - 1))}>
-              -
+        <div className="quantity-row">
+          <span className="variant-label">จำนวน</span>
+          <div className="qty-controls">
+            <button type="button" className="qty-btn" onClick={() => setQty(Math.max(1, qty - 1))}>
+              −
             </button>
-            <span>{qty}</span>
-            <button type="button" onClick={() => setQty(qty + 1)}>
+            <span className="qty-val">{qty}</span>
+            <button
+              type="button"
+              className="qty-btn"
+              onClick={() => setQty(Math.min(stock || 99, qty + 1))}
+            >
               +
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          className="drawer-confirm"
-          disabled={submitting}
-          onClick={submitOrder}
-        >
+        <div className="total-info-row">
+          <span className="total-label">ยอดรวม</span>
+          <span className="total-price-val">{formatPrice(product.price * qty)}</span>
+        </div>
+        <button type="button" className="confirm-btn" disabled={submitting} onClick={submitOrder}>
           {submitting ? "กำลังบันทึก..." : "ยืนยัน"}
         </button>
       </div>
 
-      {notice ? (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 100,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#111827",
-            color: "#fff",
-            padding: "10px 18px",
-            borderRadius: 999,
-            zIndex: 9999,
-            fontSize: 13,
-          }}
-        >
-          {notice}
-        </div>
-      ) : null}
-    </>
+      {notice ? <div className="pd-toast">{notice}</div> : null}
+    </div>
   )
 }

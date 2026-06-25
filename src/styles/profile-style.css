@@ -301,7 +301,7 @@ body.page-profile #app {
     line-height: 1.3;
 }
 
-.balance-amount {
+body.page-profile .balance-amount {
     font-size: 18px;
     font-weight: 700;
     margin-bottom: 18px;
@@ -309,7 +309,7 @@ body.page-profile #app {
     letter-spacing: -0.5px;
 }
 
-.balance-amount .currency {
+body.page-profile .balance-amount .currency {
     font-size: 18px;
     font-weight: 500;
     color: inherit;
