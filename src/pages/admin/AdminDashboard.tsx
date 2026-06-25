@@ -4,6 +4,7 @@ import { adminMainNav, isNavGroup } from "@/admin/navConfig"
 import { fetchAdminBadges } from "@/lib/adminApi"
 import { AdminTopBar } from "@/components/admin/AdminTopBar"
 import { useBodyClass } from "@/hooks/useBodyClass"
+import { isSuperAdmin } from "@/lib/session"
 
 type Badges = { cart: number; receiving: number; chat: number }
 
@@ -42,12 +43,18 @@ export default function AdminDashboard() {
     return badges[key]
   }
 
+  const visibleNav = adminMainNav.filter((item) => {
+    if (isNavGroup(item)) return true
+    if (item.superAdminOnly) return isSuperAdmin()
+    return true
+  })
+
   return (
     <>
       <AdminTopBar title="Admin Panel" backTo="/" homeIcon />
       <main className="admin-container">
         <p className="admin-dashboard-intro">เมนูจัดการระบบ</p>
-        {adminMainNav.map((item) => {
+        {visibleNav.map((item) => {
           if (isNavGroup(item)) {
             const groupOpen =
               openGroups[item.label] ??

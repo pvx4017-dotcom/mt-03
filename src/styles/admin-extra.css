@@ -477,3 +477,56 @@ body.admin-chat-page[data-view="chat"] .admin-chat-panel {
     top: auto;
   }
 }
+
+/* Super Admin settings */
+.admin-settings-intro {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.5;
+}
+
+.admin-settings-modal-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.admin-settings-reset-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-role-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.admin-role-badge--super {
+  background: #fef3c7;
+  color: #92400e;
+}

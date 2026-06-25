@@ -92,3 +92,30 @@ BEGIN
   UPDATE users SET password_hash = crypt(p_password, gen_salt('bf')) WHERE id = p_user_id;
   RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
 END; $$;
+
+CREATE OR REPLACE FUNCTION super_admin_set_admin_password(
+  p_actor_id BIGINT,
+  p_target_user_id BIGINT,
+  p_new_password TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  actor users%ROWTYPE;
+  target users%ROWTYPE;
+BEGIN
+  SELECT * INTO actor FROM users WHERE id = p_actor_id;
+  IF NOT FOUND OR actor.role <> 'super_admin' OR actor.status <> 'active' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่มีสิทธิ์เข้าถึง');
+  END IF;
+  SELECT * INTO target FROM users WHERE id = p_target_user_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่พบบัญชีผู้ดูแล');
+  END IF;
+  IF target.role NOT IN ('admin', 'super_admin') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่ใช่บัญชีผู้ดูแล');
+  END IF;
+  IF p_new_password IS NULL OR length(trim(p_new_password)) < 6 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+  END IF;
+  UPDATE users SET password_hash = crypt(p_new_password, gen_salt('bf')) WHERE id = p_target_user_id;
+  RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
+END; $$;

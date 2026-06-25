@@ -150,7 +150,35 @@ export async function fetchAdminUsers() {
     ...u,
     password: String(u.password_hash ?? u.password ?? ""),
     registered_at: String(u.registered_at ?? u.created_at ?? ""),
+    role: String(u.role ?? "customer"),
   })) as AdminUser[]
+}
+
+export type AdminPanelAccount = {
+  id: number
+  username: string | null
+  email: string | null
+  phone: string | null
+  role: string
+  status: string
+  registered_at?: string
+}
+
+export async function fetchSuperAdminAccounts() {
+  ensureConfigured()
+  const data = await adminGet<ApiResult<{ accounts?: AdminPanelAccount[] }>>(API.adminSettings)
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลไม่สำเร็จ"))
+  return data.accounts ?? []
+}
+
+export async function superAdminResetAdminPassword(userId: number, newPassword: string, confirmPassword: string) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("action", "reset_admin_password")
+  fd.append("user_id", String(userId))
+  fd.append("new_password", newPassword)
+  fd.append("confirm_password", confirmPassword)
+  return adminPost<ApiResult<Record<string, never>>>(API.adminSettings, fd)
 }
 
 export async function fetchAdminCredits() {

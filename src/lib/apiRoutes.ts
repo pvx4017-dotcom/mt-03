@@ -20,6 +20,7 @@ export const API = {
   supportChat: "support/chat",
   adminCustomerTopup: "admin/customer-topup",
   adminWithdrawPasswords: "admin/withdraw-passwords",
+  adminSettings: "admin/settings",
   orderHubCounts: "orders/hub-counts",
   userInfo: "user/info",
   productOrders: "orders/cart-items",

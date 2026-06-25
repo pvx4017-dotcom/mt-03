@@ -1,16 +1,18 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { asset } from "@/lib/assets"
 import { processAuth } from "@/lib/customerApi"
 import { useApp } from "@/context/AppContext"
 import { useBodyClass } from "@/hooks/useBodyClass"
+import { consumeIdleLogoutFlag } from "@/lib/session"
+import { normalizeLoginAccount } from "@/lib/authUtils"
 
 export default function LoginPage() {
   useBodyClass("page-login")
   const navigate = useNavigate()
   const { login, refreshUser } = useApp()
   const [mode, setMode] = useState<"login" | "register">("login")
-  const [method, setMethod] = useState<"phone" | "email">("phone")
+  const [method, setMethod] = useState<"phone" | "email">("email")
   const [showPassword, setShowPassword] = useState(false)
   const [countryCode] = useState("+66")
   const [account, setAccount] = useState("")
@@ -25,16 +27,30 @@ export default function LoginPage() {
     setTimeout(() => setNotice(null), 2200)
   }
 
+  useEffect(() => {
+    if (!consumeIdleLogoutFlag()) return
+    setNotice({
+      msg: "ออกจากระบบอัตโนมัติ — ไม่มีการใช้งานเกิน 30 นาที กรุณาเข้าสู่ระบบใหม่",
+      type: "error",
+    })
+    const t = window.setTimeout(() => setNotice(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const accountValue =
-      method === "email" ? account.trim() : `${countryCode}${account.trim()}`
+    const accountValue = normalizeLoginAccount(account, method, countryCode)
 
     if (!accountValue) {
       showNotice(
         method === "email" ? "กรุณากรอกอีเมล" : "กรุณากรอกหมายเลขโทรศัพท์มือถือ",
         "error",
       )
+      return
+    }
+
+    if (method === "phone" && account.trim().includes("@")) {
+      showNotice("บัญชีนี้เป็นอีเมล — กรุณาเลือกแท็บ「อีเมล」", "error")
       return
     }
 
@@ -63,9 +79,10 @@ export default function LoginPage() {
       showNotice(result.message ?? (result.success ? "สำเร็จ" : "ไม่สำเร็จ"), result.success ? "success" : "error")
       if (result.success) {
         if (result.redirect) {
+          await refreshUser()
           setTimeout(() => {
             window.location.href = result.redirect!
-          }, 500)
+          }, 400)
           return
         }
         if (mode === "register") {

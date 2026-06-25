@@ -10,6 +10,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 DROP FUNCTION IF EXISTS login_user(TEXT, TEXT);
 DROP FUNCTION IF EXISTS register_user(TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_set_user_password(BIGINT, TEXT);
+DROP FUNCTION IF EXISTS super_admin_set_admin_password(BIGINT, BIGINT, TEXT);
 DROP FUNCTION IF EXISTS set_user_withdraw_password(BIGINT, TEXT);
 DROP FUNCTION IF EXISTS update_user_password(BIGINT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS verify_withdraw_password(BIGINT, TEXT);
@@ -427,6 +428,33 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
 END; $$;
 
+CREATE OR REPLACE FUNCTION super_admin_set_admin_password(
+  p_actor_id BIGINT,
+  p_target_user_id BIGINT,
+  p_new_password TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  actor users%ROWTYPE;
+  target users%ROWTYPE;
+BEGIN
+  SELECT * INTO actor FROM users WHERE id = p_actor_id;
+  IF NOT FOUND OR actor.role <> 'super_admin' OR actor.status <> 'active' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่มีสิทธิ์เข้าถึง');
+  END IF;
+  SELECT * INTO target FROM users WHERE id = p_target_user_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่พบบัญชีผู้ดูแล');
+  END IF;
+  IF target.role NOT IN ('admin', 'super_admin') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่ใช่บัญชีผู้ดูแล');
+  END IF;
+  IF p_new_password IS NULL OR length(trim(p_new_password)) < 6 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+  END IF;
+  UPDATE users SET password_hash = crypt(p_new_password, gen_salt('bf')) WHERE id = p_target_user_id;
+  RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
+END; $$;
+
 -- ============================================================
 -- SEED: invitation codes, limits, users
 -- ============================================================
@@ -443,6 +471,7 @@ ON CONFLICT (id) DO UPDATE SET percent = EXCLUDED.percent;
 INSERT INTO users (username, email, phone, password_hash, role, referral_code, wallet_balance, credit)
 VALUES
   ('admin', 'admin@meta.local', NULL, crypt('admin123', gen_salt('bf')), 'admin', '10001', 99999, 99999),
+  ('superadmin', 'superadmin@meta.local', NULL, crypt('superadmin123', gen_salt('bf')), 'super_admin', '10000', 0, 0),
   ('demo', NULL, '+66812345678', crypt('123456', gen_salt('bf')), 'customer', '20002', 5000, 5000);
 
 -- Sample notifications
@@ -1266,5 +1295,6 @@ END $$;
 
 -- บัญชีทดลอง:
 --   Admin: admin@meta.local / admin123
+--   Super Admin: superadmin@meta.local / superadmin123
 --   Customer: +66812345678 / 123456
 --   รหัสเชิญสมัคร: 12345

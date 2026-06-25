@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom"
+import { AdminRouteGuard } from "@/components/auth/AdminRouteGuard"
 import AdminDashboard from "./AdminDashboard"
 import AdminProductCategoriesPage, {
   AdminRecommendedShopsPage,
@@ -28,10 +29,12 @@ import {
   AdminChatPage,
 } from "./AdminCommPages"
 import AdminAddProductPage from "./AdminAddProductPage"
+import AdminSettingsPage from "./AdminSettingsPage"
 
 export default function AdminRoutes() {
   return (
-    <Routes>
+    <AdminRouteGuard>
+      <Routes>
       <Route index element={<AdminDashboard />} />
       <Route path="customer-store-products" element={<AdminCustomerStoreProductsPage />} />
       <Route path="cart" element={<AdminCartPage />} />
@@ -53,7 +56,9 @@ export default function AdminRoutes() {
       <Route path="payment-limits" element={<AdminPaymentLimitsPage />} />
       <Route path="notifications" element={<AdminNotificationsPage />} />
       <Route path="chat" element={<AdminChatPage />} />
+      <Route path="settings" element={<AdminSettingsPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
+    </AdminRouteGuard>
   )
 }

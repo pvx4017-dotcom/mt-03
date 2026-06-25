@@ -3,6 +3,7 @@ export type AdminNavItem = {
   label: string
   icon: string
   badgeKey?: "cart" | "receiving" | "chat"
+  superAdminOnly?: boolean
 }
 
 export type AdminNavGroup = {
@@ -49,6 +50,12 @@ export const adminMainNav: (AdminNavItem | AdminNavGroup)[] = [
   },
   { path: "/admin/notifications", label: "การแจ้งเตือน", icon: "fa-bell" },
   { path: "/admin/chat", label: "แชท์", icon: "fa-headset", badgeKey: "chat" },
+  {
+    path: "/admin/settings",
+    label: "ตั้งค่าระบบ",
+    icon: "fa-gear",
+    superAdminOnly: true,
+  },
 ]
 
 export function isNavGroup(item: AdminNavItem | AdminNavGroup): item is AdminNavGroup {

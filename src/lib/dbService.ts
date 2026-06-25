@@ -62,7 +62,13 @@ export async function dbProcessAuth(fd: FormData) {
     const { data, error } = await sb.rpc("login_user", { p_account: account, p_password: password })
     if (error) return fail(error.message)
     const row = data as { success?: boolean; message?: string; user_id?: number; role?: string }
-    if (row?.success && row.user_id) setSession(row.user_id, row.role ?? "customer")
+    if (row?.success && row.user_id) {
+      const role = row.role ?? "customer"
+      setSession(row.user_id, role)
+      if (role === "admin" || role === "super_admin") {
+        return { ...row, redirect: "/admin" }
+      }
+    }
     return row ?? fail("เข้าสู่ระบบไม่สำเร็จ")
   }
 
@@ -1003,6 +1009,41 @@ export async function dbFetchUsers() {
   const sb = getSupabase()
   const { data } = await sb.from("users").select("*").order("id")
   return data ?? []
+}
+
+export async function dbSuperAdminListAdmins() {
+  const actorId = requireUserId()
+  if (!actorId) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  const { data: actor } = await sb.from("users").select("role").eq("id", actorId).maybeSingle()
+  if (actor?.role !== "super_admin") return fail("ไม่มีสิทธิ์เข้าถึง")
+  const { data } = await sb
+    .from("users")
+    .select("id, username, email, phone, role, status, registered_at")
+    .in("role", ["admin", "super_admin"])
+    .order("id")
+  return ok({ accounts: data ?? [] })
+}
+
+export async function dbSuperAdminResetAdminPassword(
+  targetUserId: number,
+  newPassword: string,
+  confirmPassword: string,
+) {
+  const actorId = requireUserId()
+  if (!actorId) return fail("กรุณาเข้าสู่ระบบ")
+  if (!newPassword.trim()) return fail("กรุณากรอกรหัสผ่านใหม่")
+  if (newPassword !== confirmPassword) return fail("รหัสผ่านใหม่ไม่ตรงกัน")
+  const sb = getSupabase()
+  const { data, error } = await sb.rpc("super_admin_set_admin_password", {
+    p_actor_id: actorId,
+    p_target_user_id: targetUserId,
+    p_new_password: newPassword,
+  })
+  if (error) return fail(error.message)
+  const row = data as { success?: boolean; message?: string }
+  if (row?.success === false) return fail(row.message ?? "เปลี่ยนรหัสผ่านไม่สำเร็จ")
+  return ok({ message: row?.message ?? "เปลี่ยนรหัสผ่านแล้ว" })
 }
 
 export async function dbFetchDeposits() {

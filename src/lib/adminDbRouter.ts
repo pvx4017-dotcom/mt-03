@@ -1,6 +1,7 @@
 /** Local API dispatcher — เรียก Supabase โดยตรง ไม่มี HTTP ไป PHP server ภายนอก */
 import { getSupabase } from "@/lib/supabase"
 import { API } from "@/lib/apiRoutes"
+import { getSessionUserId, isAdminPanelRole } from "@/lib/session"
 import {
   dbAdminFetchCart,
   dbAdminUpdateOrder,
@@ -32,6 +33,26 @@ function ok(extra?: Json) {
 
 function fail(message: string) {
   return { success: false, message }
+}
+
+function isCustomerScopedAdminGet(base: string, params: URLSearchParams) {
+  if (base === API.adminCart && params.get("filter_user") === "1") return true
+  if (base === API.adminCartOrders && params.get("filter_user") === "1") return true
+  if (base === API.adminShippingHistory) return true
+  return false
+}
+
+function ensureAdminPanelAccess(base: string, params?: URLSearchParams) {
+  if (base === API.submitReviewAdmin) {
+    if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
+    if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+    return null
+  }
+  if (!base.startsWith("admin/")) return null
+  if (params && isCustomerScopedAdminGet(base, params)) return null
+  if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
+  if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+  return null
 }
 
 function isEditAction(action: string) {
@@ -77,6 +98,8 @@ async function resolveValidUserId(raw: FormDataEntryValue | null) {
 export async function handleAdminGet(path: string): Promise<Json> {
   const [base, qs] = path.split("?")
   const params = new URLSearchParams(qs ?? "")
+  const denied = ensureAdminPanelAccess(base, params)
+  if (denied) return denied
 
   switch (base) {
     case API.adminProductCategories:
@@ -178,6 +201,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
         })),
       })
     }
+    case API.adminSettings:
+      return (await import("@/lib/dbService")).dbSuperAdminListAdmins()
     case API.orderHubCounts:
       return { success: true, ...(await (await import("@/lib/dbService")).dbFetchOrderHubCounts()) }
     case API.userInfo:
@@ -216,6 +241,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
 export async function handleAdminPost(path: string, fd: FormData): Promise<Json> {
   const sb = getSupabase()
   const action = String(fd.get("action") ?? fd.get("mode") ?? "")
+  const denied = ensureAdminPanelAccess(path)
+  if (denied) return denied
 
   switch (path) {
     case API.adminUsers: {
@@ -232,9 +259,14 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       if (action === "edit") {
         const status = String(fd.get("status") ?? "active")
+        const { data: target } = await sb.from("users").select("role").eq("id", id).single()
         await sb.from("users").update({ status }).eq("id", id)
         const pwd = fd.get("password")
         if (pwd && String(pwd).trim()) {
+          const targetRole = String(target?.role ?? "customer")
+          if (targetRole === "admin" || targetRole === "super_admin") {
+            return fail("เปลี่ยนรหัสผู้ดูแลได้ที่เมนูตั้งค่าระบบ (Super Admin) เท่านั้น")
+          }
           const { data } = await sb.rpc("admin_set_user_password", {
             p_user_id: id,
             p_password: String(pwd),
@@ -714,6 +746,15 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         String(fd.get("withdraw_password") ?? ""),
         String(fd.get("confirm_password") ?? ""),
       )
+    case API.adminSettings:
+      if (action === "reset_admin_password") {
+        return (await import("@/lib/dbService")).dbSuperAdminResetAdminPassword(
+          Number(fd.get("user_id") ?? fd.get("id")),
+          String(fd.get("new_password") ?? ""),
+          String(fd.get("confirm_password") ?? ""),
+        )
+      }
+      return fail("action ไม่ถูกต้อง")
     default:
       if (path === API.supportChat) {
         return dbSendChatMessage(String(fd.get("message") ?? ""))

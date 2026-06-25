@@ -223,15 +223,23 @@ export default function AdminUsersPage() {
               <label>User ID</label>
               <input className="admin-form-control" value={edit.id} readOnly />
             </div>
-            <div className="admin-form-group">
-              <label>รหัสผ่านใหม่</label>
-              <input
-                className="admin-form-control"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={edit.password}
-              />
-            </div>
+            {edit.role === "admin" || edit.role === "super_admin" ? (
+              <p className="admin-settings-modal-note">
+                บัญชีผู้ดูแล — เปลี่ยนรหัสผ่านได้ที่เมนู <strong>ตั้งค่าระบบ</strong> (Super Admin)
+              </p>
+            ) : (
+              <div className="admin-form-group">
+                <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
+                <input
+                  className="admin-form-control"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={edit.password}
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
             <div className="admin-form-group">
               <label>สถานะ</label>
               <select

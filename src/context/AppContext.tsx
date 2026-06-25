@@ -15,9 +15,10 @@ import {
   type CustomerUser,
   type OrderHubCounts,
 } from "@/lib/customerApi"
-import { clearSession, getSessionUserId } from "@/lib/session"
+import { clearSession, getSessionUserId, isSessionExpired, markIdleLogout, touchSessionActivity } from "@/lib/session"
 
 type AppContextValue = {
+  sessionChecked: boolean
   isLoggedIn: boolean
   user: CustomerUser | null
   login: (user?: CustomerUser) => void
@@ -73,6 +74,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       if (!getSessionUserId()) {
         setUser(null)
+        return
+      }
+      if (isSessionExpired()) {
+        clearSession()
+        setUser(null)
+        markIdleLogout()
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.replace("/login")
+        }
         return
       }
       const data = await fetchUserInfo()
@@ -146,6 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = useCallback((nextUser?: CustomerUser) => {
     if (nextUser) setUser(nextUser)
     localStorage.setItem("meta_logged_in", "true")
+    touchSessionActivity()
     setLoginModalOpen(false)
   }, [])
 
@@ -171,6 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      sessionChecked,
       isLoggedIn,
       user,
       login,
@@ -197,6 +209,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requireLogin,
     }),
     [
+      sessionChecked,
       isLoggedIn,
       user,
       login,
