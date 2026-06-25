@@ -1,0 +1,41 @@
+/**
+ * Font Awesome 7 guard
+ * โปรเจกต์ใช้ @fortawesome/fontawesome-free v7 — ชื่อฟอนต์คือ "Font Awesome 7 Free"
+ * หลายไฟล์ CSS ใช้ * { font-family: Kanit } ซึ่งทับไอคอน — ไฟล์นี้โหลดท้ายสุด
+ */
+
+:is(
+  .fa,
+  .fa-solid,
+  .fa-regular,
+  .fa-brands,
+  .fa-classic,
+  .fas,
+  .far,
+  .fab,
+  i[class*="fa-"]
+) {
+  font-family: "Font Awesome 7 Free" !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  font-feature-settings: normal !important;
+  font-synthesis: none !important;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: var(--fa-display, inline-block);
+  line-height: 1;
+}
+
+:is(.fa-solid, .fas, i.fa-solid, i.fas) {
+  font-weight: 900 !important;
+}
+
+:is(.fa-regular, .far, i.fa-regular, i.far) {
+  font-weight: 400 !important;
+}
+
+:is(.fa-brands, .fab, i.fa-brands, i.fab) {
+  font-family: "Font Awesome 7 Brands" !important;
+  font-weight: 400 !important;
+}

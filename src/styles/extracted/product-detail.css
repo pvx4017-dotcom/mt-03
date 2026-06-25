@@ -319,8 +319,11 @@
         }
 
         body.page-product-detail .pd-icon-btn i {
-            font-size: 15px;
+            font-size: 16px;
             color: var(--accent-blue);
+            display: inline-block;
+            flex-shrink: 0;
+            line-height: 1;
         }
 
         body.page-product-detail .pd-icon-btn:active {
@@ -355,6 +358,8 @@
 
         body.page-product-detail .pd-btn--cart i {
             font-size: 14px;
+            display: inline-block;
+            flex-shrink: 0;
         }
 
         body.page-product-detail .pd-btn--buy {

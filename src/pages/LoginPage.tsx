@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { asset } from "@/lib/assets"
 import { processAuth } from "@/lib/customerApi"
 import { useApp } from "@/context/AppContext"
@@ -105,150 +105,209 @@ export default function LoginPage() {
 
   return (
     <div className={`login-page ${mode === "register" ? "mode-register" : "mode-login"}`}>
-      <header className="topbar">
+      <header className="topbar login-topbar">
+        <Link to="/" className="login-back-btn" aria-label="กลับหน้าหลัก">
+          <i className="fa-solid fa-chevron-left" aria-hidden />
+        </Link>
         <div className="title">{mode === "register" ? "ลงทะเบียน" : "เข้าสู่ระบบ"}</div>
+        <span className="login-topbar__spacer" aria-hidden />
       </header>
 
       <main className="container">
-        <div className="logo-wrap">
-          <div className="logo-circle">
-            <img src={asset("logo/logo meatt.webp")} alt="logo" />
-          </div>
-        </div>
-
-        <div className="tab-switch">
-          <button
-            type="button"
-            className={`tab-btn${method === "phone" ? " active" : ""}`}
-            onClick={() => setMethod("phone")}
-          >
-            เบอร์โทรศัพท์
-          </button>
-          <button
-            type="button"
-            className={`tab-btn${method === "email" ? " active" : ""}`}
-            onClick={() => setMethod("email")}
-          >
-            อีเมล
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>{method === "email" ? "อีเมล" : "เบอร์โทรศัพท์"}</label>
-            {method === "phone" ? (
-              <div className="phone-row">
-                <button type="button" className="country-code-btn">
-                  <span>{countryCode}</span>
-                  <i className="fa-solid fa-chevron-down" />
-                </button>
-                <input
-                  className="input"
-                  type="tel"
-                  placeholder="กรุณากรอกหมายเลขโทรศัพท์มือถือ"
-                  value={account}
-                  onChange={(e) => setAccount(e.target.value)}
-                />
-              </div>
-            ) : (
-              <input
-                className="input"
-                type="email"
-                placeholder="กรุณากรอกอีเมล"
-                value={account}
-                onChange={(e) => setAccount(e.target.value)}
-              />
-            )}
-          </div>
-
-          <div className="form-group">
-            <label>{mode === "register" ? "รหัสผ่าน" : "รหัสผ่านเข้าสู่ระบบ"}</label>
-            <div className="input-wrap">
-              <input
-                className="input"
-                type={showPassword ? "text" : "password"}
-                placeholder="กรุณากรอกรหัสผ่าน"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <i
-                className={`fa-regular ${showPassword ? "fa-eye-slash" : "fa-eye"} input-icon`}
-                onClick={() => setShowPassword(!showPassword)}
-              />
+        <div className="auth-hero">
+          <div className="logo-wrap">
+            <div className="logo-circle">
+              <img src={asset("logo/logo meatt.webp")} alt="Meta Business" />
             </div>
           </div>
+          <h1 className="auth-hero__title">
+            {mode === "register" ? "สร้างบัญชีใหม่" : "ยินดีต้อนรับกลับ"}
+          </h1>
+          <p className="auth-hero__subtitle">
+            {mode === "register"
+              ? "กรอกข้อมูลเพื่อเริ่มช้อปกับ Meta Business"
+              : "เข้าสู่ระบบเพื่อช้อปและติดตามคำสั่งซื้อ"}
+          </p>
+        </div>
 
-          {mode === "register" && (
-            <>
-              <div className="form-group register-only">
-                <label>ยืนยันรหัสผ่าน</label>
-                <input
-                  className="input"
-                  type="password"
-                  placeholder="กรุณายืนยันรหัสผ่าน"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-              <div className="form-group register-only">
-                <label>รหัสเชิญ</label>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="กรอกรหัส 5 ตัวเลข"
-                  maxLength={5}
-                  value={invitationCode}
-                  onChange={(e) => setInvitationCode(e.target.value)}
-                />
-              </div>
-            </>
-          )}
-
-          {mode === "login" && (
-            <div className="helper-link login-only">
-              <a href="#">ลืมรหัสผ่าน?</a>
-            </div>
-          )}
-
-          <button className="submit-btn" type="submit" disabled={submitting}>
-            {submitting ? "กำลังดำเนินการ..." : mode === "register" ? "ลงทะเบียน" : "เข้าสู่ระบบ"}
-          </button>
-        </form>
-
-        {mode === "login" ? (
-          <div className="bottom-text login-only">
-            ยังไม่มีบัญชีผู้ใช้?{" "}
-            <button type="button" onClick={() => setMode("register")}>
-              ไปลงทะเบียน
-            </button>
-          </div>
-        ) : (
-          <div className="bottom-text register-only">
-            มีบัญชีอยู่แล้ว?{" "}
-            <button type="button" onClick={() => setMode("login")}>
+        <div className="auth-card">
+          <div className="auth-mode-switch">
+            <button
+              type="button"
+              className={`auth-mode-btn${mode === "login" ? " active" : ""}`}
+              onClick={() => setMode("login")}
+            >
               เข้าสู่ระบบ
             </button>
+            <button
+              type="button"
+              className={`auth-mode-btn${mode === "register" ? " active" : ""}`}
+              onClick={() => setMode("register")}
+            >
+              ลงทะเบียน
+            </button>
           </div>
-        )}
+
+          <div className="tab-switch">
+            <button
+              type="button"
+              className={`tab-btn${method === "phone" ? " active" : ""}`}
+              onClick={() => setMethod("phone")}
+            >
+              <i className="fa-solid fa-mobile-screen-button" aria-hidden />
+              เบอร์โทรศัพท์
+            </button>
+            <button
+              type="button"
+              className={`tab-btn${method === "email" ? " active" : ""}`}
+              onClick={() => setMethod("email")}
+            >
+              <i className="fa-solid fa-envelope" aria-hidden />
+              อีเมล
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>{method === "email" ? "อีเมล" : "เบอร์โทรศัพท์"}</label>
+              {method === "phone" ? (
+                <div className="phone-row">
+                  <button type="button" className="country-code-btn" aria-label="รหัสประเทศ">
+                    <i className="fa-solid fa-earth-asia" aria-hidden />
+                    <span>{countryCode}</span>
+                    <i className="fa-solid fa-chevron-down" aria-hidden />
+                  </button>
+                  <div className="input-wrap input-wrap--leading">
+                    <i className="fa-solid fa-phone input-leading" aria-hidden />
+                    <input
+                      className="input input--with-leading"
+                      type="tel"
+                      placeholder="กรุณากรอกหมายเลขโทรศัพท์มือถือ"
+                      value={account}
+                      onChange={(e) => setAccount(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="input-wrap input-wrap--leading">
+                  <i className="fa-solid fa-envelope input-leading" aria-hidden />
+                  <input
+                    className="input input--with-leading"
+                    type="email"
+                    placeholder="กรุณากรอกอีเมล"
+                    value={account}
+                    onChange={(e) => setAccount(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>{mode === "register" ? "รหัสผ่าน" : "รหัสผ่านเข้าสู่ระบบ"}</label>
+              <div className="input-wrap input-wrap--leading">
+                <i className="fa-solid fa-lock input-leading" aria-hidden />
+                <input
+                  className="input input--with-leading input--with-trailing"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="กรุณากรอกรหัสผ่าน"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="input-toggle"
+                  aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <i className={`fa-solid ${showPassword ? "fa-eye-slash" : "fa-eye"}`} aria-hidden />
+                </button>
+              </div>
+            </div>
+
+            {mode === "register" && (
+              <>
+                <div className="form-group register-only">
+                  <label>ยืนยันรหัสผ่าน</label>
+                  <div className="input-wrap input-wrap--leading">
+                    <i className="fa-solid fa-lock input-leading" aria-hidden />
+                    <input
+                      className="input input--with-leading"
+                      type="password"
+                      placeholder="กรุณายืนยันรหัสผ่าน"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="form-group register-only">
+                  <label>รหัสเชิญ</label>
+                  <div className="input-wrap input-wrap--leading">
+                    <i className="fa-solid fa-ticket input-leading" aria-hidden />
+                    <input
+                      className="input input--with-leading"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="กรอกรหัส 5 ตัวเลข"
+                      maxLength={5}
+                      value={invitationCode}
+                      onChange={(e) => setInvitationCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {mode === "login" && (
+              <div className="helper-link login-only">
+                <a href="#">ลืมรหัสผ่าน?</a>
+              </div>
+            )}
+
+            <button className="submit-btn" type="submit" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin" aria-hidden />
+                  กำลังดำเนินการ...
+                </>
+              ) : mode === "register" ? (
+                <>
+                  <i className="fa-solid fa-user-plus" aria-hidden />
+                  ลงทะเบียน
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-right-to-bracket" aria-hidden />
+                  เข้าสู่ระบบ
+                </>
+              )}
+            </button>
+          </form>
+
+          {mode === "login" ? (
+            <div className="bottom-text login-only">
+              ยังไม่มีบัญชีผู้ใช้?{" "}
+              <button type="button" onClick={() => setMode("register")}>
+                ไปลงทะเบียน
+              </button>
+            </div>
+          ) : (
+            <div className="bottom-text register-only">
+              มีบัญชีอยู่แล้ว?{" "}
+              <button type="button" onClick={() => setMode("login")}>
+                เข้าสู่ระบบ
+              </button>
+            </div>
+          )}
+        </div>
       </main>
 
       {notice ? (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: notice.type === "error" ? "#dc2626" : "#16a34a",
-            color: "#fff",
-            padding: "12px 24px",
-            borderRadius: 12,
-            zIndex: 9999,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice.msg}
+        <div className={`auth-notice auth-notice--${notice.type}`} role="alert">
+          <i
+            className={`fa-solid ${notice.type === "error" ? "fa-circle-xmark" : "fa-circle-check"}`}
+            aria-hidden
+          />
+          <span>{notice.msg}</span>
         </div>
       ) : null}
 

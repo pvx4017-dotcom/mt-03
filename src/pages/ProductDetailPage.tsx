@@ -83,6 +83,13 @@ export default function ProductDetailPage() {
     setActiveSlide(Math.max(0, Math.min(index, images.length - 1)))
   }, [images.length])
 
+  const scrollToSlide = (index: number) => {
+    const el = sliderRef.current
+    if (!el) return
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" })
+    setActiveSlide(index)
+  }
+
   const openDrawer = () => {
     if (!requireLogin()) return
     setDrawerOpen(true)
@@ -159,15 +166,30 @@ export default function ProductDetailPage() {
       <section className="image-section" id="imageSlider">
         <div className="slider-wrapper" ref={sliderRef} onScroll={onSliderScroll}>
           {images.map((src, i) => (
-            <img key={`${src}-${i}`} src={src} alt={product.title} className="main-image" />
+            <div className="pd-slide" key={`${src}-${i}`}>
+              <div className="pd-slide__frame">
+                <img src={src} alt={`${product.title} — รูปที่ ${i + 1}`} className="main-image" loading={i === 0 ? "eager" : "lazy"} />
+              </div>
+            </div>
           ))}
         </div>
         {images.length > 1 ? (
-          <div className="image-dots">
-            {images.map((_, i) => (
-              <span key={i} className={`dot${i === activeSlide ? " active" : ""}`} />
-            ))}
-          </div>
+          <>
+            <div className="pd-image-counter">
+              {activeSlide + 1} / {images.length}
+            </div>
+            <div className="image-dots">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`dot${i === activeSlide ? " active" : ""}`}
+                  aria-label={`รูปที่ ${i + 1}`}
+                  onClick={() => scrollToSlide(i)}
+                />
+              ))}
+            </div>
+          </>
         ) : null}
       </section>
 
