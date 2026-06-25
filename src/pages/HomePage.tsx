@@ -138,8 +138,8 @@ export default function HomePage() {
               {banners.map((b, i) => {
                 const cta = HERO_CTA[i % HERO_CTA.length]
                 return (
-                  <div className="hero-banner" key={`${b}-${i}`}>
-                    <img src={asset(b)} alt="" className="banner-img" />
+                  <div className={`hero-banner${slide === i ? " is-active" : ""}`} key={`${b}-${i}`}>
+                    <img src={asset(b)} alt="" className="banner-img" loading={i === 0 ? "eager" : "lazy"} />
                     <div className="hero-banner__overlay">
                       <span className="hero-banner__tag">{cta.tag}</span>
                       <h2 className="hero-banner__title">{cta.title}</h2>
@@ -160,7 +160,9 @@ export default function HomePage() {
                   className={`dot${slide === i ? " active" : ""}`}
                   onClick={() => setSlide(i)}
                   aria-label={`สไลด์ ${i + 1}`}
-                />
+                >
+                  <span className="dot__fill" />
+                </button>
               ))}
             </div>
           </div>

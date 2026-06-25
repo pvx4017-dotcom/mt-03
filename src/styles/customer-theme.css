@@ -38,13 +38,14 @@ body.page-customer {
   );
   --app-gradient-nav: linear-gradient(180deg, #0062e0 0%, #0052c4 45%, #004bb5 100%);
   --app-gradient-banner: linear-gradient(135deg, #0062e0 0%, #4f46e5 55%, #0052c4 100%);
+  --app-shell-max: 480px;
 
   background: var(--app-bg);
   color: var(--app-text);
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── App shell (max-width 480px) ── */
+/* ── App shell (mobile-first, ขยายบน tablet/desktop) ── */
 body.page-customer #app,
 body.page-customer .app-shell,
 body.page-customer .home-shell,
@@ -53,7 +54,7 @@ body.page-customer .product-detail-shell,
 body.page-customer .open-store-container,
 body.page-customer .login-page {
   display: block;
-  max-width: 480px;
+  max-width: var(--app-shell-max);
   margin: 0 auto;
   min-height: 100vh;
   position: relative;
@@ -86,7 +87,7 @@ body.page-customer .page-header,
 body.page-customer .header-redesign,
 body.page-customer .search-header,
 body.page-customer .cart-header {
-  max-width: 480px;
+  max-width: var(--app-shell-max);
   margin-left: auto;
   margin-right: auto;
 }
@@ -94,7 +95,7 @@ body.page-customer .cart-header {
 body.page-customer main.history-wrap,
 body.page-customer main.container,
 body.page-customer header.shop-header + main {
-  max-width: 480px;
+  max-width: var(--app-shell-max);
   margin-left: auto;
   margin-right: auto;
 }
@@ -364,7 +365,7 @@ body.page-customer .catalog-sort-pill.active {
 body.page-customer .bottom-nav {
   left: 50%;
   transform: translateX(-50%);
-  max-width: 480px;
+  max-width: var(--app-shell-max);
   width: 100%;
   background: var(--app-gradient-nav) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
@@ -571,7 +572,7 @@ body.page-customer.page-cart .cart-confirm-bar {
   background: var(--app-surface);
   border-top: 1px solid var(--app-border);
   box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
-  max-width: 480px;
+  max-width: var(--app-shell-max);
   left: 50%;
   transform: translateX(-50%);
 }
@@ -929,4 +930,43 @@ body.page-customer.page-shop-detail .tab-item.active::after {
 body.page-customer.page-shop-detail .brand-badge {
   background: var(--app-primary-soft) !important;
   color: var(--app-primary) !important;
+}
+
+/* ── Responsive shell — มือถือคงเดิม 480px, ขยายบน iPad/desktop ── */
+@media (min-width: 768px) {
+  body.page-customer {
+    --app-shell-max: 720px;
+    background: linear-gradient(180deg, #d4deea 0%, var(--app-bg) 180px);
+  }
+
+  body.page-customer #app,
+  body.page-customer .app-shell,
+  body.page-customer .home-shell {
+    box-shadow:
+      0 0 0 1px rgba(15, 23, 42, 0.04),
+      0 12px 48px rgba(15, 23, 42, 0.1);
+  }
+
+  body.page-customer .scroll-top-btn {
+    right: calc((100vw - min(var(--app-shell-max), 100vw)) / 2 + 20px);
+  }
+}
+
+@media (min-width: 1024px) {
+  body.page-customer {
+    --app-shell-max: 960px;
+  }
+}
+
+@media (min-width: 1280px) {
+  body.page-customer {
+    --app-shell-max: 1120px;
+  }
+}
+
+/* Fixed bars ที่ hardcode 480px ใน extracted CSS */
+body.page-customer.page-product-detail .product-header,
+body.page-customer.page-product-detail .pd-bottom-bar,
+body.page-customer.page-product-detail .variant-drawer {
+  max-width: var(--app-shell-max) !important;
 }
