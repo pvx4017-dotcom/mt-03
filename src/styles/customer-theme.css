@@ -664,6 +664,12 @@ body.page-customer.page-open-store {
 }
 
 /* Reviews header back button */
+body.page-customer.page-reviews .reviews-shell {
+  max-width: var(--app-shell-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 body.page-customer.page-reviews .top-navbar .back-btn {
   background: rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
@@ -1197,4 +1203,17 @@ body.page-customer.page-product-detail .pd-btn--cart i {
 
 body.page-customer.page-product-detail .pd-icon-btn--follow.is-following i {
   color: var(--app-primary) !important;
+}
+
+/* Share dialog */
+body.page-customer.page-product-detail .share-modal {
+  max-width: min(360px, calc(var(--app-shell-max, 480px) - 32px)) !important;
+}
+
+body.page-customer.page-product-detail .share-price {
+  color: var(--app-primary) !important;
+}
+
+body.page-customer.page-product-detail .copy-btn {
+  border-radius: 999px !important;
 }

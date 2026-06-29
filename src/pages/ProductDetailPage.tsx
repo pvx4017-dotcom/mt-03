@@ -54,6 +54,8 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState("")
   const [selectedSize, setSelectedSize] = useState("")
   const [shareOpen, setShareOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState("")
+  const [shareCopied, setShareCopied] = useState(false)
 
   const sourceParam = searchParams.get("source") ?? ""
   const shopParam = searchParams.get("shop") ?? ""
@@ -120,6 +122,14 @@ export default function ProductDetailPage() {
   }, [colorOptions, sizeOptions, rawProduct?.id])
 
   const variantSummary = [selectedColor, selectedSize].filter(Boolean).join(" ; ")
+
+  useEffect(() => {
+    if (!shareOpen) {
+      setShareCopied(false)
+      return
+    }
+    setShareUrl(window.location.href)
+  }, [shareOpen])
 
   const showNotice = (msg: string) => {
     setNotice(msg)
@@ -212,15 +222,14 @@ export default function ProductDetailPage() {
   }
 
   const copyShareLink = async () => {
-    const url = window.location.href
-    const text = `${product.title}\nราคา: ${formatPrice(product.price)}\n\nดูสินค้า: ${url}`
+    const url = shareUrl || window.location.href
     try {
-      await navigator.clipboard.writeText(text)
-      showNotice("คัดลอกลิงก์แล้ว")
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      window.setTimeout(() => setShareCopied(false), 2000)
     } catch {
       showNotice("คัดลอกไม่สำเร็จ")
     }
-    setShareOpen(false)
   }
 
   const submitOrder = async () => {
@@ -521,20 +530,62 @@ export default function ProductDetailPage() {
       />
 
       <div
-        className={`drawer-overlay${shareOpen ? " active" : ""}`}
+        className={`drawer-overlay share-overlay${shareOpen ? " active" : ""}`}
         onClick={() => setShareOpen(false)}
         aria-hidden={!shareOpen}
       />
-      <div className={`share-modal${shareOpen ? " active" : ""}`} role="dialog" aria-label="แชร์สินค้า">
-        <button type="button" className="close-drawer" onClick={() => setShareOpen(false)} aria-label="ปิด">
-          <i className="fa-solid fa-xmark" />
-        </button>
-        <h3 className="share-title">{product.title}</h3>
-        <p className="share-price">{formatPrice(product.price)}</p>
-        <p className="share-desc">{description.slice(0, 120)}{description.length > 120 ? "…" : ""}</p>
-        <button type="button" className="confirm-btn" onClick={copyShareLink}>
-          คัดลอกลิงก์
-        </button>
+      <div
+        className={`share-modal${shareOpen ? " active" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-dialog-title"
+      >
+        <div className="share-modal__header">
+          <h2 id="share-dialog-title" className="share-modal__heading">
+            แชร์สินค้า
+          </h2>
+          <button type="button" className="close-share" onClick={() => setShareOpen(false)} aria-label="ปิด">
+            <i className="fa-solid fa-xmark" aria-hidden />
+          </button>
+        </div>
+
+        <div className="share-content">
+          <div className="share-product">
+            <img src={images[0]} alt="" className="share-img" />
+            <div className="share-product__meta">
+              <h3 className="share-title">{product.title}</h3>
+              <p className="share-price">{formatPrice(product.price)}</p>
+              <p className="share-shop">{shopName}</p>
+            </div>
+          </div>
+
+          {description ? (
+            <p className="share-desc">{description}</p>
+          ) : null}
+
+          <div className="share-link-field">
+            <span className="share-link-label">ลิงก์สินค้า</span>
+            <div className="share-link-row">
+              <input
+                type="text"
+                className="share-link-input"
+                readOnly
+                value={shareUrl}
+                aria-label="ลิงก์สินค้า"
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={`copy-btn${shareCopied ? " copied" : ""}`}
+            onClick={copyShareLink}
+          >
+            <i className={`fa-solid ${shareCopied ? "fa-check" : "fa-link"}`} aria-hidden />
+            {shareCopied ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}
+          </button>
+        </div>
       </div>
     </div>
   )
