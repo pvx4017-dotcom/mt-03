@@ -45,7 +45,7 @@ export function CategorySidebar() {
                 {group.subcategories.map((sub) => (
                   <Link
                     key={sub.slug}
-                    to={`/categories?cat=${sub.slug}`}
+                    to="/categories"
                     onClick={closeSidebar}
                   >
                     {sub.label}

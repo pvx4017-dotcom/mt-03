@@ -193,6 +193,13 @@
             font-weight: 500;
         }
 
+        .input-group .input-hint {
+            margin: 8px 0 0;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #64748b;
+        }
+
         .input-group input, 
         .input-group select, 
         .input-group textarea {

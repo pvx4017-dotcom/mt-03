@@ -330,6 +330,18 @@ export async function dbFetchShippingHistory(toStatus: string) {
   return data ?? []
 }
 
+export async function dbFetchOrderContacts() {
+  const uid = requireUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  const { data } = await sb
+    .from("admin_cart_orders")
+    .select("*")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+  return ok({ orders: data ?? [] })
+}
+
 export async function dbFetchOrderHubCounts() {
   const uid = requireUserId()
   if (!uid) return {}
@@ -827,10 +839,91 @@ export async function dbFetchAllCustomerShopProducts() {
   return data ?? []
 }
 
+export async function dbFetchAllCustomerStores() {
+  const sb = getSupabase()
+  const { data: stores, error } = await sb
+    .from("customer_stores")
+    .select("*")
+    .order("created_at", { ascending: false })
+  if (error) throw new Error(error.message)
+  if (!stores?.length) return []
+
+  const { data: products } = await sb.from("customer_store_products_mirror").select("user_id")
+  const counts = new Map<number, number>()
+  for (const row of products ?? []) {
+    const uid = Number(row.user_id)
+    if (uid) counts.set(uid, (counts.get(uid) ?? 0) + 1)
+  }
+  return stores.map((store) => ({
+    ...store,
+    product_count: counts.get(Number(store.user_id)) ?? 0,
+  }))
+}
+
+/** นำสินค้าจากแคตตาล็อกแอดมินตามหมวดหมู่ที่เลือกตอนเปิดร้าน */
+async function dbSeedStoreProductsByCategory(
+  uid: number,
+  shopName: string,
+  mainCategory: string,
+): Promise<number> {
+  const category = String(mainCategory ?? "").trim()
+  if (!category) return 0
+
+  const sb = getSupabase()
+  const { data: catalogProducts } = await sb
+    .from("store_products")
+    .select("*")
+    .eq("product_category", category)
+    .order("id", { ascending: false })
+    .limit(50)
+
+  if (!catalogProducts?.length) return 0
+
+  const { data: existing } = await sb
+    .from("customer_store_products_mirror")
+    .select("source_product_id, catalog_source")
+    .eq("user_id", uid)
+    .eq("catalog_source", "admin")
+
+  const existingIds = new Set(
+    (existing ?? []).map((row) => Number(row.source_product_id)).filter((id) => id > 0),
+  )
+
+  const rows = catalogProducts
+    .filter((p) => !existingIds.has(Number(p.id)))
+    .map((p) => ({
+      user_id: uid,
+      source_product_id: p.id,
+      catalog_source: "admin",
+      product_name: p.product_name,
+      shop_name: shopName,
+      product_category: p.product_category,
+      product_image: p.product_image,
+      product_images: p.product_images,
+      product_price: p.product_price,
+      product_stock: p.product_stock ?? 0,
+      view_count: p.view_count ?? 0,
+      trust_score: p.trust_score ?? 0,
+      sales_volume: p.sales_volume ?? 0,
+    }))
+
+  if (!rows.length) return 0
+
+  const { error } = await sb.from("customer_store_products_mirror").insert(rows)
+  if (error) throw new Error(error.message)
+  return rows.length
+}
+
 export async function dbAddProductToMyStore(productId: number, catalogSource: string) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
+
+  const { data: store } = await sb.from("customer_stores").select("shop_name").eq("user_id", uid).maybeSingle()
+  if (!store?.shop_name) {
+    return fail("กรุณาเปิดร้านก่อนเพิ่มสินค้า (เมนู ฉันจะเปิดร้าน)")
+  }
+
   let source: Record<string, unknown> | null = null
   if (catalogSource === "mirror") {
     const { data } = await sb.from("customer_store_products_mirror").select("*").eq("id", productId).single()
@@ -840,12 +933,22 @@ export async function dbAddProductToMyStore(productId: number, catalogSource: st
     source = data
   }
   if (!source) return fail("ไม่พบสินค้า")
+
+  const { data: existing } = await sb
+    .from("customer_store_products_mirror")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("source_product_id", productId)
+    .eq("catalog_source", catalogSource)
+    .maybeSingle()
+  if (existing) return fail("สินค้านี้อยู่ในร้านแล้ว")
+
   const { error } = await sb.from("customer_store_products_mirror").insert({
     user_id: uid,
     source_product_id: productId,
     catalog_source: catalogSource,
     product_name: source.product_name,
-    shop_name: source.shop_name,
+    shop_name: store.shop_name,
     product_category: source.product_category,
     product_image: source.product_image,
     product_images: source.product_images,
@@ -856,7 +959,7 @@ export async function dbAddProductToMyStore(productId: number, catalogSource: st
     sales_volume: source.sales_volume ?? 0,
   })
   if (error) return fail(error.message)
-  return ok()
+  return ok({ message: "เพิ่มสินค้าในร้านแล้ว" })
 }
 
 export async function dbUpdateMirrorProduct(
@@ -930,6 +1033,17 @@ export async function dbSubmitStore(
     return fail("กรุณาเลือกรูปร้าน")
   }
   const sb = getSupabase()
+
+  let prevCategory: string | null = null
+  if (action === "update") {
+    const { data: prev } = await sb
+      .from("customer_stores")
+      .select("main_category")
+      .eq("user_id", uid)
+      .maybeSingle()
+    prevCategory = prev?.main_category ? String(prev.main_category) : null
+  }
+
   const row = {
     user_id: uid,
     shop_name: fields.shop_name,
@@ -944,7 +1058,37 @@ export async function dbSubmitStore(
     const { error } = await sb.from("customer_stores").insert(row)
     if (error) return fail(error.message)
   }
-  return ok({ message: "ลงทะเบียนเปิดร้านเรียบร้อยแล้ว" })
+
+  const { count: mirrorCount } = await sb
+    .from("customer_store_products_mirror")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", uid)
+
+  const categoryChanged =
+    action === "update" &&
+    prevCategory !== null &&
+    prevCategory.trim() !== String(fields.main_category ?? "").trim()
+  const shouldSeed =
+    action === "save" || categoryChanged || (mirrorCount ?? 0) === 0
+
+  let productsAdded = 0
+  if (shouldSeed) {
+    try {
+      productsAdded = await dbSeedStoreProductsByCategory(uid, fields.shop_name, fields.main_category)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return fail(`เปิดร้านแล้ว แต่เพิ่มสินค้าอัตโนมัติไม่สำเร็จ: ${msg}`)
+    }
+  }
+
+  let message = action === "update" ? "บันทึกข้อมูลร้านแล้ว" : "ลงทะเบียนเปิดร้านเรียบร้อยแล้ว"
+  if (productsAdded > 0) {
+    message += ` — เพิ่มสินค้า ${productsAdded} รายการจากหมวด "${fields.main_category}"`
+  } else if (shouldSeed) {
+    message += ` — ไม่พบสินค้าในหมวด "${fields.main_category}" (เพิ่มเองได้ที่คอลเลกชันสินค้า)`
+  }
+
+  return ok({ message, products_added: productsAdded })
 }
 
 // ─── Settings ───────────────────────────────────────────────────────────────

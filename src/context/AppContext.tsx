@@ -30,6 +30,12 @@ type AppContextValue = {
   orderHubCounts: OrderHubCounts
   refreshOrderHubCounts: () => Promise<void>
   hasStore: boolean
+  storeInfo: {
+    shop_name?: string
+    main_category?: string
+    sold_count?: number
+    product_count?: number
+  } | null
   refreshStoreStatus: () => Promise<void>
   sidebarOpen: boolean
   openSidebar: () => void
@@ -53,6 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cartCount, setCartCount] = useState(0)
   const [orderHubCounts, setOrderHubCounts] = useState<OrderHubCounts>({})
   const [hasStore, setHasStore] = useState(false)
+  const [storeInfo, setStoreInfo] = useState<AppContextValue["storeInfo"]>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [currentLang, setCurrentLang] = useState("th")
@@ -126,8 +133,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const data = await fetchStoreCustomerStatus()
       setHasStore(!!(data.success && data.has_store))
+      if (data.success && data.has_store && data.store) {
+        setStoreInfo({
+          shop_name: String(data.store.shop_name ?? ""),
+          main_category: String(data.store.main_category ?? ""),
+          sold_count: Number(data.store.sold_count ?? 0),
+          product_count: Number(data.store_products_mirror_count ?? 0),
+        })
+      } else {
+        setStoreInfo(null)
+      }
     } catch {
       setHasStore(false)
+      setStoreInfo(null)
     }
   }, [])
 
@@ -151,6 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCartCount(0)
     setOrderHubCounts({})
     setHasStore(false)
+    setStoreInfo(null)
   }, [sessionChecked, user, refreshCartCount, refreshUser, refreshOrderHubCounts, refreshStoreStatus])
 
   const login = useCallback((nextUser?: CustomerUser) => {
@@ -166,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCartCount(0)
     setOrderHubCounts({})
     setHasStore(false)
+    setStoreInfo(null)
   }, [])
 
   const requireLogin = useCallback(
@@ -194,6 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       orderHubCounts,
       refreshOrderHubCounts,
       hasStore,
+      storeInfo,
       refreshStoreStatus,
       sidebarOpen,
       openSidebar: () => setSidebarOpen(true),
@@ -220,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       orderHubCounts,
       refreshOrderHubCounts,
       hasStore,
+      storeInfo,
       refreshStoreStatus,
       sidebarOpen,
       langOpen,

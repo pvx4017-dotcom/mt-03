@@ -11,7 +11,8 @@
     "db:generate": "node scripts/generate-database-sql.mjs",
     "images:mirror": "node scripts/mirror-images-to-supabase.mjs",
     "images:mirror:dry": "node scripts/mirror-images-to-supabase.mjs --dry-run",
-    "brand:fetch": "node scripts/fetch-brand-assets.mjs"
+    "brand:fetch": "node scripts/fetch-brand-assets.mjs",
+    "test:e2e": "node scripts/e2e-smoke-test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",

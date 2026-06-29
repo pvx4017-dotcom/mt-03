@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { asset, formatPrice } from "@/lib/assets"
 import {
   confirmProductOrders,
@@ -19,7 +19,8 @@ import "@/styles/cart-style.css"
 
 export default function CartPage() {
   useBodyClass("page-cart")
-  const { refreshCartCount, requireLogin } = useApp()
+  const navigate = useNavigate()
+  const { refreshCartCount, refreshOrderHubCounts, requireLogin } = useApp()
   const [rows, setRows] = useState<ProductOrderRow[]>([])
   const [loading, setLoading] = useState(true)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -93,12 +94,14 @@ export default function CartPage() {
         showNotice(res.message ?? "ยืนยันคำสั่งซื้อไม่สำเร็จ")
         return
       }
-      showNotice("คำสั่งซื้อเสร็จแล้ว")
+      showNotice("ส่งคำสั่งซื้อแล้ว — รอแอดมินดำเนินการ")
       setCheckoutOpen(false)
       setContactName("")
       setContactAddress("")
       setContactPhone("")
-      await load()
+      await refreshCartCount()
+      await refreshOrderHubCounts()
+      window.setTimeout(() => navigate("/pending-payment"), 1200)
     } catch {
       showNotice("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ")
     } finally {
@@ -267,6 +270,9 @@ export default function CartPage() {
             <span>ยอดเงินที่ต้องชำระ</span>
             <strong>${fmtMoney(totalPrice)}</strong>
           </div>
+          <p className="checkout-flow-note">
+            ยืนยันแล้วรายการจะเข้า &quot;รอชำระเงิน&quot; — แอดมินจะหักจากกระเป๋าเมื่ออนุมัติ (ฝากเงินก่อนหากยอดไม่พอ)
+          </p>
         </div>
         <div className="checkout-sheet-foot">
           <button

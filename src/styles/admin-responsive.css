@@ -96,6 +96,51 @@ body.admin-page .admin-dashboard-intro {
   text-transform: uppercase;
 }
 
+body.admin-page .admin-workflow-card {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  border-radius: var(--admin-radius, 12px);
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border: 1px solid #dbeafe;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+body.admin-page .admin-workflow-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+body.admin-page .admin-workflow-steps {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+body.admin-page .admin-workflow-steps li {
+  margin-bottom: 4px;
+}
+
+body.admin-page .admin-workflow-note {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+body.admin-page .admin-order-wallet-warn {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 body.admin-page .menu-item {
   padding: 16px 18px;
   border-radius: var(--admin-radius);

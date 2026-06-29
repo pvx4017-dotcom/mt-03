@@ -22,6 +22,7 @@ export const API = {
   adminWithdrawPasswords: "admin/withdraw-passwords",
   adminSettings: "admin/settings",
   orderHubCounts: "orders/hub-counts",
+  orderContacts: "orders/contacts",
   userInfo: "user/info",
   productOrders: "orders/cart-items",
   reviewsList: "reviews/list",

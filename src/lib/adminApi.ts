@@ -8,6 +8,7 @@ import {
   dbFetchChatMessages,
   dbFetchChatThreads,
   dbFetchAllCustomerShopProducts,
+  dbFetchAllCustomerStores,
   dbFetchDeposits,
   dbFetchPaymentLimits,
   dbFetchProducts,
@@ -219,6 +220,12 @@ export async function fetchAdminTopupWallets() {
   }))
 }
 
+export async function fetchAdminUserWallet(userId: number) {
+  const rows = await fetchAdminTopupWallets()
+  const row = rows.find((r) => Number(r.user_id) === userId)
+  return Number(row?.balance ?? 0)
+}
+
 export async function fetchAdminDeposits() {
   return dbFetchDeposits()
 }
@@ -260,6 +267,10 @@ export async function fetchAdminOrders(orderStatus: string) {
 
 export async function fetchCustomerShopProducts() {
   return dbFetchAllCustomerShopProducts()
+}
+
+export async function fetchCustomerStores() {
+  return dbFetchAllCustomerStores()
 }
 
 export async function fetchChatThreads() {

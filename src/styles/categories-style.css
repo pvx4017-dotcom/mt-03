@@ -577,6 +577,14 @@ body.page-categories {
     min-height: 100vh;
 }
 
+.categories-status-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 24px 16px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
 .sub-category-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

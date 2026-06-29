@@ -36,6 +36,11 @@ function fail(message: string) {
   return { success: false, message }
 }
 
+function normalizeShippingToStatus(toStatus: string) {
+  if (toStatus === "success") return "completed"
+  return toStatus
+}
+
 function isCustomerScopedAdminGet(base: string, params: URLSearchParams) {
   if (base === API.adminCart && params.get("filter_user") === "1") return true
   if (base === API.adminCartOrders && params.get("filter_user") === "1") return true
@@ -153,8 +158,12 @@ export async function handleAdminGet(path: string): Promise<Json> {
       const items = await dbFetchOrdersByStatus(status, filterUser)
       return ok({ items, orders: items, count: items.length })
     }
+    case API.orderHubCounts:
+      return { success: true, ...(await (await import("@/lib/dbService")).dbFetchOrderHubCounts()) }
+    case API.orderContacts:
+      return (await import("@/lib/dbService")).dbFetchOrderContacts()
     case API.adminShippingHistory: {
-      const toStatus = params.get("to_status") ?? "receiving"
+      const toStatus = normalizeShippingToStatus(params.get("to_status") ?? "receiving")
       const sb = getSupabase()
       const uid = (await import("@/lib/session")).getSessionUserId()
       let q = sb.from("admin_cart_orders").select("*").eq("status", toStatus)
@@ -212,8 +221,6 @@ export async function handleAdminGet(path: string): Promise<Json> {
     }
     case API.adminSettings:
       return (await import("@/lib/dbService")).dbSuperAdminListAdmins()
-    case API.orderHubCounts:
-      return { success: true, ...(await (await import("@/lib/dbService")).dbFetchOrderHubCounts()) }
     case API.userInfo:
       return (await import("@/lib/dbService")).dbFetchUserInfo()
     case API.productOrders: {

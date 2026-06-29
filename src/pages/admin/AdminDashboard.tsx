@@ -54,6 +54,23 @@ export default function AdminDashboard() {
       <AdminTopBar title="Admin Panel" backTo="/" homeIcon />
       <main className="admin-container">
         <p className="admin-dashboard-intro">เมนูจัดการระบบ</p>
+        <div className="admin-workflow-card">
+          <p className="admin-workflow-title">เส้นทางคำสั่งซื้อ (Admin เป็นผู้ดำเนินการ)</p>
+          <ol className="admin-workflow-steps">
+            <li>
+              <strong>สินค้าของลูกค้า</strong> — เลือกสินค้าจากร้านลูกค้า → เพิ่มลงตะกร้า (ผูก user_id เจ้าของร้าน)
+            </li>
+            <li>
+              <strong>ตะกร้าสินค้า</strong> — ยืนยันคำสั่งซื้อ → หักกระเป๋าลูกค้า + ค่าคอม → สถานะ รอจัดส่ง
+            </li>
+            <li>
+              <strong>สินค้ารอจัดส่ง</strong> → <strong>รอรับสินค้า</strong> → <strong>สำเร็จ</strong> (เครดิตกำไรคอมมิชชั่น)
+            </li>
+          </ol>
+          <p className="admin-workflow-note">
+            ลูกค้าสั่งเองจากตะกร้าได้เช่นกัน — รายการจะเข้า ตะกร้าสินค้า รอแอดมินยืนยัน (Admin ไม่ใช่ผู้ซื้อ)
+          </p>
+        </div>
         {visibleNav.map((item) => {
           if (isNavGroup(item)) {
             const groupOpen =

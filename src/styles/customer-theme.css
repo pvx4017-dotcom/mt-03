@@ -873,20 +873,44 @@ body.page-customer.page-feedback .submit-btn {
   background: linear-gradient(135deg, #0062e0, #0052c4) !important;
 }
 
-/* Order status chips */
-body.page-customer.page-orders .status-pill.pending {
-  background: #fef3c7;
-  color: #b45309;
+/* Order hub — mobile polish */
+body.page-customer.page-orders .order-hub-shell {
+  max-width: var(--app-shell-max);
+  margin-left: auto;
+  margin-right: auto;
+  background: var(--app-bg) !important;
 }
 
-body.page-customer.page-orders .status-pill.shipped {
-  background: var(--app-primary-soft);
-  color: var(--app-primary);
+body.page-customer.page-orders .order-content {
+  background: var(--app-bg) !important;
 }
 
-body.page-customer.page-orders .status-pill.done {
-  background: #dcfce7;
-  color: #15803d;
+body.page-customer.page-orders .order-hub-navbar {
+  background: var(--app-gradient-header) !important;
+  border-bottom: none !important;
+  box-shadow: 0 4px 20px rgba(0, 40, 120, 0.18);
+}
+
+body.page-customer.page-orders .order-hub-navbar .back-btn,
+body.page-customer.page-orders .order-hub-navbar .nav-title {
+  color: #fff !important;
+}
+
+body.page-customer.page-orders .order-tabs {
+  background: #fff !important;
+}
+
+body.page-customer.page-orders .order-tabs .tab-item.active {
+  color: var(--app-primary) !important;
+}
+
+body.page-customer.page-orders .order-tabs .tab-item.active::after {
+  background: var(--app-primary) !important;
+}
+
+body.page-customer.page-orders .btn-order-pay {
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-light)) !important;
+  box-shadow: 0 6px 18px rgba(0, 98, 224, 0.28) !important;
 }
 
 /* Login polish */

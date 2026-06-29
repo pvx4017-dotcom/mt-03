@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "react-router-dom"
-import { categoryGroups } from "@/data/categories"
 import { CategorySidebar } from "@/components/layout/CategorySidebar"
 import { BottomNav } from "@/components/layout/BottomNav"
 import { Footer } from "@/components/layout/Footer"
@@ -11,15 +9,30 @@ import { useBodyClass } from "@/hooks/useBodyClass"
 import { fetchProducts, mapApiProduct } from "@/lib/marketplaceApi"
 import type { Product } from "@/data/products"
 
+type CatalogSort = "comprehensive" | "sales" | "price"
+
+function sortCatalog(products: Product[], sort: CatalogSort, priceAsc: boolean): Product[] {
+  const list = [...products]
+  if (sort === "sales") {
+    return list.sort((a, b) => (b.salesVolume ?? 0) - (a.salesVolume ?? 0))
+  }
+  if (sort === "price") {
+    return list.sort((a, b) => (priceAsc ? a.price - b.price : b.price - a.price))
+  }
+  return list.sort((a, b) => Number(b.id) - Number(a.id))
+}
+
+/** หน้าหมวดหมู่ — ตาม reference: โหลดสินค้าทั้งหมดจากแคตตาล็อก, sidebar เป็น UI ตกแต่ง, เรียงด้วยแท็บด้านบนเท่านั้น */
 export default function CategoriesPage() {
   useBodyClass("page-categories")
-  const [params] = useSearchParams()
-  const catSlug = params.get("cat") || "all"
-  const [filter, setFilter] = useState("comprehensive")
+  const [sort, setSort] = useState<CatalogSort>("comprehensive")
+  const [priceAsc, setPriceAsc] = useState(true)
   const [apiProducts, setApiProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     fetchProducts()
       .then((rows) => {
         if (!cancelled) setApiProducts(rows.map(mapApiProduct))
@@ -27,62 +40,65 @@ export default function CategoriesPage() {
       .catch(() => {
         if (!cancelled) setApiProducts([])
       })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
   }, [])
 
-  const categoryLabel =
-    categoryGroups.find((g) => g.subcategories.some((s) => s.slug === catSlug))?.label ?? "หมวดหมู่"
+  const displayProducts = useMemo(
+    () => sortCatalog(apiProducts, sort, priceAsc),
+    [apiProducts, sort, priceAsc],
+  )
 
-  const source = apiProducts
-
-  const filteredProducts = useMemo(() => {
-    if (catSlug === "all" || catSlug === "new" || catSlug === "popular") return source
-    const slugNorm = catSlug.toLowerCase()
-    return source.filter((p) => {
-      const cat = String(p.category ?? "").toLowerCase()
-      return cat.includes(slugNorm) || slugNorm.includes(cat.replace(/\s+/g, ""))
-    })
-  }, [catSlug, source])
-
-  const displayProducts =
-    filter === "price"
-      ? [...filteredProducts].sort((a, b) => a.price - b.price)
-      : filteredProducts
+  const onPriceTab = () => {
+    if (sort === "price") setPriceAsc((v) => !v)
+    else {
+      setSort("price")
+      setPriceAsc(true)
+    }
+  }
 
   return (
     <div id="app" className="app-shell">
       <CategorySidebar />
-      <HeaderRedesign title={categoryLabel} backTo="/" />
+      <HeaderRedesign title="หมวดหมู่" backTo="/" />
 
       <div className="filter-bar">
         <div
-          className={`filter-tab${filter === "comprehensive" ? " active" : ""}`}
-          onClick={() => setFilter("comprehensive")}
+          className={`filter-tab${sort === "comprehensive" ? " active" : ""}`}
+          onClick={() => setSort("comprehensive")}
           role="button"
         >
           ครอบคลุม
         </div>
         <div
-          className={`filter-tab${filter === "sales" ? " active" : ""}`}
-          onClick={() => setFilter("sales")}
+          className={`filter-tab${sort === "sales" ? " active" : ""}`}
+          onClick={() => setSort("sales")}
           role="button"
         >
           ปริมาณการขาย
         </div>
         <div
-          className={`filter-tab${filter === "price" ? " active" : ""}`}
-          onClick={() => setFilter("price")}
+          className={`filter-tab${sort === "price" ? " active" : ""}`}
+          onClick={onPriceTab}
           role="button"
         >
           ราคา
-          <i className="fa-solid fa-sort" />
+          <i className={`fa-solid fa-sort${sort === "price" ? (priceAsc ? "-up" : "-down") : ""}`} />
         </div>
       </div>
 
       <div className="category-content-container">
-        <ProductFeed products={displayProducts} />
+        {loading ? (
+          <p className="categories-status-msg">กำลังโหลดสินค้า…</p>
+        ) : displayProducts.length === 0 ? (
+          <p className="categories-status-msg">ยังไม่มีสินค้าในขณะนี้</p>
+        ) : (
+          <ProductFeed products={displayProducts} />
+        )}
       </div>
 
       <div className="app-footer-zone">

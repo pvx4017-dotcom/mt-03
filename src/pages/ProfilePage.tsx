@@ -23,7 +23,7 @@ function OrderBadge({ count, afterSales }: { count?: number; afterSales?: boolea
 export default function ProfilePage() {
   useBodyClass("page-profile")
   const navigate = useNavigate()
-  const { user, isLoggedIn, hasStore, orderHubCounts } = useApp()
+  const { user, isLoggedIn, hasStore, storeInfo, orderHubCounts } = useApp()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [storeToast, setStoreToast] = useState(false)
 
@@ -159,18 +159,35 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <Link to="/open-store" className="store-banner" style={{ textDecoration: "none" }}>
-          <div className="banner-left">
-            <div className="store-banner-icon">
-              <i className="fa-solid fa-store" />
+        {hasStore && storeInfo?.shop_name ? (
+          <Link to="/my-store-products" className="store-banner store-banner--active" style={{ textDecoration: "none" }}>
+            <div className="banner-left">
+              <div className="store-banner-icon">
+                <i className="fa-solid fa-store" />
+              </div>
+              <div>
+                <div className="store-banner-title">{storeInfo.shop_name}</div>
+                <div className="store-banner-sub">
+                  {storeInfo.product_count ?? 0} สินค้า · ขายแล้ว {storeInfo.sold_count ?? 0} · แตะเพื่อจัดการร้าน
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="store-banner-title">ฉันจะเปิดร้าน</div>
-              <div className="store-banner-sub">เริ่มต้นธุรกิจของคุณวันนี้</div>
+            <i className="fa-solid fa-chevron-right store-banner-arrow" />
+          </Link>
+        ) : (
+          <Link to="/open-store" className="store-banner" style={{ textDecoration: "none" }}>
+            <div className="banner-left">
+              <div className="store-banner-icon">
+                <i className="fa-solid fa-store" />
+              </div>
+              <div>
+                <div className="store-banner-title">ฉันจะเปิดร้าน</div>
+                <div className="store-banner-sub">เริ่มต้นธุรกิจของคุณวันนี้</div>
+              </div>
             </div>
-          </div>
-          <i className="fa-solid fa-chevron-right store-banner-arrow" />
-        </Link>
+            <i className="fa-solid fa-chevron-right store-banner-arrow" />
+          </Link>
+        )}
 
         <section className="menu-list-card">
           {[

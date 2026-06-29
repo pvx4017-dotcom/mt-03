@@ -8,7 +8,9 @@ import {
   adminPost,
   fetchAdminCart,
   fetchAdminOrders,
+  fetchAdminUserWallet,
   fetchCustomerShopProducts,
+  fetchCustomerStores,
   formatAdminDate,
 } from "@/lib/adminApi"
 import {
@@ -136,9 +138,11 @@ function AdminOrderDetailPanel({ row }: { row: CartItem }) {
 export function AdminCustomerStoreProductsPage() {
   useBodyClass("admin-page")
   const { showToast, Toast } = useAdminToast()
+  const [stores, setStores] = useState<Record<string, unknown>[]>([])
   const [rows, setRows] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [storeSearch, setStoreSearch] = useState("")
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [cartCount, setCartCount] = useState(0)
   const [detailRow, setDetailRow] = useState<CartItem | null>(null)
@@ -161,21 +165,23 @@ export function AdminCustomerStoreProductsPage() {
 
   const load = useCallback(
     async (silent = false) => {
-      if (!silent || rows.length === 0) setLoading(true)
+      if (!silent || (rows.length === 0 && stores.length === 0)) setLoading(true)
       try {
-        const [products, cart] = await Promise.all([
+        const [storeRows, products, cart] = await Promise.all([
+          fetchCustomerStores(),
           fetchCustomerShopProducts(),
           fetchAdminCart("pending"),
         ])
+        setStores(storeRows)
         setRows(products)
         setCartCount(cart.items?.length ?? 0)
       } catch {
         showToast("โหลดข้อมูลไม่สำเร็จ", "error")
       } finally {
-        if (!silent || rows.length === 0) setLoading(false)
+        if (!silent || (rows.length === 0 && stores.length === 0)) setLoading(false)
       }
     },
-    [rows.length, showToast],
+    [rows.length, stores.length, showToast],
   )
 
   useEffect(() => {
@@ -183,6 +189,17 @@ export function AdminCustomerStoreProductsPage() {
   }, [load])
 
   const filtered = useMemo(() => filterProductsByNameOrShop(rows, search), [rows, search])
+
+  const filteredStores = useMemo(() => {
+    const q = storeSearch.trim().toLowerCase()
+    if (!q) return stores
+    return stores.filter((store) => {
+      const name = String(store.shop_name ?? "").toLowerCase()
+      const uid = String(store.user_id ?? "")
+      const category = String(store.main_category ?? "").toLowerCase()
+      return name.includes(q) || uid.includes(q) || category.includes(q)
+    })
+  }, [storeSearch, stores])
 
   const addToCart = async (row: CartItem) => {
     const fd = new FormData()
@@ -242,7 +259,7 @@ export function AdminCustomerStoreProductsPage() {
       <div className="admin-order-wrap admin-customer-products-page">
         <div className="admin-page-header">
           <h1 className="admin-page-title">
-            <i className="fa-solid fa-store" /> สินค้าของลูกค้า ({rows.length})
+            <i className="fa-solid fa-store" /> ร้านและสินค้าลูกค้า
           </h1>
           <div className="admin-page-header-actions">
             <Link to="/admin/cart" className="back-btn admin-header-cart-btn">
@@ -255,6 +272,83 @@ export function AdminCustomerStoreProductsPage() {
             </Link>
           </div>
         </div>
+
+        <section className="admin-customer-stores-section">
+          <div className="admin-section-head">
+            <h2 className="admin-section-title">
+              <i className="fa-solid fa-shop" /> ร้านที่ลูกค้าเปิด ({stores.length})
+            </h2>
+          </div>
+          <div className="admin-order-search">
+            <i className="fa-solid fa-magnifying-glass" />
+            <input
+              value={storeSearch}
+              onChange={(e) => setStoreSearch(e.target.value)}
+              placeholder="ค้นหาชื่อร้าน / รหัสผู้ใช้ / หมวดหมู่…"
+            />
+          </div>
+          <AdminOrderTableWrap className="admin-product-table admin-stores-table">
+            {showAdminTableLoading(loading, stores.length) ? (
+              <div className="admin-order-empty">กำลังโหลดร้านค้า…</div>
+            ) : filteredStores.length === 0 ? (
+              <div className="admin-order-empty">
+                {stores.length === 0 ? (
+                  <>
+                    ยังไม่มีลูกค้าเปิดร้าน
+                    <br />
+                    <small style={{ opacity: 0.75, fontWeight: 400 }}>
+                      ลูกค้าเปิดร้านได้จากเมนู &quot;ฉันจะเปิดร้าน&quot; ในหน้าโปรไฟล์
+                    </small>
+                  </>
+                ) : (
+                  "ไม่พบร้านตามคำค้นหา"
+                )}
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>รูป</th>
+                    <th>ชื่อร้าน</th>
+                    <th>หมวดหมู่</th>
+                    <th>สินค้าในร้าน</th>
+                    <th>ขายแล้ว</th>
+                    <th>สถานะ</th>
+                    <th>รหัสผู้ใช้</th>
+                    <th>เปิดเมื่อ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStores.map((store) => (
+                    <tr key={String(store.id)}>
+                      <td>
+                        <img
+                          className="admin-order-thumb"
+                          src={adminParseImage(String(store.shop_image ?? ""))}
+                          alt=""
+                        />
+                      </td>
+                      <td>{String(store.shop_name ?? "-")}</td>
+                      <td>{String(store.main_category ?? "-")}</td>
+                      <td>{adminFmtNum(store.product_count ?? 0)}</td>
+                      <td>{adminFmtNum(store.sold_count ?? 0)}</td>
+                      <td>{String(store.status ?? "active")}</td>
+                      <td>#{String(store.user_id ?? "-")}</td>
+                      <td>{formatAdminDate(String(store.created_at ?? ""))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </AdminOrderTableWrap>
+        </section>
+
+        <section className="admin-customer-products-section">
+          <div className="admin-section-head">
+            <h2 className="admin-section-title">
+              <i className="fa-solid fa-box" /> สินค้าในร้านลูกค้า ({rows.length})
+            </h2>
+          </div>
 
         <div className="admin-order-search">
           <i className="fa-solid fa-magnifying-glass" />
@@ -282,11 +376,11 @@ export function AdminCustomerStoreProductsPage() {
             <div className="admin-order-empty">
               {rows.length === 0 ? (
                 <>
-                  ยังไม่มีสินค้าจากร้านลูกค้า
+                  ยังไม่มีสินค้าในร้านลูกค้า
                   <br />
                   <small style={{ opacity: 0.75, fontWeight: 400 }}>
-                    ลูกค้าต้องเปิดร้านและเพิ่มสินค้าจากคอลเลกชันก่อน — หรือรัน{" "}
-                    <code>scripts/seed-customer-store-mirror.sql</code> ใน Supabase
+                    หลังเปิดร้าน ระบบจะนำสินค้าจากหมวดที่เลือกเข้าร้านอัตโนมัติ
+                    — ถ้ายังไม่มี ลองบันทึกร้านอีกครั้งหรือเพิ่มจากคอลเลกชันสินค้า
                   </small>
                 </>
               ) : (
@@ -370,6 +464,7 @@ export function AdminCustomerStoreProductsPage() {
             </table>
           )}
         </AdminOrderTableWrap>
+        </section>
       </div>
 
       <AdminDetailModal
@@ -455,6 +550,7 @@ export function AdminCartPage() {
   const [commPct, setCommPct] = useState("20")
   const [shippingCount, setShippingCount] = useState(0)
   const [orderModal, setOrderModal] = useState<CartItem | null>(null)
+  const [customerWallet, setCustomerWallet] = useState<number | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [qty, setQty] = useState(1)
   const [receiver, setReceiver] = useState({ name: "", address: "", phone: "" })
@@ -502,12 +598,25 @@ export function AdminCartPage() {
   const openOrder = (row: CartItem) => {
     setOrderModal(row)
     setQty(Number(row.quantity ?? 1))
+    setCustomerWallet(null)
     setReceiver({
       name: String(row.receiver_name ?? row.contact_name ?? ""),
       address: String(row.receiver_address ?? row.contact_address ?? ""),
       phone: String(row.receiver_phone ?? row.contact_phone ?? ""),
     })
+    const uid = Number(row.user_id ?? 0)
+    if (uid > 0) {
+      fetchAdminUserWallet(uid)
+        .then(setCustomerWallet)
+        .catch(() => setCustomerWallet(null))
+    }
   }
+
+  const orderUnit = Number(orderModal?.unit_price ?? 0)
+  const orderComm = orderUnit * qty * (Number(commPct) / 100)
+  const orderTotalDue = orderUnit * qty + orderComm
+  const walletInsufficient =
+    customerWallet != null && Number.isFinite(customerWallet) && customerWallet < orderTotalDue
 
   const saveOrder = async () => {
     if (!orderModal) return
@@ -733,9 +842,22 @@ export function AdminCartPage() {
               />
             </div>
             <p className="admin-order-comm-note">
-              ค่าคอมมิชชั่น ({commPct}%): $
-              {adminFmtMoney(Number(orderModal.unit_price ?? 0) * qty * (Number(commPct) / 100))}
+              ค่าคอมมิชชั่น ({commPct}%): ${adminFmtMoney(orderComm)}
             </p>
+            <p className="admin-order-comm-note">
+              ยอดหักจากกระเป๋าลูกค้า: <strong>${adminFmtMoney(orderTotalDue)}</strong>
+              {customerWallet != null ? (
+                <>
+                  {" "}
+                  (กระเป๋ามี ${adminFmtMoney(customerWallet)})
+                </>
+              ) : null}
+            </p>
+            {walletInsufficient ? (
+              <p className="admin-order-wallet-warn">
+                ยอดในกระเป๋าไม่เพียงพอ — ลูกค้าต้องฝากเงินก่อน (เมนู ลูกค้าฝากเงิน / เติมเงินลูกค้า)
+              </p>
+            ) : null}
           </div>
         ) : null}
       </AdminDetailModal>

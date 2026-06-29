@@ -210,6 +210,7 @@ export async function fetchPendingPaymentOrders() {
   return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
     ...row,
     bill_no: row.bill_no ?? row.order_no,
+    added_at: row.added_at ?? row.created_at,
   }))
 }
 
@@ -218,31 +219,39 @@ export async function fetchToShipOrders() {
   const data = await handleAdminGet(
     apiPath(API.adminCartOrders, { order_status: "shipping", filter_user: "1" }),
   )
-  return (data.items ?? []) as Record<string, unknown>[]
+  return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...row,
+    ordered_at: row.ordered_at ?? row.created_at,
+  }))
 }
 
 export async function fetchToReceiveOrders() {
   ensureConfigured()
   const data = await handleAdminGet(apiPath(API.adminShippingHistory, { to_status: "receiving" }))
-  return (data.items ?? []) as Record<string, unknown>[]
+  return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...row,
+    ordered_at: row.ordered_at ?? row.created_at,
+  }))
 }
 
 export async function fetchCompletedOrders() {
   ensureConfigured()
-  const data = await handleAdminGet(apiPath(API.adminShippingHistory, { to_status: "completed" }))
-  return (data.items ?? []) as Record<string, unknown>[]
+  const data = await handleAdminGet(apiPath(API.adminShippingHistory, { to_status: "success" }))
+  return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...row,
+    ordered_at: row.ordered_at ?? row.created_at,
+  }))
 }
 
 export async function fetchOrderContacts() {
   ensureConfigured()
-  const items = await fetchPendingPaymentOrders()
-  const seen = new Set<string>()
-  return items.filter((row: Record<string, unknown>) => {
-    const key = String(row.bill_no ?? row.order_no ?? row.id ?? "")
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  const data = await handleAdminGet(API.orderContacts)
+  if (data.success === false) return []
+  return ((data.orders ?? data.items ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...row,
+    bill_no: row.bill_no ?? row.order_no,
+    created_at: row.created_at ?? row.added_at,
+  }))
 }
 
 export async function fetchOrderHubCounts() {
@@ -421,8 +430,7 @@ export async function fetchOtherStoreProducts() {
 
 export async function fetchCustomerShopProducts() {
   ensureConfigured()
-  const data = await handleAdminGet(API.customerShopProducts)
-  return (data.products ?? []) as StoreProductRow[]
+  return db.dbFetchCustomerShopProducts() as Promise<StoreProductRow[]>
 }
 
 export async function addProductToMyStore(productId: number, catalogSource: "admin" | "mirror") {

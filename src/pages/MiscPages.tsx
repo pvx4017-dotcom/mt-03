@@ -455,6 +455,11 @@ export function OpenStorePage() {
       setCategory("")
       await loadStatus()
       await refreshStoreStatus()
+      if (Number((res as { products_added?: number }).products_added ?? 0) > 0) {
+        window.setTimeout(() => {
+          showToast("ดูสินค้าในร้านได้ที่ จัดการร้านค้า")
+        }, 2000)
+      }
     } catch {
       showToast("เกิดข้อผิดพลาดในการส่งข้อมูล", true)
     } finally {
@@ -539,6 +544,9 @@ export function OpenStorePage() {
                 </option>
               ))}
             </select>
+            <p className="input-hint">
+              ระบบจะนำสินค้าจากหมวดนี้เข้าร้านของคุณอัตโนมัติเมื่อเปิดร้าน (สูงสุด 50 รายการ)
+            </p>
           </div>
           <button className="submit-btn" type="button" disabled={busy} onClick={submit}>
             {busy ? "กำลังบันทึก..." : hasStore ? "บันทึกการแก้ไขร้าน" : "ลงทะเบียนเปิดร้านเลย"}
@@ -828,12 +836,18 @@ export function CollectionsPage() {
       showToast("รหัสสินค้าไม่ถูกต้อง", true)
       return
     }
+    const status = await fetchStoreCustomerStatus()
+    if (!status.success || !status.has_store) {
+      showToast("กรุณาเปิดร้านก่อน (เมนู ฉันจะเปิดร้าน)", true)
+      return
+    }
     const catalogSource =
       String(row.catalog_source ?? "").trim().toLowerCase() === "mirror" ? "mirror" : "admin"
     const res = await addProductToMyStore(productId, catalogSource)
     if (res.success) {
-      showToast("เพิ่มสินค้าเสร็จแล้ว")
+      showToast("เพิ่มสินค้าในร้านแล้ว")
       setOpenMenuId(null)
+      await load()
     } else {
       showToast(res.message || "เพิ่มไม่สำเร็จ", true)
     }
