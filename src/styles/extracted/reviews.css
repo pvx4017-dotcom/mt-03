@@ -8,13 +8,13 @@
             position: sticky; top: 0; z-index: 100;
             box-shadow: 0 1px 8px rgba(0,0,0,.06);
         }
-        .back-btn {
+        body.page-reviews .back-btn {
             width: 36px; height: 36px; border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
             background: #f1f5f9; color: #374151; font-size: 15px;
             text-decoration: none;
         }
-        .back-btn:hover { background: #e5e7eb; }
+        body.page-reviews .back-btn:hover { background: #e5e7eb; }
         .nav-title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
 
         .page-wrap { padding: 14px 16px 80px; }

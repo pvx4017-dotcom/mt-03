@@ -191,6 +191,23 @@ body.page-customer.page-product-detail .product-header .tab-item {
   color: rgba(255, 255, 255, 0.82) !important;
 }
 
+body.page-customer.page-product-detail .product-header .back-btn,
+body.page-customer.page-product-detail .product-header .share-btn {
+  position: static !important;
+  left: auto !important;
+  padding: 0 !important;
+  margin: 0;
+  flex-shrink: 0;
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+body.page-customer.page-product-detail .product-header .share-btn {
+  margin-left: auto;
+}
+
 body.page-customer.page-product-detail .product-header .tab-item.active {
   color: #fff !important;
   border-bottom-color: #fff !important;

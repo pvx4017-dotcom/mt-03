@@ -59,12 +59,23 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        .back-btn, .share-btn {
+        body.page-product-detail .back-btn,
+        body.page-product-detail .share-btn {
             font-size: 18px;
             color: var(--text-main);
             width: 40px; height: 40px;
             display: flex; align-items: center; justify-content: center;
             text-decoration: none;
+            background: transparent;
+            border: none;
+            position: static;
+            left: auto;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        body.page-product-detail .product-header .share-btn {
+            margin-left: auto;
         }
 
         .tab-nav {

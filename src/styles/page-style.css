@@ -41,7 +41,7 @@ body.page-sub #app {
     border-bottom: 1px solid #eee;
 }
 
-.back-btn {
+.page-header .back-btn {
     position: absolute; /* Take out of flow to not affect centering */
     left: 16px;
     font-size: 20px;
@@ -56,7 +56,7 @@ body.page-sub #app {
     transition: background 0.2s;
 }
 
-.back-btn:active {
+.page-header .back-btn:active {
     background: var(--bg-gray);
 }
 
