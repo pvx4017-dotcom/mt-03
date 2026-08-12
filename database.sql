@@ -1292,9 +1292,8 @@ DO $$ DECLARE t TEXT; BEGIN
   END LOOP;
 END $$;
 
--- รูปสินค้า/ร้าน/หมวด/สไลด์: เก็บใน public/ ของโปรเจกต์ (path ในคอลัมน์เช่น images/...)
--- ไม่ต้องสร้าง Storage bucket สำหรับ catalog
--- (optional chat/KYC บน Storage: scripts/setup-storage-uploads.sql — ไม่แนะนำถ้าไม่อยากกินโควตา)
+-- รูปสินค้า/ร้าน: เก็บใน public/images ของโปรเจกต์ (path เช่น images/store_product_...)
+-- รูปอื่น (แชท/KYC/หมวด/สไลด์): Supabase Storage — รัน scripts/setup-storage-uploads.sql
 
 -- บัญชีทดลอง:
 --   Admin: admin@meta.local / admin123

@@ -1,9 +1,8 @@
--- OPTIONAL: Storage bucket สำหรับแชท/KYC เท่านั้น
--- รูปสินค้า / ร้านค้า / หมวด / สไลด์ เก็บใน public/ ของโปรเจกต์แล้ว ไม่ต้องใช้ Storage
+-- Supabase Storage bucket "uploads" สำหรับรูปที่ไม่ใช่สินค้า/ร้าน
+-- ใช้กับ: แชท, KYC, หมวดหมู่, สไลด์
+-- รูปสินค้า / ร้านค้า เก็บใน public/images ของโปรเจกต์ — ไม่ใส่ใน Storage
 --
--- โปรเจกต์ใหม่แนะนำ: ข้ามไฟล์นี้ไปก่อน เพื่อไม่ให้โควตา Storage เต็มอีก
--- รันเฉพาะเมื่อต้องการอัปโหลดแชท/KYC ขึ้น Supabase จริงๆ
--- (ตอนนี้แอปอัปโหลดแชท/KYC ลง public/ ตอน yarn dev แล้ว)
+-- รันใน Supabase SQL Editor ของโปรเจกต์ใหม่ (ครั้งเดียว)
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('uploads', 'uploads', true)

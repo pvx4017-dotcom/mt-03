@@ -1,6 +1,8 @@
 # Meta Business (React + TypeScript + Vite)
 
-Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Postgres** ส่วน**รูปสินค้า/ร้านค้าเก็บใน `public/` ของโปรเจกต์** แบบ PHP (ฐานข้อมูลเก็บแค่ path เช่น `images/foo.jpg`)
+Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Postgres**  
+- **รูปสินค้า / ร้านค้า** → เก็บใน `public/images` ของโปรเจกต์ (path ใน DB เช่น `images/store_product_…`)  
+- **รูปอื่น** (แชท, KYC, หมวด, สไลด์) → Supabase Storage bucket `uploads`
 
 ## สร้างฐานข้อมูลใหม่ (แนะนำเมื่อโปรเจกต์เก่าโควตาเต็ม)
 
@@ -12,7 +14,7 @@ Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Pos
 4. เปิด **SQL Editor** → วางเนื้อหาทั้งไฟล์ [`database.sql`](database.sql) → **Run**  
    - มีตาราง + ข้อมูลสินค้า/ร้าน/หมวด/สไลด์ + บัญชีทดสอบครบ  
    - path รูปชี้ไปที่ไฟล์ใน `public/images` ที่มีอยู่ในโปรเจกต์แล้ว  
-5. **ไม่ต้องสร้าง Storage bucket** สำหรับสินค้า/ร้าน (เก็บในโปรเจกต์แล้ว)  
+5. รัน [`scripts/setup-storage-uploads.sql`](scripts/setup-storage-uploads.sql) สำหรับแชท/KYC/หมวด/สไลด์ (สินค้า/ร้านไม่ใช้ Storage)  
 6. ตรวจว่าพร้อมใช้:
    ```bash
    yarn db:verify
@@ -30,15 +32,19 @@ Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Pos
 | Customer | `+66812345678` | `123456` |
 | รหัสเชิญสมัคร | `12345` | — |
 
-### รูปภาพ catalog
+### รูปภาพ
+
+| ประเภท | ที่เก็บ | Production |
+|--------|---------|------------|
+| สินค้า / ร้านค้า | `public/images` ใน GitHub | ต้อง commit + push ถึงขึ้น |
+| แชท / KYC / หมวด / สไลด์ | Supabase Storage | ขึ้นทันทีหลังอัปโหลด |
 
 ```bash
-yarn images:audit                 # path ในระบบ ต้องมีไฟล์ใน public/
-yarn images:pull --skip-existing  # ดึงรูปลง public/ (ถ้ายังไม่ครบ)
+yarn images:audit                 # ตรวจรูปสินค้า/ร้านใน public/
+yarn images:pull --skip-existing  # ดึงรูป catalog ลง public/ (ถ้ายังไม่ครบ)
 ```
 
-อัปโหลดรูปใหม่ (สินค้า / ร้าน / สไลด์ / หมวด / แชท / KYC): รัน `yarn dev` → อัปโหลด → ไฟล์ลง `public/images/` → commit แล้ว deploy  
-อย่าใช้ `yarn images:mirror` (เลิกใช้แล้ว — จะดันรูปกลับเข้า Storage)
+อย่าใช้ `yarn images:mirror` (เลิกใช้แล้ว)
 
 ---
 

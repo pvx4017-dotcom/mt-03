@@ -2,6 +2,7 @@
 import { getSupabase } from "@/lib/supabase"
 import { API } from "@/lib/apiRoutes"
 import { uploadLocalFile } from "@/lib/localUpload"
+import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { getSessionUserId, isAdminPanelRole } from "@/lib/session"
 import {
   dbAdminFetchCart,
@@ -71,20 +72,26 @@ function normalizeNotificationType(raw: string) {
   return raw || "platform"
 }
 
-/** รูป catalog → public/ ผ่าน /api/local-upload (yarn dev) */
-async function uploadCatalogImage(file: File, prefix: string) {
-  return uploadLocalFile(file, prefix)
+/** รูปสินค้า/ร้าน → public/images (โปรเจกต์) */
+async function uploadProjectImage(file: File) {
+  return uploadLocalFile(file, "images")
+}
+
+/** รูปอื่น → Supabase Storage */
+async function uploadRemoteImage(file: File, prefix: string) {
+  return uploadToSupabaseStorage(file, prefix)
 }
 
 async function resolveImageUpload(
   fd: FormData,
   field: string,
   existingPath: string,
-  storagePrefix: string,
+  mode: "project" | "storage",
+  storagePrefix = "",
 ) {
   const file = fd.get(field)
   if (file instanceof File && file.size > 0) {
-    return uploadCatalogImage(file, storagePrefix)
+    return mode === "project" ? uploadProjectImage(file) : uploadRemoteImage(file, storagePrefix)
   }
   const hinted = String(fd.get(`${field}_path`) ?? "").trim()
   if (hinted && hinted !== "[object File]") return hinted
@@ -357,7 +364,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let categoryImage = existingImage
       try {
-        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "images")
+        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "storage", "categories")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
       }
@@ -393,7 +400,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let shopImage = existingImage
       try {
-        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "images")
+        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "project")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านค้าไม่สำเร็จ")
       }
@@ -426,7 +433,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       let imagePath = String(fd.get("slide_image_path") ?? "")
       if (file && file.size) {
         try {
-          imagePath = await uploadCatalogImage(file, "images")
+          imagePath = await uploadRemoteImage(file, "slides")
         } catch (err) {
           return fail(err instanceof Error ? err.message : "อัปโหลดรูปสไลด์ไม่สำเร็จ")
         }
@@ -459,7 +466,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       for (const entry of fd.getAll("product_images[]")) {
         if (entry instanceof File && entry.size > 0) {
           try {
-            uploaded.push(await uploadCatalogImage(entry, "images"))
+            uploaded.push(await uploadProjectImage(entry))
           } catch (err) {
             return fail(err instanceof Error ? err.message : "อัปโหลดรูปสินค้าไม่สำเร็จ")
           }
@@ -636,11 +643,11 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         const file = fd.get("image") as File
         if (!(file instanceof File) || !file.size) return fail("ไม่พบไฟล์รูป")
         try {
-          const saved = await uploadLocalFile(file, "images/chat")
+          const saved = await uploadRemoteImage(file, "support_chat")
           await sb.from("support_chat_messages").insert({
             user_id: userId,
             sender_type: "admin",
-            message: `CHATIMG:${saved}`,
+            message: `CHATIMG:uploads/${saved}`,
           })
           return ok({ message: "ส่งแล้ว" })
         } catch (err) {

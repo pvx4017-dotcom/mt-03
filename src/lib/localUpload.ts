@@ -1,7 +1,7 @@
-/** อัปโหลดรูปลง public/ ผ่าน Vite middleware (yarn dev / vite preview) */
+/** อัปโหลดรูปสินค้า/ร้านลง public/images ผ่าน Vite middleware (yarn dev / vite preview) */
 
 const LOCAL_UPLOAD_UNAVAILABLE =
-  "อัปโหลดรูปเก็บในโปรเจกต์ได้เมื่อรันบนเครื่อง (yarn dev) แล้ว commit โฟลเดอร์ public/ ก่อน deploy"
+  "อัปโหลดรูปสินค้า/ร้านเก็บในโปรเจกต์ได้เมื่อรันบนเครื่อง (yarn dev) แล้ว commit โฟลเดอร์ public/ ก่อน deploy"
 
 function sanitizeFileName(name: string) {
   const base = String(name ?? "").trim().replace(/\\/g, "/").split("/").pop() ?? "file"

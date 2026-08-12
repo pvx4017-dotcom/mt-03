@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase"
 import { uploadLocalFile } from "@/lib/localUpload"
+import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 
 type Result<T> = { success: boolean; message?: string } & T
@@ -583,8 +584,8 @@ export async function dbUploadChatImage(file: File) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   try {
-    const saved = await uploadLocalFile(file, "images/chat")
-    return dbSendChatMessage(`CHATIMG:${saved}`)
+    const saved = await uploadToSupabaseStorage(file, "support_chat")
+    return dbSendChatMessage(`CHATIMG:uploads/${saved}`)
   } catch (err) {
     return fail(err instanceof Error ? err.message : "อัปโหลดรูปแชทไม่สำเร็จ")
   }
@@ -997,6 +998,7 @@ export async function dbSubmitStore(
     fields.shop_image instanceof File && fields.shop_image.size > 0 ? fields.shop_image : null
   if (shopImage) {
     try {
+      // รูปร้านลูกค้า → โปรเจกต์ (เหมือนรูปสินค้า/ร้าน)
       imagePath = await uploadLocalFile(shopImage, "images")
     } catch (err) {
       return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านไม่สำเร็จ")
@@ -1093,9 +1095,9 @@ export async function dbSubmitVerification(fields: {
   let back: string
   let selfie: string
   try {
-    front = await uploadLocalFile(fields.id_card_image, "images/kyc")
-    back = await uploadLocalFile(fields.id_card_back, "images/kyc")
-    selfie = await uploadLocalFile(fields.selfie_image, "images/kyc")
+    front = await uploadToSupabaseStorage(fields.id_card_image, "kyc")
+    back = await uploadToSupabaseStorage(fields.id_card_back, "kyc")
+    selfie = await uploadToSupabaseStorage(fields.selfie_image, "kyc")
   } catch (err) {
     return fail(err instanceof Error ? err.message : "อัปโหลดเอกสารไม่สำเร็จ")
   }
