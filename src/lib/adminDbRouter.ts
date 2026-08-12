@@ -357,7 +357,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let categoryImage = existingImage
       try {
-        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "uploads/categories")
+        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "images")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
       }
@@ -393,7 +393,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let shopImage = existingImage
       try {
-        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "uploads/shops")
+        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "images")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านค้าไม่สำเร็จ")
       }
@@ -426,7 +426,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       let imagePath = String(fd.get("slide_image_path") ?? "")
       if (file && file.size) {
         try {
-          imagePath = await uploadCatalogImage(file, "uploads/slides")
+          imagePath = await uploadCatalogImage(file, "images")
         } catch (err) {
           return fail(err instanceof Error ? err.message : "อัปโหลดรูปสไลด์ไม่สำเร็จ")
         }
@@ -459,7 +459,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       for (const entry of fd.getAll("product_images[]")) {
         if (entry instanceof File && entry.size > 0) {
           try {
-            uploaded.push(await uploadCatalogImage(entry, "uploads/products"))
+            uploaded.push(await uploadCatalogImage(entry, "images"))
           } catch (err) {
             return fail(err instanceof Error ? err.message : "อัปโหลดรูปสินค้าไม่สำเร็จ")
           }
@@ -636,7 +636,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         const file = fd.get("image") as File
         if (!(file instanceof File) || !file.size) return fail("ไม่พบไฟล์รูป")
         try {
-          const saved = await uploadLocalFile(file, "uploads/support_chat")
+          const saved = await uploadLocalFile(file, "images/chat")
           await sb.from("support_chat_messages").insert({
             user_id: userId,
             sender_type: "admin",

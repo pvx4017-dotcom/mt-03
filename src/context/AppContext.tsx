@@ -15,7 +15,15 @@ import {
   type CustomerUser,
   type OrderHubCounts,
 } from "@/lib/customerApi"
-import { clearSession, getSessionUserId, isSessionExpired, markIdleLogout, touchSessionActivity } from "@/lib/session"
+import {
+  clearSession,
+  getSessionRole,
+  getSessionUserId,
+  isSessionExpired,
+  markIdleLogout,
+  setSession,
+  touchSessionActivity,
+} from "@/lib/session"
 
 type AppContextValue = {
   sessionChecked: boolean
@@ -95,7 +103,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await fetchUserInfo()
       if (data.success && data.user) {
         setUser(data.user)
-        localStorage.setItem("meta_logged_in", "true")
+        const uid = Number(data.user.id ?? getSessionUserId() ?? 0)
+        const role = String(data.user.role ?? getSessionRole() ?? "customer")
+        if (uid > 0) setSession(uid, role)
+        else localStorage.setItem("meta_logged_in", "true")
       } else {
         setUser(null)
         clearSession()

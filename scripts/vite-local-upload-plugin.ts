@@ -12,7 +12,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, "..")
 const PUBLIC_DIR = path.join(ROOT, "public")
 
-const ALLOWED_PREFIX = /^(uploads\/[a-z0-9_-]+|images|stores|support_chat)$/i
+/** อนุญาต images และ images/<subdir> — เก็บรูปทั้งหมดใต้ public/images แบบ PHP */
+const ALLOWED_PREFIX = /^(images(?:\/[a-z0-9_-]+)?|uploads\/[a-z0-9_-]+|stores)$/i
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status

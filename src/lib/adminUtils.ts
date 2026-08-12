@@ -4,7 +4,7 @@ export type CartItem = Record<string, unknown>
 
 export function adminParseImage(img: unknown): string {
   const s = String(img ?? "").trim()
-  if (!s) return asset("logo/shop logo.webp")
+  if (!s) return asset("logo/logo meatt.webp")
   if (/^https?:\/\//i.test(s) && !/\/storage\/v1\/object\/public\//i.test(s)) return s
   return asset(s)
 }

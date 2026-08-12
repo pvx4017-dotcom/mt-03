@@ -37,7 +37,8 @@ yarn images:audit                 # path ในระบบ ต้องมี�
 yarn images:pull --skip-existing  # ดึงรูปลง public/ (ถ้ายังไม่ครบ)
 ```
 
-อัปโหลดรูปใหม่: `yarn dev` → อัปโหลดในแอดมิน → ไฟล์ลง `public/` → commit แล้ว deploy
+อัปโหลดรูปใหม่ (สินค้า / ร้าน / สไลด์ / หมวด / แชท / KYC): รัน `yarn dev` → อัปโหลด → ไฟล์ลง `public/images/` → commit แล้ว deploy  
+อย่าใช้ `yarn images:mirror` (เลิกใช้แล้ว — จะดันรูปกลับเข้า Storage)
 
 ---
 

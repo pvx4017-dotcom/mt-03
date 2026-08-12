@@ -583,7 +583,7 @@ export async function dbUploadChatImage(file: File) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   try {
-    const saved = await uploadLocalFile(file, "uploads/support_chat")
+    const saved = await uploadLocalFile(file, "images/chat")
     return dbSendChatMessage(`CHATIMG:${saved}`)
   } catch (err) {
     return fail(err instanceof Error ? err.message : "อัปโหลดรูปแชทไม่สำเร็จ")
@@ -997,7 +997,7 @@ export async function dbSubmitStore(
     fields.shop_image instanceof File && fields.shop_image.size > 0 ? fields.shop_image : null
   if (shopImage) {
     try {
-      imagePath = await uploadLocalFile(shopImage, "stores")
+      imagePath = await uploadLocalFile(shopImage, "images")
     } catch (err) {
       return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านไม่สำเร็จ")
     }
@@ -1093,9 +1093,9 @@ export async function dbSubmitVerification(fields: {
   let back: string
   let selfie: string
   try {
-    front = await uploadLocalFile(fields.id_card_image, "uploads/kyc")
-    back = await uploadLocalFile(fields.id_card_back, "uploads/kyc")
-    selfie = await uploadLocalFile(fields.selfie_image, "uploads/kyc")
+    front = await uploadLocalFile(fields.id_card_image, "images/kyc")
+    back = await uploadLocalFile(fields.id_card_back, "images/kyc")
+    selfie = await uploadLocalFile(fields.selfie_image, "images/kyc")
   } catch (err) {
     return fail(err instanceof Error ? err.message : "อัปโหลดเอกสารไม่สำเร็จ")
   }

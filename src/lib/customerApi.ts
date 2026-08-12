@@ -9,6 +9,7 @@ export type CustomerUser = {
   username?: string
   phone?: string
   email?: string
+  role?: string
   credit?: number | string
   wallet_balance?: number
   is_bank_linked?: boolean
@@ -139,16 +140,24 @@ export function formatRelativeTime(value: unknown) {
 }
 
 export function parseProductRowImage(row: StoreProductRow): string {
-  const multi = String(row.product_images ?? "").trim()
-  if (multi) {
-    try {
-      const parsed = JSON.parse(multi) as unknown
-      if (Array.isArray(parsed) && parsed.length) {
-        const first = String(parsed[0] ?? "").trim()
-        if (first) return parseCustomerImage(first)
+  const multiRaw = row.product_images as unknown
+  if (multiRaw) {
+    if (Array.isArray(multiRaw) && multiRaw.length) {
+      const first = String(multiRaw[0] ?? "").trim()
+      if (first) return parseCustomerImage(first)
+    } else {
+      const multi = String(multiRaw).trim()
+      if (multi) {
+        try {
+          const parsed = JSON.parse(multi) as unknown
+          if (Array.isArray(parsed) && parsed.length) {
+            const first = String(parsed[0] ?? "").trim()
+            if (first) return parseCustomerImage(first)
+          }
+        } catch {
+          /* legacy */
+        }
       }
-    } catch {
-      /* legacy */
     }
   }
   return parseCustomerImage(row.product_image)

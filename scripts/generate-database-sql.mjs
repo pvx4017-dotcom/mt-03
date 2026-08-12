@@ -588,7 +588,7 @@ DO $$ DECLARE t TEXT; BEGIN
   END LOOP;
 END $$;
 
--- Storage bucket สำหรับอัปโหลด (chat, KYC, ร้านค้า) — สร้างใน Supabase Dashboard > Storage ชื่อ uploads
+-- รูปสินค้า/ร้าน/แชท/KYC เก็บใน public/images ของโปรเจกต์ — ไม่ต้องสร้าง Storage bucket
 -- GRANT ให้ anon/authenticated ตามต้องการ
 
 -- บัญชีทดลอง:
