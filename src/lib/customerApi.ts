@@ -95,9 +95,10 @@ function ensureConfigured() {
 export function parseCustomerImage(img: unknown): string {
   const s = String(img ?? "").trim()
   if (!s) return asset("logo/logo meatt.webp")
-  if (/^https?:\/\//i.test(s)) return s
   if (s.startsWith("CHATIMG:")) return parseCustomerImage(s.slice(8))
-  return asset(s.replace(/^\/+/, ""))
+  // URL ภายนอกที่ไม่ใช่ Supabase Storage ใช้ตรง ๆ — ที่เหลือ normalize ไป public/
+  if (/^https?:\/\//i.test(s) && !/\/storage\/v1\/object\/public\//i.test(s)) return s
+  return asset(s)
 }
 
 export function fmtMoney(value: unknown) {

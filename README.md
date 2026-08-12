@@ -1,3 +1,46 @@
+# Meta Business (React + TypeScript + Vite)
+
+Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Postgres** ส่วน**รูปสินค้า/ร้านค้าเก็บใน `public/` ของโปรเจกต์** แบบ PHP (ฐานข้อมูลเก็บแค่ path เช่น `images/foo.jpg`)
+
+## สร้างฐานข้อมูลใหม่ (แนะนำเมื่อโปรเจกต์เก่าโควตาเต็ม)
+
+คุณสร้างโปรเจกต์ Supabase ใหม่เองได้ แล้วใช้ไฟล์ใน repo นี้ seed ให้เหมือนเดิม:
+
+1. ไปที่ [supabase.com](https://supabase.com) → **New project** (ชื่ออะไรก็ได้) รอจน Ready  
+2. คัดลอก **Project URL** + **anon public key** จาก Settings → API  
+3. ใส่ใน `.env` (ดู `.env.example`)  
+4. เปิด **SQL Editor** → วางเนื้อหาทั้งไฟล์ [`database.sql`](database.sql) → **Run**  
+   - มีตาราง + ข้อมูลสินค้า/ร้าน/หมวด/สไลด์ + บัญชีทดสอบครบ  
+   - path รูปชี้ไปที่ไฟล์ใน `public/images` ที่มีอยู่ในโปรเจกต์แล้ว  
+5. **ไม่ต้องสร้าง Storage bucket** สำหรับสินค้า/ร้าน (เก็บในโปรเจกต์แล้ว)  
+6. ตรวจว่าพร้อมใช้:
+   ```bash
+   yarn db:verify
+   yarn images:audit
+   yarn dev
+   ```
+7. (ทางเลือก) ลบโปรเจกต์ Supabase เก่าทิ้งได้เมื่อของใหม่ใช้งานได้แล้ว
+
+### บัญชีทดสอบหลังรัน `database.sql`
+
+| บทบาท | บัญชี | รหัสผ่าน |
+|--------|--------|----------|
+| Admin | `admin@meta.local` | `admin123` |
+| Super Admin | `superadmin@meta.local` | `superadmin123` |
+| Customer | `+66812345678` | `123456` |
+| รหัสเชิญสมัคร | `12345` | — |
+
+### รูปภาพ catalog
+
+```bash
+yarn images:audit                 # path ในระบบ ต้องมีไฟล์ใน public/
+yarn images:pull --skip-existing  # ดึงรูปลง public/ (ถ้ายังไม่ครบ)
+```
+
+อัปโหลดรูปใหม่: `yarn dev` → อัปโหลดในแอดมิน → ไฟล์ลง `public/` → commit แล้ว deploy
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

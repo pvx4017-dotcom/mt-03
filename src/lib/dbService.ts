@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase"
+import { uploadLocalFile } from "@/lib/localUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 
 type Result<T> = { success: boolean; message?: string } & T
@@ -22,32 +23,6 @@ function flattenUserJoin<T extends Record<string, unknown>>(row: T) {
     phone: (rest.phone as string | undefined) ?? joined?.phone,
     email: (rest.email as string | undefined) ?? joined?.email,
   }
-}
-
-function sanitizeUploadFileName(name: string) {
-  const base = String(name ?? "").trim().replace(/\\/g, "/").split("/").pop() ?? "file"
-  return base.replace(/\s+/g, "_").replace(/[^\w.\-()+]/g, "") || "file"
-}
-
-function storageUploadFailMessage(err: unknown, fallback: string) {
-  const msg = err instanceof Error ? err.message : String(err ?? "")
-  if (/bucket.*not found|Bucket not found|does not exist/i.test(msg)) {
-    return `${fallback} — ยังไม่มี Storage bucket "uploads" (รัน scripts/setup-storage-uploads.sql ใน Supabase)`
-  }
-  if (/policy|denied|Unauthorized|403|row-level security/i.test(msg)) {
-    return `${fallback} — ไม่มีสิทธิ์เขียน Storage (รัน scripts/setup-storage-uploads.sql ใน Supabase)`
-  }
-  return msg ? `${fallback}: ${msg}` : fallback
-}
-
-async function uploadFile(bucket: string, path: string, file: File) {
-  const sb = getSupabase()
-  const { error } = await sb.storage.from(bucket).upload(path, file, {
-    upsert: true,
-    contentType: file.type || undefined,
-  })
-  if (error) throw error
-  return path
 }
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
@@ -607,13 +582,12 @@ export async function dbSendChatMessage(text: string, userId?: number) {
 export async function dbUploadChatImage(file: File) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
-  const path = `support_chat/${uid}_${Date.now()}_${sanitizeUploadFileName(file.name)}`
   try {
-    await uploadFile("uploads", path, file)
-  } catch {
-    return fail("อัปโหลดไม่สำเร็จ — สร้าง bucket uploads ใน Supabase Storage")
+    const saved = await uploadLocalFile(file, "uploads/support_chat")
+    return dbSendChatMessage(`CHATIMG:${saved}`)
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "อัปโหลดรูปแชทไม่สำเร็จ")
   }
-  return dbSendChatMessage(`CHATIMG:uploads/${path}`)
 }
 
 /** ลบข้อความ — ลูกค้าลบได้เฉพาะข้อความตัวเอง, แอดมินลบได้ทุกข้อความในห้อง */
@@ -1022,12 +996,10 @@ export async function dbSubmitStore(
   const shopImage =
     fields.shop_image instanceof File && fields.shop_image.size > 0 ? fields.shop_image : null
   if (shopImage) {
-    const safeName = sanitizeUploadFileName(shopImage.name)
-    imagePath = `stores/${uid}_${Date.now()}_${safeName}`
     try {
-      await uploadFile("uploads", imagePath, shopImage)
+      imagePath = await uploadLocalFile(shopImage, "stores")
     } catch (err) {
-      return fail(storageUploadFailMessage(err, "อัปโหลดรูปร้านไม่สำเร็จ"))
+      return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านไม่สำเร็จ")
     }
   } else if (action === "save") {
     return fail("กรุณาเลือกรูปร้าน")
@@ -1117,16 +1089,15 @@ export async function dbSubmitVerification(fields: {
 }) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
-  const ts = Date.now()
-  const front = `uploads/kyc/${uid}_${ts}_front_${fields.id_card_image.name}`
-  const back = `uploads/kyc/${uid}_${ts}_back_${fields.id_card_back.name}`
-  const selfie = `uploads/kyc/${uid}_${ts}_selfie_${fields.selfie_image.name}`
+  let front: string
+  let back: string
+  let selfie: string
   try {
-    await uploadFile("uploads", front, fields.id_card_image)
-    await uploadFile("uploads", back, fields.id_card_back)
-    await uploadFile("uploads", selfie, fields.selfie_image)
-  } catch {
-    return fail("อัปโหลดเอกสารไม่สำเร็จ")
+    front = await uploadLocalFile(fields.id_card_image, "uploads/kyc")
+    back = await uploadLocalFile(fields.id_card_back, "uploads/kyc")
+    selfie = await uploadLocalFile(fields.selfie_image, "uploads/kyc")
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "อัปโหลดเอกสารไม่สำเร็จ")
   }
   const sb = getSupabase()
   const { error } = await sb.from("identity_verifications").insert({

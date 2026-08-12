@@ -1,6 +1,7 @@
 /** Local API dispatcher — เรียก Supabase โดยตรง ไม่มี HTTP ไป PHP server ภายนอก */
 import { getSupabase } from "@/lib/supabase"
 import { API } from "@/lib/apiRoutes"
+import { uploadLocalFile } from "@/lib/localUpload"
 import { getSessionUserId, isAdminPanelRole } from "@/lib/session"
 import {
   dbAdminFetchCart,
@@ -70,12 +71,9 @@ function normalizeNotificationType(raw: string) {
   return raw || "platform"
 }
 
-async function uploadToStorage(file: File, prefix: string) {
-  const sb = getSupabase()
-  const path = `${prefix}/${Date.now()}_${file.name.replace(/\s+/g, "_")}`
-  const { error } = await sb.storage.from("uploads").upload(path, file, { upsert: true })
-  if (error) throw error
-  return path
+/** รูป catalog → public/ ผ่าน /api/local-upload (yarn dev) */
+async function uploadCatalogImage(file: File, prefix: string) {
+  return uploadLocalFile(file, prefix)
 }
 
 async function resolveImageUpload(
@@ -86,7 +84,7 @@ async function resolveImageUpload(
 ) {
   const file = fd.get(field)
   if (file instanceof File && file.size > 0) {
-    return uploadToStorage(file, storagePrefix)
+    return uploadCatalogImage(file, storagePrefix)
   }
   const hinted = String(fd.get(`${field}_path`) ?? "").trim()
   if (hinted && hinted !== "[object File]") return hinted
@@ -360,8 +358,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       let categoryImage = existingImage
       try {
         categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "uploads/categories")
-      } catch {
-        return fail("อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : "อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
       }
       const row = {
         category_name: String(fd.get("category_name") ?? "").trim(),
@@ -396,8 +394,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       let shopImage = existingImage
       try {
         shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "uploads/shops")
-      } catch {
-        return fail("อัปโหลดรูปร้านค้าไม่สำเร็จ")
+      } catch (err) {
+        return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านค้าไม่สำเร็จ")
       }
       const row = {
         shop_name: String(fd.get("shop_name") ?? ""),
@@ -427,9 +425,11 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       const file = fd.get("slide_image") as File | null
       let imagePath = String(fd.get("slide_image_path") ?? "")
       if (file && file.size) {
-        imagePath = `uploads/slides/${Date.now()}_${file.name}`
-        const { error: uploadError } = await sb.storage.from("uploads").upload(imagePath, file, { upsert: true })
-        if (uploadError) return fail(uploadError.message)
+        try {
+          imagePath = await uploadCatalogImage(file, "uploads/slides")
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : "อัปโหลดรูปสไลด์ไม่สำเร็จ")
+        }
       }
       if (action === "update" && id) {
         const { error } = await sb.from("slide_images").update({ slide_image: imagePath, image_path: imagePath }).eq("id", id)
@@ -459,9 +459,9 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       for (const entry of fd.getAll("product_images[]")) {
         if (entry instanceof File && entry.size > 0) {
           try {
-            uploaded.push(await uploadToStorage(entry, "uploads/products"))
-          } catch {
-            return fail("อัปโหลดรูปสินค้าไม่สำเร็จ")
+            uploaded.push(await uploadCatalogImage(entry, "uploads/products"))
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : "อัปโหลดรูปสินค้าไม่สำเร็จ")
           }
         }
       }
@@ -634,14 +634,18 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       if (mode === "upload_image") {
         const file = fd.get("image") as File
-        const p = `support_chat/admin_${userId}_${Date.now()}_${file.name}`
-        await sb.storage.from("uploads").upload(p, file, { upsert: true })
-        await sb.from("support_chat_messages").insert({
-          user_id: userId,
-          sender_type: "admin",
-          message: `CHATIMG:uploads/${p}`,
-        })
-        return ok({ message: "ส่งแล้ว" })
+        if (!(file instanceof File) || !file.size) return fail("ไม่พบไฟล์รูป")
+        try {
+          const saved = await uploadLocalFile(file, "uploads/support_chat")
+          await sb.from("support_chat_messages").insert({
+            user_id: userId,
+            sender_type: "admin",
+            message: `CHATIMG:${saved}`,
+          })
+          return ok({ message: "ส่งแล้ว" })
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : "อัปโหลดรูปแชทไม่สำเร็จ")
+        }
       }
       if (mode === "delete_message") {
         return dbDeleteChatMessage(Number(fd.get("message_id")), {

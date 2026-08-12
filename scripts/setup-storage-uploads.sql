@@ -1,7 +1,9 @@
--- Supabase Storage: bucket "uploads" + policy สำหรับอัปโหลดรูปร้าน / KYC / แชท
--- รันใน Supabase SQL Editor ถ้าเปิดร้านแล้วขึ้น "อัปโหลดรูปร้านไม่สำเร็จ"
+-- OPTIONAL: Storage bucket สำหรับแชท/KYC เท่านั้น
+-- รูปสินค้า / ร้านค้า / หมวด / สไลด์ เก็บใน public/ ของโปรเจกต์แล้ว ไม่ต้องใช้ Storage
 --
--- สาเหตุทั่วไป: ยังไม่มี bucket หรือไม่มี policy ให้ role anon/authenticated เขียนไฟล์
+-- โปรเจกต์ใหม่แนะนำ: ข้ามไฟล์นี้ไปก่อน เพื่อไม่ให้โควตา Storage เต็มอีก
+-- รันเฉพาะเมื่อต้องการอัปโหลดแชท/KYC ขึ้น Supabase จริงๆ
+-- (ตอนนี้แอปอัปโหลดแชท/KYC ลง public/ ตอน yarn dev แล้ว)
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('uploads', 'uploads', true)

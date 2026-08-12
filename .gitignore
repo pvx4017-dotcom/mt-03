@@ -14,6 +14,10 @@ dist-ssr
 .env
 scripts/.mirror-images-cache.json
 scripts/mirror-images-failed.json
+scripts/.pull-catalog-images-cache.json
+scripts/pull-catalog-images-failed.json
+scripts/pull-storage-failed.json
+scripts/audit-local-images-report.json
 
 # Editor directories and files
 .vscode/*

@@ -1291,7 +1291,9 @@ DO $$ DECLARE t TEXT; BEGIN
   END LOOP;
 END $$;
 
--- Storage bucket สำหรับอัปโหลด (chat, KYC, ร้านค้า) — รัน scripts/setup-storage-uploads.sql ใน Supabase SQL Editor
+-- รูปสินค้า/ร้าน/หมวด/สไลด์: เก็บใน public/ ของโปรเจกต์ (path ในคอลัมน์เช่น images/...)
+-- ไม่ต้องสร้าง Storage bucket สำหรับ catalog
+-- (optional chat/KYC บน Storage: scripts/setup-storage-uploads.sql — ไม่แนะนำถ้าไม่อยากกินโควตา)
 
 -- บัญชีทดลอง:
 --   Admin: admin@meta.local / admin123
