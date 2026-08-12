@@ -647,16 +647,43 @@ body.page-customer.page-help-manual {
   background: var(--app-bg) !important;
 }
 
-body.page-customer.page-help-center {
-  background: var(--app-bg) !important;
-}
-
-body.page-customer.page-help-center #app {
-  background: var(--app-bg) !important;
-}
-
+body.page-customer.page-help-center,
 body.page-customer.page-chat-detail {
   background: var(--app-bg) !important;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+body.page-customer.page-help-center #app,
+body.page-customer.page-chat-detail #app {
+  background: var(--app-bg) !important;
+  display: flex !important;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+body.page-customer.page-help-center .chat-main-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.page-customer.page-help-center .chat-messages,
+body.page-customer.page-chat-detail .chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.page-customer.page-help-center .chat-input-bar,
+body.page-customer.page-chat-detail .chat-input-bar {
+  position: relative;
+  flex-shrink: 0;
 }
 
 body.page-customer.page-open-store {

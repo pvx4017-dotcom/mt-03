@@ -445,6 +445,19 @@ body.admin-chat-page[data-view="chat"] .admin-chat-panel {
   background: #f9fafb;
 }
 
+.admin-chat-msg-menu button.danger {
+  color: #dc2626;
+}
+
+.admin-chat-bubble.is-deleted {
+  opacity: 0.85;
+}
+
+.admin-msg-deleted {
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .admin-thread-unread {
   position: absolute;
   top: -4px;

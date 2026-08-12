@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { asset, chatImageAsset } from "@/lib/assets"
+import {
+  CHAT_DELETED_MARKER,
+  chatRowsSignature,
+  isChatDeletedMessage,
+} from "@/lib/chatMessages"
 import {
   fetchChatMessages,
   sendChatMessage,
@@ -8,6 +13,8 @@ import {
   deleteChatMessage,
   type ChatMessageRow,
 } from "@/lib/customerApi"
+
+const DEPOSIT_NOTIFY_PREFIX = "depositChatNotified:"
 
 const INTRO_ADMIN_TEXT =
   "สวัสดีค่ะ 🙏 ทีมงาน Meta Business ยินดีให้บริการค่ะ\n\nมีเรื่องอะไรให้เราช่วยเหลือ หรือสอบถามข้อมูลเพิ่มเติม พิมพ์ข้อความฝากไว้ได้เลยนะคะ แอดมินจะรีบตอบกลับให้เร็วที่สุดค่ะ"
@@ -52,13 +59,10 @@ function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
 }
 
-function signRows(rows: ChatMessageRow[]) {
-  if (!rows.length) return "0"
-  const last = rows[rows.length - 1]
-  return `${rows.length}:${last?.id}:${last?.created_at}`
-}
-
 function renderMessageBody(raw: string, onImageClick: (src: string) => void) {
+  if (isChatDeletedMessage(raw)) {
+    return <span className="msg-deleted">ข้อความนี้ถูกลบแล้ว</span>
+  }
   if (raw.startsWith("CHATIMG:")) {
     const src = chatImageAsset(raw)
     if (src) {
@@ -87,18 +91,26 @@ type Props = {
 
 export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Props) {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const [rows, setRows] = useState<ChatMessageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loggedIn, setLoggedIn] = useState(true)
   const [message, setMessage] = useState("")
   const [hint, setHint] = useState("กำลังโหลด...")
   const [modalSrc, setModalSrc] = useState<string | null>(null)
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
+  const [actionMsgId, setActionMsgId] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const sigRef = useRef("")
   const messagesRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const depositSentRef = useRef(false)
   const longPressTimerRef = useRef<number | null>(null)
+  const stickToBottomRef = useRef(true)
+
+  const clearDepositQuery = useCallback(() => {
+    if (!params.get("user_id") && !params.get("userId") && !params.get("amount")) return
+    navigate(variant === "chat-detail" ? "/chat-detail" : "/help-center", { replace: true })
+  }, [navigate, params, variant])
 
   const loadMessages = useCallback(async () => {
     try {
@@ -116,7 +128,7 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
       }
       setLoggedIn(true)
       const next = data.rows ?? []
-      const sig = signRows(next)
+      const sig = chatRowsSignature(next as Array<Record<string, unknown>>)
       if (sig !== sigRef.current) {
         sigRef.current = sig
         setRows(next)
@@ -137,34 +149,73 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
   }, [loadMessages, loggedIn, variant])
 
   useEffect(() => {
-    if (depositSentRef.current || !loggedIn) return
+    if (depositSentRef.current || !loggedIn || loading) return
+
     let userId = (params.get("user_id") || params.get("userId") || "").trim()
     let amount = (params.get("amount") || "").trim()
-    if (!userId || !amount) {
-      try {
-        const raw = sessionStorage.getItem("pendingDepositRequest")
-        if (raw) {
-          const payload = JSON.parse(raw) as { user_id?: number | string; amount?: string }
-          userId = userId || String(payload.user_id ?? "").trim()
-          amount = amount || String(payload.amount ?? "").trim()
+    let requestNo = ""
+    try {
+      const raw = sessionStorage.getItem("pendingDepositRequest")
+      if (raw) {
+        const payload = JSON.parse(raw) as {
+          user_id?: number | string
+          amount?: string
+          request_no?: string
         }
-      } catch {
-        /* ignore */
+        userId = userId || String(payload.user_id ?? "").trim()
+        amount = amount || String(payload.amount ?? "").trim()
+        requestNo = String(payload.request_no ?? "").trim()
       }
+    } catch {
+      /* ignore */
     }
     if (!userId || !amount) return
+
+    const claimKey = `${DEPOSIT_NOTIFY_PREFIX}${requestNo || `${userId}:${amount}`}`
+    try {
+      if (sessionStorage.getItem(claimKey) === "1") {
+        depositSentRef.current = true
+        sessionStorage.removeItem("pendingDepositRequest")
+        clearDepositQuery()
+        return
+      }
+      sessionStorage.setItem(claimKey, "1")
+    } catch {
+      /* ignore quota */
+    }
+
     depositSentRef.current = true
     const text = `แจ้งฝากเงิน user_id: ${userId} จำนวน: ${amount}`
-    sendChatMessage(text).then(() => {
+
+    const alreadyExists = rows.some((row) => String(row.message ?? "") === text)
+    if (alreadyExists) {
       sessionStorage.removeItem("pendingDepositRequest")
+      clearDepositQuery()
+      return
+    }
+
+    sendChatMessage(text).then((res) => {
+      sessionStorage.removeItem("pendingDepositRequest")
+      clearDepositQuery()
+      if (!res.success) {
+        try {
+          sessionStorage.removeItem(claimKey)
+        } catch {
+          /* ignore */
+        }
+        depositSentRef.current = false
+        return
+      }
       sigRef.current = ""
+      stickToBottomRef.current = true
       loadMessages()
     })
-  }, [loggedIn, loadMessages, params])
+  }, [loggedIn, loading, loadMessages, params, rows, clearDepositQuery])
 
   useEffect(() => {
     const el = messagesRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el || !stickToBottomRef.current) return
+    el.scrollTop = el.scrollHeight
   }, [rows])
 
   const clearLongPressTimer = useCallback(() => {
@@ -174,34 +225,24 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
     }
   }, [])
 
+  const openMessageActions = useCallback(
+    (messageId: number) => {
+      clearLongPressTimer()
+      setActionMsgId(messageId)
+    },
+    [clearLongPressTimer],
+  )
+
   const startLongPress = useCallback(
     (messageId: number) => {
       clearLongPressTimer()
       longPressTimerRef.current = window.setTimeout(() => {
         longPressTimerRef.current = null
-        setDeleteTargetId(messageId)
+        openMessageActions(messageId)
       }, LONG_PRESS_MS)
     },
-    [clearLongPressTimer],
+    [clearLongPressTimer, openMessageActions],
   )
-
-  useEffect(() => {
-    if (deleteTargetId == null) return
-    const dismiss = (e: Event) => {
-      const el = e.target as HTMLElement | null
-      if (el?.closest(".msg-delete-btn") || el?.closest(".message-bubble.is-delete-active")) return
-      setDeleteTargetId(null)
-    }
-    const timer = window.setTimeout(() => {
-      document.addEventListener("click", dismiss)
-      document.addEventListener("touchstart", dismiss)
-    }, 0)
-    return () => {
-      window.clearTimeout(timer)
-      document.removeEventListener("click", dismiss)
-      document.removeEventListener("touchstart", dismiss)
-    }
-  }, [deleteTargetId])
 
   useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer])
 
@@ -215,6 +256,7 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
     }
     setMessage("")
     sigRef.current = ""
+    stickToBottomRef.current = true
     await loadMessages()
   }
 
@@ -229,25 +271,41 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
       return
     }
     sigRef.current = ""
-    setDeleteTargetId(null)
+    setActionMsgId(null)
+    stickToBottomRef.current = true
     await loadMessages()
   }
 
-  const handleDelete = async (messageId: number) => {
-    if (!loggedIn || !messageId) return
-    if (!window.confirm("ลบข้อความนี้?")) return
-    const res = await deleteChatMessage(messageId)
-    if (!res.success) {
-      window.alert(res.message || "ลบไม่สำเร็จ")
-      return
+  const handleDelete = async () => {
+    if (!loggedIn || actionMsgId == null || deleting) return
+    setDeleting(true)
+    const targetId = actionMsgId
+    try {
+      const res = await deleteChatMessage(targetId)
+      if (!res.success) {
+        window.alert(res.message || "ลบไม่สำเร็จ")
+        return
+      }
+      setRows((prev) =>
+        prev.map((row) =>
+          Number(row.id) === targetId ? { ...row, message: CHAT_DELETED_MARKER } : row,
+        ),
+      )
+      sigRef.current = ""
+      setActionMsgId(null)
+      await loadMessages()
+    } finally {
+      setDeleting(false)
     }
-    sigRef.current = ""
-    setDeleteTargetId(null)
-    await loadMessages()
   }
 
   const showPinned = variant === "help-center" && loggedIn
   const inputDisabled = !loggedIn
+  const actionRow = actionMsgId != null ? rows.find((r) => Number(r.id) === actionMsgId) : null
+  const canDeleteAction =
+    !!actionRow &&
+    String(actionRow.sender_type) === "user" &&
+    !isChatDeletedMessage(actionRow.message)
 
   const messageNodes: React.ReactNode[] = []
   let lastDay = ""
@@ -291,47 +349,29 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
       }
       const isUser = String(row.sender_type) === "user"
       const messageId = Number(row.id)
-      const showDelete = isUser && messageId > 0 && deleteTargetId === messageId
+      const deleted = isChatDeletedMessage(row.message)
+      const canAct = isUser && messageId > 0 && !deleted
       messageNodes.push(
         <div
           key={String(row.id ?? i)}
-          className={`message-bubble ${isUser ? "msg-right" : "msg-left"}${showDelete ? " is-delete-active" : ""}`}
-          onMouseDown={
-            isUser && messageId > 0
-              ? () => startLongPress(messageId)
-              : undefined
-          }
+          className={`message-bubble ${isUser ? "msg-right" : "msg-left"}${deleted ? " is-deleted" : ""}${
+            actionMsgId === messageId ? " is-action-active" : ""
+          }`}
+          onMouseDown={canAct ? () => startLongPress(messageId) : undefined}
           onMouseUp={clearLongPressTimer}
           onMouseLeave={clearLongPressTimer}
-          onTouchStart={
-            isUser && messageId > 0
-              ? () => startLongPress(messageId)
-              : undefined
-          }
+          onTouchStart={canAct ? () => startLongPress(messageId) : undefined}
           onTouchEnd={clearLongPressTimer}
           onTouchCancel={clearLongPressTimer}
           onContextMenu={
-            isUser && messageId > 0
+            canAct
               ? (e) => {
                   e.preventDefault()
-                  setDeleteTargetId(messageId)
+                  openMessageActions(messageId)
                 }
               : undefined
           }
         >
-          {showDelete ? (
-            <button
-              type="button"
-              className="msg-delete-btn"
-              aria-label="ลบข้อความ"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(messageId)
-              }}
-            >
-              <i className="fa-solid fa-trash-can" />
-            </button>
-          ) : null}
           {renderMessageBody(String(row.message ?? ""), setModalSrc)}
           <span className="msg-time" title={fullDateTimeTitle(row.created_at)}>
             {formatTimeOnly(row.created_at)}
@@ -412,29 +452,71 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
         <div className="chat-main-wrap">
           {showPinned && (
             <div className="chat-pinned is-visible" aria-label="ข้อความต้อนรับ">
-              <div className="message-bubble msg-left">
-                {INTRO_ADMIN_TEXT}
-              </div>
+              <div className="message-bubble msg-left">{INTRO_ADMIN_TEXT}</div>
             </div>
           )}
-          <main className="chat-messages" ref={messagesRef}>
+          <main
+            className="chat-messages"
+            ref={messagesRef}
+            onScroll={(e) => {
+              const el = e.currentTarget
+              stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+            }}
+          >
             {messageNodes}
           </main>
         </div>
       ) : (
-        <main className="chat-messages" ref={messagesRef}>
+        <main
+          className="chat-messages"
+          ref={messagesRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+          }}
+        >
           {messageNodes}
         </main>
       )}
 
       {inputBar}
 
+      {actionMsgId != null ? (
+        <div className="chat-action-sheet" role="dialog" aria-label="จัดการข้อความ">
+          <button
+            type="button"
+            className="chat-action-backdrop"
+            aria-label="ปิด"
+            onClick={() => setActionMsgId(null)}
+          />
+          <div className="chat-action-panel">
+            <p className="chat-action-title">จัดการข้อความ</p>
+            {canDeleteAction ? (
+              <button
+                type="button"
+                className="chat-action-btn danger"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "กำลังลบ..." : "ลบข้อความ"}
+              </button>
+            ) : (
+              <p className="chat-action-hint">ลบได้เฉพาะข้อความของคุณที่ยังไม่ถูกลบ</p>
+            )}
+            <button
+              type="button"
+              className="chat-action-btn"
+              disabled={deleting}
+              onClick={() => setActionMsgId(null)}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {modalSrc && (
-        <div
-          className="image-modal"
-          style={{ display: "flex" }}
-          onClick={() => setModalSrc(null)}
-        >
+        <div className="image-modal" style={{ display: "flex" }} onClick={() => setModalSrc(null)}>
           <div className="image-modal-close">
             <i className="fa-solid fa-xmark" />
           </div>

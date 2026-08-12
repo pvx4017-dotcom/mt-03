@@ -64,7 +64,8 @@ export default function DepositPage() {
         }
         sessionStorage.setItem("pendingDepositRequest", JSON.stringify(payload))
         setTimeout(() => {
-          navigate(`/help-center?user_id=${payload.user_id ?? ""}&amount=${payload.amount ?? ""}`)
+          // เก็บรายละเอียดใน sessionStorage อย่างเดียว — ไม่ใส่ query เพื่อลดการส่งแชทซ้ำตอนรีเฟรช
+          navigate("/help-center")
         }, 2100)
         setAmount("")
         setActiveQuick(null)

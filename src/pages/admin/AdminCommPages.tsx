@@ -11,6 +11,12 @@ import {
 } from "@/components/admin/AdminUi"
 import { chatImageAsset } from "@/lib/assets"
 import {
+  CHAT_DELETED_MARKER,
+  chatMessagePreview,
+  chatRowsSignature,
+  isChatDeletedMessage,
+} from "@/lib/chatMessages"
+import {
   adminAsset,
   adminPost,
   fetchAdminNotifications,
@@ -354,6 +360,9 @@ export function AdminNotificationsPage() {
 }
 
 function renderChatBody(msg: string, onImageClick?: (url: string) => void) {
+  if (isChatDeletedMessage(msg)) {
+    return <span className="admin-msg-deleted">ข้อความนี้ถูกลบแล้ว</span>
+  }
   if (msg.startsWith("CHATIMG:")) {
     const url = chatImageAsset(msg)
     if (url) {
@@ -370,12 +379,6 @@ function renderChatBody(msg: string, onImageClick?: (url: string) => void) {
     return "[รูปภาพ]"
   }
   return msg
-}
-
-function chatRowsSignature(rows: Record<string, unknown>[]) {
-  if (!rows.length) return "0"
-  const last = rows[rows.length - 1]
-  return `${rows.length}:${String(last.id ?? "")}:${String(last.created_at ?? "")}`
 }
 
 function threadsSignature(rows: Record<string, unknown>[]) {
@@ -399,7 +402,14 @@ export function AdminChatPage() {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [text, setText] = useState("")
   const [search, setSearch] = useState("")
-  const [menu, setMenu] = useState<{ id: number; x: number; y: number; canEdit: boolean; isUserMessage?: boolean } | null>(null)
+  const [menu, setMenu] = useState<{
+    id: number
+    x: number
+    y: number
+    canEdit: boolean
+    canDelete?: boolean
+    isUserMessage?: boolean
+  } | null>(null)
   const [editMsg, setEditMsg] = useState<{ id: number; text: string } | null>(null)
   const [deleteMsgId, setDeleteMsgId] = useState<number | null>(null)
   const [imageViewer, setImageViewer] = useState<string | null>(null)
@@ -547,17 +557,23 @@ export function AdminChatPage() {
 
   const saveEditMessage = async () => {
     if (!activeUser || !editMsg) return
+    const nextText = editMsg.text.trim()
+    if (!nextText) return showToast("ข้อความว่างไม่ได้", "error")
     const fd = new FormData()
     fd.append("mode", "update_message")
     fd.append("message_id", String(editMsg.id))
     fd.append("user_id", activeUser)
-    fd.append("message", editMsg.text.trim())
-    const res = await adminPost<{ success: boolean }>(API.supportChat, fd)
+    fd.append("message", nextText)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.supportChat, fd)
     if (res.success) {
-      setEditMsg(null)
+      setMessages((prev) =>
+        prev.map((m) => (Number(m.id) === editMsg.id ? { ...m, message: nextText } : m)),
+      )
       messagesSigRef.current = ""
-      loadMessages(activeUser, { silent: true })
-    } else showToast("แก้ไขไม่สำเร็จ", "error")
+      setEditMsg(null)
+      await loadMessages(activeUser, { silent: true })
+      loadThreads(true)
+    } else showToast(res.message ?? "แก้ไขไม่สำเร็จ", "error")
   }
 
   const deleteMessage = async () => {
@@ -566,17 +582,39 @@ export function AdminChatPage() {
     fd.append("mode", "delete_message")
     fd.append("message_id", String(deleteMsgId))
     fd.append("user_id", activeUser)
-    const res = await adminPost<{ success: boolean }>(API.supportChat, fd)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.supportChat, fd)
     if (res.success) {
-      setDeleteMsgId(null)
+      setMessages((prev) =>
+        prev.map((m) =>
+          Number(m.id) === deleteMsgId ? { ...m, message: CHAT_DELETED_MARKER } : m,
+        ),
+      )
       messagesSigRef.current = ""
-      loadMessages(activeUser, { silent: true })
-    } else showToast("ลบไม่สำเร็จ", "error")
+      setDeleteMsgId(null)
+      setMenu(null)
+      await loadMessages(activeUser, { silent: true })
+      loadThreads(true)
+    } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
   }
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el?.closest(".admin-chat-msg-menu") || el?.closest(".admin-chat-msg-actions")) return
+      setMenu(null)
+    }
+    const timer = window.setTimeout(() => document.addEventListener("click", close), 0)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener("click", close)
+    }
+  }, [menu])
 
   let lastDay = ""
   const messageNodes = messages.map((m, i) => {
     const raw = String(m.message ?? "")
+    const deleted = isChatDeletedMessage(raw)
     const isAdmin = String(m.sender_type ?? m.sender) === "admin"
     const dt = new Date(String(m.created_at ?? ""))
     const dayKey = Number.isFinite(dt.getTime()) ? dt.toLocaleDateString("th-TH") : ""
@@ -591,19 +629,23 @@ export function AdminChatPage() {
         className={`admin-chat-row${isAdmin ? " admin-chat-row--out" : " admin-chat-row--in"}`}
       >
         {divider}
-        <div className={`admin-chat-bubble ${isAdmin ? "admin" : "user"} with-actions`}>
-          <button type="button" className="admin-chat-msg-actions" onClick={(e) => {
-            const rect = (e.target as HTMLElement).getBoundingClientRect()
-            setMenu({
-              id: Number(m.id),
-              x: rect.left,
-              y: rect.bottom + 4,
-              canEdit: isAdmin && !raw.startsWith("CHATIMG:"),
-              isUserMessage: !isAdmin,
-            })
-          }}>
-            <i className="fa-solid fa-ellipsis-vertical" />
-          </button>
+        <div className={`admin-chat-bubble ${isAdmin ? "admin" : "user"} with-actions${deleted ? " is-deleted" : ""}`}>
+          {!deleted ? (
+            <button type="button" className="admin-chat-msg-actions" onClick={(e) => {
+              e.stopPropagation()
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setMenu({
+                id: Number(m.id),
+                x: Math.min(rect.left, window.innerWidth - 140),
+                y: rect.bottom + 4,
+                canEdit: isAdmin && !raw.startsWith("CHATIMG:"),
+                canDelete: true,
+                isUserMessage: !isAdmin,
+              })
+            }}>
+              <i className="fa-solid fa-ellipsis-vertical" />
+            </button>
+          ) : null}
           {renderChatBody(raw, setImageViewer)}
           <time>{timeStr}</time>
         </div>
@@ -649,7 +691,9 @@ export function AdminChatPage() {
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 600 }}>ID: {uid}{contact ? ` (${contact})` : ""}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(t.last_message ?? t.message ?? "")}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {chatMessagePreview(t.last_message ?? t.message ?? "")}
+                        </div>
                       </div>
                     </button>
                   )
@@ -696,13 +740,32 @@ export function AdminChatPage() {
       {menu ? (
         <div className="admin-chat-msg-menu" style={{ left: menu.x, top: menu.y }}>
           {menu.canEdit ? (
-            <button type="button" onClick={() => {
-              const msg = messages.find((m) => Number(m.id) === menu.id)
-              setEditMsg({ id: menu.id, text: String(msg?.message ?? "") })
-              setMenu(null)
-            }}>แก้ไข</button>
+            <button
+              type="button"
+              onClick={() => {
+                const msg = messages.find((m) => Number(m.id) === menu.id)
+                setEditMsg({ id: menu.id, text: String(msg?.message ?? "") })
+                setMenu(null)
+              }}
+            >
+              แก้ไข
+            </button>
           ) : null}
-          <button type="button" onClick={() => { setDeleteMsgId(menu.id); setMenu(null) }}>ลบ</button>
+          {menu.canDelete !== false ? (
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                setDeleteMsgId(menu.id)
+                setMenu(null)
+              }}
+            >
+              ลบข้อความ
+            </button>
+          ) : null}
+          <button type="button" onClick={() => setMenu(null)}>
+            ยกเลิก
+          </button>
         </div>
       ) : null}
 
@@ -710,7 +773,13 @@ export function AdminChatPage() {
         <textarea className="admin-form-control" value={editMsg?.text ?? ""} onChange={(e) => setEditMsg(editMsg ? { ...editMsg, text: e.target.value } : null)} />
       </AdminEditModal>
 
-      <AdminConfirmModal open={deleteMsgId != null} title="ลบข้อความ" message="ต้องการลบข้อความนี้หรือไม่?" onCancel={() => setDeleteMsgId(null)} onConfirm={deleteMessage} />
+      <AdminConfirmModal
+        open={deleteMsgId != null}
+        title="ลบข้อความ"
+        message="ต้องการลบข้อความนี้หรือไม่? ทั้งลูกค้าและแอดมินจะเห็นว่าข้อความถูกลบแล้ว"
+        onCancel={() => setDeleteMsgId(null)}
+        onConfirm={deleteMessage}
+      />
 
       {imageViewer ? (
         <div className="admin-order-modal-overlay show" onClick={() => setImageViewer(null)}>

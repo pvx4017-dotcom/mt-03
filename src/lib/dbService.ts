@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabase"
 import { uploadLocalFile } from "@/lib/localUpload"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
+import { CHAT_DELETED_MARKER, chatMessagePreview } from "@/lib/chatMessages"
 
 type Result<T> = { success: boolean; message?: string } & T
 
@@ -591,23 +592,25 @@ export async function dbUploadChatImage(file: File) {
   }
 }
 
-/** ลบข้อความ — ลูกค้าลบได้เฉพาะข้อความตัวเอง, แอดมินลบได้ทุกข้อความในห้อง */
+/** Soft-delete — เก็บแถวไว้ให้ทั้งสองฝั่งเห็นสถานะ "ข้อความนี้ถูกลบแล้ว" */
 export async function dbDeleteChatMessage(
   messageId: number,
   opts?: { threadUserId?: number; asAdmin?: boolean },
 ) {
   const sessionUid = getSessionUserId()
   if (!sessionUid) return fail("กรุณาเข้าสู่ระบบ")
+  if (!messageId) return fail("ไม่พบข้อความ")
   const sb = getSupabase()
   const { data: msg, error: fetchErr } = await sb
     .from("support_chat_messages")
-    .select("id, user_id, sender_type")
+    .select("id, user_id, sender_type, message")
     .eq("id", messageId)
     .maybeSingle()
   if (fetchErr || !msg) return fail("ไม่พบข้อความ")
 
   const threadUid = Number(msg.user_id)
   const asAdmin = opts?.asAdmin ?? false
+  const alreadyDeleted = String(msg.message ?? "").startsWith(CHAT_DELETED_MARKER)
 
   if (asAdmin) {
     if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์")
@@ -616,7 +619,54 @@ export async function dbDeleteChatMessage(
     if (threadUid !== sessionUid || msg.sender_type !== "user") return fail("ลบข้อความนี้ไม่ได้")
   }
 
-  const { error } = await sb.from("support_chat_messages").delete().eq("id", messageId)
+  if (alreadyDeleted) return ok({ already_deleted: true })
+
+  const { error } = await sb
+    .from("support_chat_messages")
+    .update({ message: CHAT_DELETED_MARKER })
+    .eq("id", messageId)
+  if (error) return fail(error.message)
+  return ok()
+}
+
+export async function dbUpdateChatMessage(
+  messageId: number,
+  text: string,
+  opts?: { threadUserId?: number; asAdmin?: boolean },
+) {
+  const sessionUid = getSessionUserId()
+  if (!sessionUid) return fail("กรุณาเข้าสู่ระบบ")
+  const next = text.trim()
+  if (!next) return fail("ข้อความว่างไม่ได้")
+  if (next.startsWith(CHAT_DELETED_MARKER) || next.startsWith("CHATIMG:")) {
+    return fail("รูปแบบข้อความไม่ถูกต้อง")
+  }
+
+  const sb = getSupabase()
+  const { data: msg, error: fetchErr } = await sb
+    .from("support_chat_messages")
+    .select("id, user_id, sender_type, message")
+    .eq("id", messageId)
+    .maybeSingle()
+  if (fetchErr || !msg) return fail("ไม่พบข้อความ")
+  if (String(msg.message ?? "").startsWith(CHAT_DELETED_MARKER)) {
+    return fail("ข้อความถูกลบแล้ว แก้ไขไม่ได้")
+  }
+  if (String(msg.message ?? "").startsWith("CHATIMG:")) {
+    return fail("แก้ไขรูปภาพไม่ได้")
+  }
+
+  const threadUid = Number(msg.user_id)
+  const asAdmin = opts?.asAdmin ?? false
+  if (asAdmin) {
+    if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์")
+    if (opts?.threadUserId && threadUid !== opts.threadUserId) return fail("ไม่มีสิทธิ์")
+    if (msg.sender_type !== "admin") return fail("แก้ไขได้เฉพาะข้อความแอดมิน")
+  } else {
+    if (threadUid !== sessionUid || msg.sender_type !== "user") return fail("แก้ไขข้อความนี้ไม่ได้")
+  }
+
+  const { error } = await sb.from("support_chat_messages").update({ message: next }).eq("id", messageId)
   if (error) return fail(error.message)
   return ok()
 }
@@ -637,10 +687,11 @@ export async function dbFetchChatThreads() {
     const isUnread =
       row.sender_type === "user" && (!readAt || new Date(row.created_at) > new Date(String(readAt)))
     const prev = map.get(uid)
+    const preview = chatMessagePreview(row.message)
     if (!prev || new Date(row.created_at) > new Date(String(prev.last_at))) {
       map.set(uid, {
         user_id: uid,
-        last_message: row.message,
+        last_message: preview,
         last_at: row.created_at,
         unread: isUnread ? 1 : 0,
       })

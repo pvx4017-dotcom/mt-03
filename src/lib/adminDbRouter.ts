@@ -26,6 +26,7 @@ import {
   dbSavePaymentLimits,
   dbSendChatMessage,
   dbDeleteChatMessage,
+  dbUpdateChatMessage,
 } from "@/lib/dbService"
 
 type Json = Record<string, unknown>
@@ -661,11 +662,10 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         })
       }
       if (mode === "update_message") {
-        await sb
-          .from("support_chat_messages")
-          .update({ message: String(fd.get("message") ?? "") })
-          .eq("id", Number(fd.get("message_id")))
-        return ok({})
+        return dbUpdateChatMessage(Number(fd.get("message_id")), String(fd.get("message") ?? ""), {
+          asAdmin: true,
+          threadUserId: userId || undefined,
+        })
       }
       await sb.from("support_chat_messages").insert({
         user_id: userId,
