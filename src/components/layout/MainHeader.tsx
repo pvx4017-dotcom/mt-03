@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { flagAsset, logoAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 import { languages } from "@/data/languages"
 import { useApp } from "@/context/AppContext"
 
@@ -29,10 +30,9 @@ export function MainHeader() {
   return (
     <header className={headerClass}>
       <div className="logo-container">
-        <img src={logoAsset()} alt="Meta Business" className="main-logo-img" />
+        <img src={logoAsset()} alt={`${APP_NAME} Logo`} className="main-logo-img" />
         <div className="logo-text">
-          <h1>Meta Business</h1>
-          {isHome && !scrolled ? <span className="logo-tagline">Marketplace ครบวงจร</span> : null}
+          <h1>{APP_NAME}</h1>
         </div>
       </div>
       <div className="header-actions">

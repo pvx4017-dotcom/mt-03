@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { asset } from "@/lib/assets"
+import { asset, logoAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { SimpleTopbar } from "@/components/layout/OrderTopNavbar"
 import { BottomNav } from "@/components/layout/BottomNav"
@@ -597,7 +598,7 @@ export function HelpManualPage() {
         <section className="intro">
           <h1><i className="fa-solid fa-book-open" /> ยินดีต้อนรับสู่คู่มือผู้ใช้</h1>
           <p className="lead">
-            เอกสารนี้สรุปแนวทางใช้งานแพลตฟอร์ม Meta Business อย่างปลอดภัยและมีประสิทธิภาพ
+            เอกสารนี้สรุปแนวทางใช้งานแพลตฟอร์ม {APP_NAME} อย่างปลอดภัยและมีประสิทธิภาพ
           </p>
         </section>
         <section className="section-card">
@@ -1067,20 +1068,20 @@ export function AboutPage() {
         <section className="hero">
           <div className="brand-row">
             <div className="brand-logo">
-              <img src={asset("logo/logo meatt.webp")} alt="Meta Business Logo" />
+              <img src={logoAsset()} alt={`${APP_NAME} Logo`} />
             </div>
             <div>
-              <h1>Meta Business</h1>
+              <h1>{APP_NAME}</h1>
               <p>แพลตฟอร์มการค้าดิจิทัลที่มุ่งเน้นความโปร่งใส ความปลอดภัย และความน่าเชื่อถือ</p>
             </div>
           </div>
         </section>
         <section className="content-card">
           <h2>แนะนำบริษัท</h2>
-          <p>Meta Business คือแพลตฟอร์มอีคอมเมิร์ซที่ออกแบบมาเพื่อเชื่อมต่อผู้ซื้อและผู้ขายเข้าด้วยกันบนโครงสร้างที่ทันสมัย ปลอดภัย และใช้งานง่าย</p>
+          <p>{APP_NAME} คือแพลตฟอร์มอีคอมเมิร์ซที่ออกแบบมาเพื่อเชื่อมต่อผู้ซื้อและผู้ขายเข้าด้วยกันบนโครงสร้างที่ทันสมัย ปลอดภัย และใช้งานง่าย</p>
           <p>เรามุ่งเน้นการออกแบบประสบการณ์ใช้งานที่เรียบง่าย ชัดเจน และเหมาะกับผู้ใช้งานทุกระดับ</p>
           <div className="info-grid">
-            <div className="info-item"><strong>ชื่อแพลตฟอร์ม</strong><span>Meta Business Marketplace</span></div>
+            <div className="info-item"><strong>ชื่อแพลตฟอร์ม</strong><span>{APP_NAME}</span></div>
             <div className="info-item"><strong>จุดยืนหลัก</strong><span>ปลอดภัย โปร่งใส และตรวจสอบได้</span></div>
             <div className="info-item"><strong>การดูแลผู้ใช้งาน</strong><span>รับเรื่องและติดตามผลอย่างต่อเนื่อง</span></div>
             <div className="info-item"><strong>เป้าหมายระยะยาว</strong><span>สนับสนุนการเติบโตของธุรกิจอย่างยั่งยืน</span></div>

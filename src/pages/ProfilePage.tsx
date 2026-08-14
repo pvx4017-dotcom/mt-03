@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { asset } from "@/lib/assets"
+import { logoAsset } from "@/lib/assets"
 import { fmtMoney, resetAfterSalesBadge } from "@/lib/customerApi"
 import { BottomNav } from "@/components/layout/BottomNav"
 import { Footer } from "@/components/layout/Footer"
@@ -78,7 +78,7 @@ export default function ProfilePage() {
         <div className="profile-main-info">
           <div className="profile-pic-wrapper">
             <div className="profile-pic-container">
-              <img src={asset("logo/logo meatt.webp")} alt="Profile" className="profile-pic" />
+              <img src={logoAsset()} alt="Profile" className="profile-pic" />
             </div>
             <div className="profile-online-dot" />
           </div>

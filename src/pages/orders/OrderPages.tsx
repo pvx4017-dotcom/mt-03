@@ -11,6 +11,7 @@ import {
   maskPhone,
   parseCustomerImage,
 } from "@/lib/customerApi"
+import { logoAsset } from "@/lib/assets"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
 import { BottomNav } from "@/components/layout/BottomNav"
@@ -85,7 +86,7 @@ export default function OrderHistoryPage() {
                           src={parseCustomerImage(row.product_image)}
                           alt={String(row.product_name ?? "สินค้า")}
                           onError={(e) => {
-                            e.currentTarget.src = "/logo/logo meatt.webp"
+                            e.currentTarget.src = logoAsset()
                           }}
                         />
                         <div className="order-info">

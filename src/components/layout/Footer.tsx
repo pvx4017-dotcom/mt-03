@@ -1,4 +1,5 @@
-import { asset } from "@/lib/assets"
+import { asset, logoAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 
 export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
   if (variant === "dark") {
@@ -6,8 +7,8 @@ export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
       <footer className="advanced-footer">
         <section className="footer-newsletter">
           <div className="footer-logo-row">
-            <img src={asset("logo/logo meatt.webp")} alt="Meta Logo" className="footer-logo-img" />
-            <span className="footer-logo-text">Meta Business</span>
+            <img src={logoAsset()} alt={`${APP_NAME} Logo`} className="footer-logo-img" />
+            <span className="footer-logo-text">{APP_NAME}</span>
           </div>
           <h3 className="newsletter-heading">รับคูปองของคุณมากขึ้น</h3>
           <div className="newsletter-input-group">
@@ -18,7 +19,7 @@ export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
         <FooterLinks />
         <section className="footer-extended">
           <p className="meta-business-desc">
-            Meta Business ผู้ใช้เว็บไซต์ทั่วโลกมาจาก 103 ประเทศทั่วโลกและใช้ USDT/ETH/BTC ในการชำระบัญชี
+            {APP_NAME} ผู้ใช้เว็บไซต์ทั่วโลกมาจาก 103 ประเทศทั่วโลกและใช้ USDT/ETH/BTC ในการชำระบัญชี
           </p>
           <FooterPartners />
           <p className="footer-copyright">ลิขสิทธิ์ © เมต้า คอร์ปอเรชั่น 2012</p>
@@ -31,8 +32,8 @@ export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
     <footer className="main-footer">
       <div className="footer-newsletter">
         <div className="footer-logo">
-          <img src={asset("logo/logo meatt.webp")} alt="Meta Business" />
-          <span>Meta Business</span>
+          <img src={logoAsset()} alt={APP_NAME} />
+          <span>{APP_NAME}</span>
         </div>
         <p className="newsletter-sub">รับคูปองของคุณมากขึ้น</p>
         <div className="newsletter-form">
@@ -42,15 +43,15 @@ export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
       </div>
       <FooterLinksGrid />
       <div className="footer-description">
-        <h5>Meta Business</h5>
+        <h5>{APP_NAME}</h5>
         <p>
-          Meta Business ผู้ใช้เว็บไซต์ทั่วโลกมาจาก 103 ประเทศทั่วโลกและใช้ USDT/ETH/BTC ในการชำระบัญชี
+          {APP_NAME} ผู้ใช้เว็บไซต์ทั่วโลกมาจาก 103 ประเทศทั่วโลกและใช้ USDT/ETH/BTC ในการชำระบัญชี
         </p>
       </div>
       <FooterPartners />
       <div className="footer-bottom">
         <p className="copyright">ลิขสิทธิ์ © เมต้า คอร์ปอเรชั่น 2012</p>
-        <p className="footer-mission">Meta Business แบรนด์คุณภาพจากอีคอมเมิร์ซทั่วโลก</p>
+        <p className="footer-mission">{APP_NAME} แบรนด์คุณภาพจากอีคอมเมิร์ซทั่วโลก</p>
       </div>
     </footer>
   )

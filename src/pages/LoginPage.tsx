@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { asset } from "@/lib/assets"
+import { logoAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 import { processAuth } from "@/lib/customerApi"
 import { useApp } from "@/context/AppContext"
 import { useBodyClass } from "@/hooks/useBodyClass"
@@ -117,7 +118,7 @@ export default function LoginPage() {
         <div className="auth-hero">
           <div className="logo-wrap">
             <div className="logo-circle">
-              <img src={asset("logo/logo meatt.webp")} alt="Meta Business" />
+              <img src={logoAsset()} alt={APP_NAME} />
             </div>
           </div>
           <h1 className="auth-hero__title">
@@ -125,7 +126,7 @@ export default function LoginPage() {
           </h1>
           <p className="auth-hero__subtitle">
             {mode === "register"
-              ? "กรอกข้อมูลเพื่อเริ่มช้อปกับ Meta Business"
+              ? `กรอกข้อมูลเพื่อเริ่มช้อปกับ ${APP_NAME}`
               : "เข้าสู่ระบบเพื่อช้อปและติดตามคำสั่งซื้อ"}
           </p>
         </div>

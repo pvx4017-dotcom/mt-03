@@ -104,14 +104,17 @@ body.page-privacy-policy {
 }
 
 .meta-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
     font-size: 32px !important;
-    color: #0062E0 !important;
+    color: #002fff !important;
 }
 
 .meta-text {
     font-size: 24px !important;
     font-weight: 800 !important;
-    color: #0062E0 !important;
+    color: #002fff !important;
     letter-spacing: -0.5px;
 }
 

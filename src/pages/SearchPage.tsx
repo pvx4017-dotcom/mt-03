@@ -4,7 +4,7 @@ import { popularSearches } from "@/data/products"
 import type { Product } from "@/data/products"
 import { fetchProducts, fetchShops, mapApiProduct, shopPath } from "@/lib/marketplaceApi"
 import { ProductFeed } from "@/components/product/ProductCard"
-import { useBodyClass } from "@/hooks/useBodyClass"
+import { SEARCH_PLACEHOLDER } from "@/lib/brand"
 
 export default function SearchPage() {
   useBodyClass("page-sub")
@@ -103,7 +103,7 @@ export default function SearchPage() {
           <input
             type="text"
             className="search-inner-input"
-            placeholder="ค้นหาสินค้า / ร้านค้า"
+            placeholder={SEARCH_PLACEHOLDER}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}

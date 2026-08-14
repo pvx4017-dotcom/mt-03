@@ -3,6 +3,8 @@
  * รูปอื่น (แชท, KYC, หมวด, สไลด์) → Supabase Storage bucket "uploads"
  */
 
+import { LOGO_PATH } from "@/lib/brand"
+
 export const ASSET_BASE = (import.meta.env.VITE_ASSET_BASE ?? "").replace(/\/$/, "")
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, "")
@@ -14,7 +16,7 @@ export const STORAGE_ASSET_BASE = (
 
 export const staticAsset = (path: string) => `/${path.replace(/^\//, "").replace(/ /g, "%20")}`
 
-export const logoAsset = () => staticAsset("logo/logo meatt.webp")
+export const logoAsset = () => staticAsset(LOGO_PATH)
 
 export const flagAsset = (code: string) => staticAsset(`flags/w40/${code.toLowerCase()}.png`)
 
@@ -73,11 +75,11 @@ function storageObjectUrl(p: string) {
 
 export const asset = (path: string) => {
   const raw = String(path ?? "").trim()
-  if (!raw) return staticAsset("logo/logo meatt.webp")
+  if (!raw) return logoAsset()
   if (/^https?:\/\//i.test(raw) && !/\/storage\/v1\/object\/public\//i.test(raw)) return raw
 
   const p = normalizeAssetPath(raw)
-  if (!p) return staticAsset("logo/logo meatt.webp")
+  if (!p) return logoAsset()
 
   if (isStorageAssetPath(p)) return storageObjectUrl(p)
 

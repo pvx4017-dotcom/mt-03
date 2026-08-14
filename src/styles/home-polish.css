@@ -144,7 +144,7 @@ body.page-home {
   text-align: left;
   font-size: 15px;
   font-weight: 800;
-  color: var(--accent-red);
+  color: var(--tiktok-price, #002fff);
   letter-spacing: -0.02em;
 }
 
@@ -199,7 +199,7 @@ body.page-home {
 
 .home-catalog-section .feed-price,
 .recommend-card--pro .recommend-price {
-  color: var(--accent-red);
+  color: var(--tiktok-price, #002fff);
   font-weight: 800;
 }
 

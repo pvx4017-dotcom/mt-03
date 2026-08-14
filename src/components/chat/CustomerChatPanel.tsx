@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { asset, chatImageAsset } from "@/lib/assets"
+import { logoAsset, chatImageAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 import {
   CHAT_DELETED_MARKER,
   chatRowsSignature,
@@ -17,7 +18,7 @@ import {
 const DEPOSIT_NOTIFY_PREFIX = "depositChatNotified:"
 
 const INTRO_ADMIN_TEXT =
-  "สวัสดีค่ะ 🙏 ทีมงาน Meta Business ยินดีให้บริการค่ะ\n\nมีเรื่องอะไรให้เราช่วยเหลือ หรือสอบถามข้อมูลเพิ่มเติม พิมพ์ข้อความฝากไว้ได้เลยนะคะ แอดมินจะรีบตอบกลับให้เร็วที่สุดค่ะ"
+  `สวัสดีค่ะ 🙏 ทีมงาน ${APP_NAME} ยินดีให้บริการค่ะ\n\nมีเรื่องอะไรให้เราช่วยเหลือ หรือสอบถามข้อมูลเพิ่มเติม พิมพ์ข้อความฝากไว้ได้เลยนะคะ แอดมินจะรีบตอบกลับให้เร็วที่สุดค่ะ`
 
 function sameCalendarDay(a: Date, b: Date) {
   return (
@@ -439,7 +440,7 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
         </Link>
         <div className="header-info">
           <div className="header-avatar">
-            <img src={asset("logo/logo meatt.webp")} alt="Avatar" />
+            <img src={logoAsset()} alt="Avatar" />
           </div>
           <div className="header-text">
             <span className="header-name">{title}</span>

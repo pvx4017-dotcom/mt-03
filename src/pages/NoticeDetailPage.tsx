@@ -1,7 +1,8 @@
 import { Link, useSearchParams } from "react-router-dom"
 import { notifications } from "@/data/notifications"
 import { useBodyClass } from "@/hooks/useBodyClass"
-import { asset } from "@/lib/assets"
+import { asset, logoAsset } from "@/lib/assets"
+import { APP_NAME } from "@/lib/brand"
 import "@/styles/privacy-style.css"
 
 export default function NoticeDetailPage() {
@@ -54,8 +55,8 @@ export function PrivacyPolicyPage() {
         <div className="banner-overlay" />
         <div className="banner-content">
           <div className="meta-branding">
-            <i className="fa-brands fa-meta meta-logo" />
-            <span className="meta-text">Meta Business</span>
+            <img src={logoAsset()} alt="" className="meta-logo" />
+            <span className="meta-text">{APP_NAME}</span>
           </div>
           <div className="banner-text">
             <span>นโยบายความเป็นส่วนตัวของผู้ใช้</span>
@@ -64,7 +65,7 @@ export function PrivacyPolicyPage() {
       </header>
       <main className="privacy-content">
         <div className="intro-section">
-          <p>นโยบายความเป็นส่วนตัวของผู้ใช้ Meta Business</p>
+          <p>นโยบายความเป็นส่วนตัวของผู้ใช้ {APP_NAME}</p>
           <ol className="main-toc">
             <li>เรารวบรวมข้อมูลของคุณอย่างไร</li>
             <li>วิธีที่เราใช้ข้อมูล</li>
