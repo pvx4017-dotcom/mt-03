@@ -58,17 +58,9 @@
   margin-bottom: 18px !important;
 }
 
-.pwa-install-steps {
-  margin: 0 0 18px;
-  padding-left: 20px;
-  text-align: left;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #374151;
-}
-
-.pwa-install-steps i {
-  color: #002fff;
+.pwa-install-error {
+  color: #b91c1c !important;
+  margin-bottom: 14px !important;
 }
 
 .pwa-install-actions {
@@ -86,10 +78,19 @@
   cursor: pointer;
 }
 
+.pwa-install-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .pwa-install-btn--ghost {
   border: 1px solid #d1d5db;
   background: #fff;
   color: #374151;
+}
+
+.pwa-install-btn--ghost:disabled {
+  cursor: not-allowed;
 }
 
 .pwa-install-btn--primary {

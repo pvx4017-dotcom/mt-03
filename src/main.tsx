@@ -47,19 +47,10 @@ import "./styles/customer-theme.css"
 import "./index.css"
 import "./styles/fontawesome-guard.css"
 import App from "./App.tsx"
+import { captureInstallPrompt, registerPwaServiceWorker } from "@/lib/pwaInstall"
 
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault()
-  window.__pwaInstallPrompt = event as BeforeInstallPromptEvent
-})
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* ignore — install dialog still offers manual steps */
-    })
-  })
-}
+window.addEventListener("beforeinstallprompt", captureInstallPrompt)
+registerPwaServiceWorker()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
