@@ -5,6 +5,7 @@ import type { Product } from "@/data/products"
 import { fetchProducts, fetchShops, mapApiProduct, shopPath } from "@/lib/marketplaceApi"
 import { ProductFeed } from "@/components/product/ProductCard"
 import { SEARCH_PLACEHOLDER } from "@/lib/brand"
+import { useBodyClass } from "@/hooks/useBodyClass"
 
 export default function SearchPage() {
   useBodyClass("page-sub")

@@ -18,6 +18,7 @@ scripts/.pull-catalog-images-cache.json
 scripts/pull-catalog-images-failed.json
 scripts/pull-storage-failed.json
 scripts/audit-local-images-report.json
+scripts/.live-cache/
 
 # Editor directories and files
 .vscode/*

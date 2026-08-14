@@ -1,5 +1,5 @@
 import { asset, logoAsset } from "@/lib/assets"
-import { APP_NAME } from "@/lib/brand"
+import { APP_NAME, PARTNER_LOGOS } from "@/lib/brand"
 
 export function Footer({ variant = "light" }: { variant?: "light" | "dark" }) {
   if (variant === "dark") {
@@ -136,18 +136,10 @@ function FooterLinksGrid() {
 }
 
 function FooterPartners() {
-  const partners = [
-    "smsufermalls.png",
-    "bdo.png",
-    "nector.png",
-    "zelle.png",
-    "crypto.png",
-    "standard.png",
-  ]
   return (
     <div className="footer-partners">
-      {partners.map((p) => (
-        <img key={p} src={asset(`partner/${p}`)} alt={p} />
+      {PARTNER_LOGOS.map((p) => (
+        <img key={p.file} src={asset(`partner/${p.file}`)} alt={p.label} />
       ))}
     </div>
   )

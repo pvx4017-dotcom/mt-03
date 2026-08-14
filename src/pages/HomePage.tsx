@@ -3,10 +3,9 @@ import { Link } from "react-router-dom"
 import { asset } from "@/lib/assets"
 import { HERO_BANNER_LABEL, SEARCH_PLACEHOLDER } from "@/lib/brand"
 import {
-  formatCompactCount,
+  formatNumberText,
   mapApiShopImage,
   shopPath,
-  trustScoreToRating,
 } from "@/lib/marketplaceApi"
 import { useHomeData } from "@/hooks/useHomeData"
 import { MainHeader } from "@/components/layout/MainHeader"
@@ -16,6 +15,7 @@ import { BottomNav } from "@/components/layout/BottomNav"
 import { ScrollTopButton } from "@/components/layout/ScrollTopButton"
 import { ProductSkeleton } from "@/components/home/ProductSkeleton"
 import { ProductCard } from "@/components/product/ProductCard"
+import { PartnerMarquee } from "@/components/home/PartnerMarquee"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import type { Product } from "@/data/products"
 
@@ -34,6 +34,7 @@ function HomeSectionTitle({ children }: { children: string }) {
 export default function HomePage() {
   useBodyClass("page-home")
   const [slide, setSlide] = useState(0)
+  const [shopSlide, setShopSlide] = useState(0)
   const [catalogVisible, setCatalogVisible] = useState(CATALOG_PAGE_SIZE)
   const {
     categories,
@@ -59,7 +60,11 @@ export default function HomePage() {
     [catalogProducts, catalogVisible],
   )
   const hasMoreCatalog = catalogVisible < catalogProducts.length
-  const sliderCategories = categories.slice(0, 16)
+  const shopSlides = useMemo(() => {
+    const slides: typeof shops[] = []
+    for (let i = 0; i < shops.length; i += 2) slides.push(shops.slice(i, i + 2))
+    return slides
+  }, [shops])
 
   return (
     <div id="app" className="home-shell">
@@ -120,7 +125,7 @@ export default function HomePage() {
                   ))
                 : (
                   <>
-                    {sliderCategories.map((cat) => (
+                    {categories.map((cat) => (
                       <Link
                         key={cat.id}
                         to={`/category-detail?cat=${encodeURIComponent(cat.category_name)}`}
@@ -132,12 +137,6 @@ export default function HomePage() {
                         <span>{cat.category_name}</span>
                       </Link>
                     ))}
-                    <Link to="/categories" className="category-item">
-                      <span className="category-icon category-icon--more">
-                        <i className="fa-solid fa-ellipsis" aria-hidden />
-                      </span>
-                      <span>ดูทั้งหมด</span>
-                    </Link>
                   </>
                 )}
             </div>
@@ -161,61 +160,66 @@ export default function HomePage() {
 
         <section className="shop-section home-panel">
           <HomeSectionTitle>ร้านค้าแนะนำ</HomeSectionTitle>
-          <div className="shop-carousel">
-            {loading && shops.length === 0 ? (
-              Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="shop-carousel-card shop-carousel-card--skeleton" aria-hidden="true">
-                  <div className="product-skeleton__line product-skeleton__line--title" />
-                  <div className="product-skeleton__line" style={{ width: "55%", marginTop: 10 }} />
-                </div>
-              ))
-            ) : (
-              shops.map((shop) => {
-                const rating = trustScoreToRating(Number(shop.trust_score))
-                return (
-                  <Link
-                    key={shop.id}
-                    to={shopPath(shop.shop_name)}
-                    className="shop-carousel-card"
-                  >
-                    <div className="shop-carousel-card__head">
-                      <img
-                        src={mapApiShopImage(shop.shop_image)}
-                        alt=""
-                        className="shop-carousel-card__logo"
-                        loading="lazy"
-                      />
-                      <div className="shop-carousel-card__info">
-                        <h4>{shop.shop_name}</h4>
-                        {rating > 0 ? (
-                          <p className="shop-carousel-card__rating">
-                            <i className="fa-solid fa-star" aria-hidden />
-                            {rating.toFixed(1)}
-                            <span>· {formatCompactCount(shop.review_count)} รีวิว</span>
-                          </p>
-                        ) : (
-                          <p>{formatCompactCount(shop.review_count)} รีวิว</p>
-                        )}
-                      </div>
+          <div className="shop-slider-wrap">
+            <div className="shop-slider-container">
+              <div
+                className="shop-slider-track"
+                style={{ transform: `translateX(-${shopSlide * 100}%)` }}
+              >
+                {loading && shops.length === 0
+                  ? (
+                    <div className="shop-slide">
+                      <div className="shop-card shop-card--skeleton" aria-hidden="true" />
+                      <div className="shop-card shop-card--skeleton" aria-hidden="true" />
                     </div>
-                    <div className="shop-carousel-card__stats">
-                      <span>
-                        <i className="fa-regular fa-eye" aria-hidden />
-                        {formatCompactCount(shop.view_count)}
-                      </span>
-                      <span>
-                        <i className="fa-solid fa-bag-shopping" aria-hidden />
-                        {formatCompactCount(shop.sales_volume)}
-                      </span>
+                  )
+                  : shopSlides.map((group, gi) => (
+                    <div className="shop-slide" key={gi}>
+                      {group.map((shop) => (
+                        <article className="shop-card" key={shop.id}>
+                          <div className="shop-header">
+                            <div className="shop-info">
+                              <div className="shop-icon">
+                                <img
+                                  src={mapApiShopImage(shop.shop_image)}
+                                  alt=""
+                                  className="shop-logo-img"
+                                  loading="lazy"
+                                />
+                              </div>
+                              <div className="shop-details">
+                                <h4>{shop.shop_name}</h4>
+                                <p>ความคิดเห็นที่ดี: {formatNumberText(shop.review_count)}</p>
+                                <p>ยอดวิว: {formatNumberText(shop.view_count)}</p>
+                              </div>
+                            </div>
+                            <Link to={shopPath(shop.shop_name)} className="visit-shop-btn">
+                              เข้าชมร้านค้า &gt;
+                            </Link>
+                          </div>
+                          <div className="shop-stats">
+                            <div className="stat">คะแนนความน่าเชื่อถือ: {formatNumberText(shop.trust_score)}</div>
+                            <div className="stat">ปริมาณซื้อขาย: {formatNumberText(shop.sales_volume)}</div>
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                    <span className="shop-carousel-card__cta">
-                      เข้าชมร้าน
-                      <i className="fa-solid fa-arrow-right" aria-hidden />
-                    </span>
-                  </Link>
-                )
-              })
-            )}
+                  ))}
+              </div>
+            </div>
+            {shopSlides.length > 1 ? (
+              <div className="shop-slider-dots">
+                {shopSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`shop-slider-dot${shopSlide === i ? " active" : ""}`}
+                    onClick={() => setShopSlide(i)}
+                    aria-label={`ร้านค้า หน้า ${i + 1}`}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -242,15 +246,13 @@ export default function HomePage() {
               )}
             </div>
             {hasMoreCatalog ? (
-              <div className="catalog-load-more-wrap">
-                <button
-                  type="button"
-                  className="catalog-load-more-btn catalog-load-more-btn--modern"
-                  onClick={() => setCatalogVisible((n) => n + CATALOG_PAGE_SIZE)}
-                >
-                  โหลดเพิ่มเติม
-                </button>
-              </div>
+              <button
+                type="button"
+                className="home-catalog-load-more"
+                onClick={() => setCatalogVisible((n) => n + CATALOG_PAGE_SIZE)}
+              >
+                โหลดเพิ่มเติม
+              </button>
             ) : null}
           </div>
         </section>
@@ -265,13 +267,15 @@ export default function HomePage() {
                 <p>ยังไม่มีสินค้าแนะนำ</p>
               </div>
             ) : (
-              guessProducts.slice(0, 8).map((p) => (
+              guessProducts.slice(0, 20).map((p) => (
                 <ProductCard key={`guess-${p.id}`} product={p} variant="feed" />
               ))
             )}
           </div>
         </section>
       </main>
+
+      <PartnerMarquee />
 
       <div className="home-footer-zone">
         <div className="bottom-spacer bottom-spacer--home" />

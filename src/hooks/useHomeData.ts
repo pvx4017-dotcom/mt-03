@@ -32,7 +32,7 @@ const empty: HomeData = {
   error: false,
 }
 
-function pickGuessProducts(all: Product[], excludeIds: Set<string>, limit = 12): Product[] {
+function pickGuessProducts(all: Product[], excludeIds: Set<string>, limit = 20): Product[] {
   return [...all]
     .filter((p) => !excludeIds.has(p.id))
     .sort((a, b) => (b.salesVolume ?? 0) - (a.salesVolume ?? 0))

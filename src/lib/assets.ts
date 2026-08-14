@@ -40,6 +40,7 @@ export function isProjectCatalogPath(path: string): boolean {
   if (p.startsWith("stores/")) return true
   if (p.startsWith("uploads/products/") || p.startsWith("uploads/shops/")) return true
   if (p.startsWith("images/store_product")) return true
+  if (p.startsWith("images/category_")) return true
   if (p.startsWith("images/shop_") || p.startsWith("images/general_shop_")) return true
   if (p.startsWith("images/banner_")) return true
   // อัปโหลดสินค้า/ร้านใหม่ลง public/images/<timestamp>_...

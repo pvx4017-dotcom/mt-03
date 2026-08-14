@@ -16,6 +16,8 @@
     "images:purge-storage": "node scripts/purge-catalog-from-storage.mjs",
     "images:purge-storage:dry": "node scripts/purge-catalog-from-storage.mjs --dry-run",
     "images:audit": "node scripts/audit-local-images.mjs",
+    "catalog:sync": "node scripts/sync-catalog-from-live.mjs",
+    "catalog:sync:apply": "node scripts/sync-catalog-from-live.mjs --apply --images",
     "images:mirror": "node -e \"console.error('Deprecated: อย่า mirror ไป Supabase Storage — ใช้ yarn images:pull ลง public/'); process.exit(1)\"",
     "images:mirror:dry": "node -e \"console.error('Deprecated: ใช้ yarn images:pull:dry'); process.exit(1)\"",
     "brand:fetch": "node scripts/fetch-brand-assets.mjs",
