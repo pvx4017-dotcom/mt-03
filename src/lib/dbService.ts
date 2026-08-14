@@ -1,5 +1,4 @@
 import { getSupabase } from "@/lib/supabase"
-import { uploadLocalFile } from "@/lib/localUpload"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 import { CHAT_DELETED_MARKER, chatMessagePreview } from "@/lib/chatMessages"
@@ -1049,8 +1048,7 @@ export async function dbSubmitStore(
     fields.shop_image instanceof File && fields.shop_image.size > 0 ? fields.shop_image : null
   if (shopImage) {
     try {
-      // รูปร้านลูกค้า → โปรเจกต์ (เหมือนรูปสินค้า/ร้าน)
-      imagePath = await uploadLocalFile(shopImage, "images")
+      imagePath = await uploadToSupabaseStorage(shopImage, "shops")
     } catch (err) {
       return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านไม่สำเร็จ")
     }

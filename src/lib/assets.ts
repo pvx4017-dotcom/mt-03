@@ -1,6 +1,6 @@
 /**
- * รูปสินค้า / ร้านค้า → public/ ในโปรเจกต์
- * รูปอื่น (แชท, KYC, หมวด, สไลด์) → Supabase Storage bucket "uploads"
+ * รูปสินค้าที่มีอยู่แล้วในแคตตาล็อก → public/images ของโปรเจกต์
+ * รูปร้านค้า + สินค้าที่อัปโหลดใหม่ + แชท / KYC / หมวด / สไลด์ → Supabase Storage bucket "uploads"
  */
 
 import { LOGO_PATH } from "@/lib/brand"
@@ -33,22 +33,20 @@ export function normalizeAssetPath(input: string): string {
   return raw
 }
 
-/** สินค้า / ร้าน — เสิร์ฟจากโปรเจกต์ */
+/** สินค้าเดิมในแคตตาล็อก + รูปร้านเดิมที่ยังอยู่ใน repo — เสิร์ฟจากโปรเจกต์ */
 export function isProjectCatalogPath(path: string): boolean {
   const p = normalizeAssetPath(path)
   if (!p) return false
-  if (p.startsWith("stores/")) return true
-  if (p.startsWith("uploads/products/") || p.startsWith("uploads/shops/")) return true
   if (p.startsWith("images/store_product")) return true
   if (p.startsWith("images/category_")) return true
   if (p.startsWith("images/shop_") || p.startsWith("images/general_shop_")) return true
   if (p.startsWith("images/banner_")) return true
-  // อัปโหลดสินค้า/ร้านใหม่ลง public/images/<timestamp>_...
+  // อัปโหลดเก่าลง public/images/<timestamp>_... ก่อนย้ายไป Storage
   if (/^images\/\d+_/.test(p)) return true
   return false
 }
 
-/** แชท / KYC / หมวด / สไลด์ (และ uploads อื่นที่ไม่ใช่สินค้า/ร้าน) → Storage */
+/** ร้านค้าใหม่ / สินค้าใหม่ / แชท / KYC / หมวด / สไลด์ → Storage */
 export function isStorageAssetPath(path: string): boolean {
   const p = normalizeAssetPath(path)
   if (!p) return false
@@ -58,11 +56,11 @@ export function isStorageAssetPath(path: string): boolean {
   if (
     p.startsWith("categories/") ||
     p.startsWith("slides/") ||
-    p.startsWith("uploads/categories/") ||
-    p.startsWith("uploads/slides/")
+    p.startsWith("products/") ||
+    p.startsWith("shops/") ||
+    p.startsWith("stores/") ||
+    p.startsWith("uploads/")
   )
-    return true
-  if (p.startsWith("uploads/") && !p.startsWith("uploads/products/") && !p.startsWith("uploads/shops/"))
     return true
   return false
 }
@@ -84,7 +82,7 @@ export const asset = (path: string) => {
 
   if (isStorageAssetPath(p)) return storageObjectUrl(p)
 
-  // สินค้า/ร้าน + seed อื่นใน public/ (เช่น images/category_* ที่ยังอยู่ใน repo)
+  // สินค้าเดิมในแคตตาล็อก + seed ใน public/ (เช่น images/store_product_* , images/shop_*)
   if (ASSET_BASE) return `${ASSET_BASE}/${p}`
   return staticAsset(p)
 }

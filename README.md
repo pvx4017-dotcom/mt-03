@@ -1,8 +1,9 @@
 # Meta Business (React + TypeScript + Vite)
 
 Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Postgres**  
-- **รูปสินค้า / ร้านค้า** → เก็บใน `public/images` ของโปรเจกต์ (path ใน DB เช่น `images/store_product_…`)  
-- **รูปอื่น** (แชท, KYC, หมวด, สไลด์) → Supabase Storage bucket `uploads`
+- **รูปสินค้าที่มีอยู่แล้ว** → เก็บใน `public/images` ของโปรเจกต์ (path ใน DB เช่น `images/store_product_…`)  
+- **รูปร้านค้า + สินค้าที่อัปโหลดใหม่** → Supabase Storage bucket `uploads` (path ใน DB เช่น `shops/…`, `products/…`)  
+- **รูปอื่น** (แชท, KYC, หมวด, สไลด์) → bucket เดียวกัน
 
 ## สร้างฐานข้อมูลใหม่ (แนะนำเมื่อโปรเจกต์เก่าโควตาเต็ม)
 
@@ -14,7 +15,7 @@ Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Pos
 4. เปิด **SQL Editor** → วางเนื้อหาทั้งไฟล์ [`database.sql`](database.sql) → **Run**  
    - มีตาราง + ข้อมูลสินค้า/ร้าน/หมวด/สไลด์ + บัญชีทดสอบครบ  
    - path รูปชี้ไปที่ไฟล์ใน `public/images` ที่มีอยู่ในโปรเจกต์แล้ว  
-5. รัน [`scripts/setup-storage-uploads.sql`](scripts/setup-storage-uploads.sql) สำหรับแชท/KYC/หมวด/สไลด์ (สินค้า/ร้านไม่ใช้ Storage)  
+5. รัน [`scripts/setup-storage-uploads.sql`](scripts/setup-storage-uploads.sql) สำหรับ Storage (แชท/KYC/หมวด/สไลด์/ร้าน/สินค้าใหม่)  
 6. ตรวจว่าพร้อมใช้:
    ```bash
    yarn db:verify
@@ -36,11 +37,12 @@ Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Pos
 
 | ประเภท | ที่เก็บ | Production |
 |--------|---------|------------|
-| สินค้า / ร้านค้า | `public/images` ใน GitHub | ต้อง commit + push ถึงขึ้น |
+| สินค้าเดิมในแคตตาล็อก | `public/images` ใน GitHub | ต้อง commit + push ถึงขึ้น |
+| รูปร้านค้า / สินค้าที่อัปโหลดใหม่ | Supabase Storage | ขึ้นทันทีหลังอัปโหลด |
 | แชท / KYC / หมวด / สไลด์ | Supabase Storage | ขึ้นทันทีหลังอัปโหลด |
 
 ```bash
-yarn images:audit                 # ตรวจรูปสินค้า/ร้านใน public/
+yarn images:audit                 # ตรวจรูปแคตตาล็อกเดิมใน public/
 yarn images:pull --skip-existing  # ดึงรูป catalog ลง public/ (ถ้ายังไม่ครบ)
 ```
 

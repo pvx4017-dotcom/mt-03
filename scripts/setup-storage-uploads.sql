@@ -1,6 +1,6 @@
--- Supabase Storage bucket "uploads" สำหรับรูปที่ไม่ใช่สินค้า/ร้าน
--- ใช้กับ: แชท, KYC, หมวดหมู่, สไลด์
--- รูปสินค้า / ร้านค้า เก็บใน public/images ของโปรเจกต์ — ไม่ใส่ใน Storage
+-- Supabase Storage bucket "uploads"
+-- ใช้กับ: แชท, KYC, หมวดหมู่, สไลด์, รูปร้านค้า, สินค้าที่อัปโหลดใหม่
+-- สินค้าเดิมในแคตตาล็อกยังเสิร์ฟจาก public/images ของโปรเจกต์ (path images/store_product_...)
 --
 -- รันใน Supabase SQL Editor ของโปรเจกต์ใหม่ (ครั้งเดียว)
 

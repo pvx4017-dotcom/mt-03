@@ -1292,8 +1292,8 @@ DO $$ DECLARE t TEXT; BEGIN
   END LOOP;
 END $$;
 
--- รูปสินค้า/ร้าน: เก็บใน public/images ของโปรเจกต์ (path เช่น images/store_product_...)
--- รูปอื่น (แชท/KYC/หมวด/สไลด์): Supabase Storage — รัน scripts/setup-storage-uploads.sql
+-- สินค้าเดิมในแคตตาล็อก: public/images ของโปรเจกต์ (path เช่น images/store_product_...)
+-- รูปร้าน + สินค้าใหม่ + แชท/KYC/หมวด/สไลด์: Supabase Storage — รัน scripts/setup-storage-uploads.sql
 
 -- บัญชีทดลอง:
 --   Admin: admin@meta.local / admin123

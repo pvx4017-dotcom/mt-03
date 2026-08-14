@@ -1,7 +1,6 @@
 /** Local API dispatcher — เรียก Supabase โดยตรง ไม่มี HTTP ไป PHP server ภายนอก */
 import { getSupabase } from "@/lib/supabase"
 import { API } from "@/lib/apiRoutes"
-import { uploadLocalFile } from "@/lib/localUpload"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { getSessionUserId, isAdminPanelRole } from "@/lib/session"
 import {
@@ -73,26 +72,15 @@ function normalizeNotificationType(raw: string) {
   return raw || "platform"
 }
 
-/** รูปสินค้า/ร้าน → public/images (โปรเจกต์) */
-async function uploadProjectImage(file: File) {
-  return uploadLocalFile(file, "images")
-}
-
-/** รูปอื่น → Supabase Storage */
+/** อัปโหลดไฟล์ไป Supabase Storage แล้วคืน path สำหรับเก็บใน DB */
 async function uploadRemoteImage(file: File, prefix: string) {
   return uploadToSupabaseStorage(file, prefix)
 }
 
-async function resolveImageUpload(
-  fd: FormData,
-  field: string,
-  existingPath: string,
-  mode: "project" | "storage",
-  storagePrefix = "",
-) {
+async function resolveImageUpload(fd: FormData, field: string, existingPath: string, storagePrefix: string) {
   const file = fd.get(field)
   if (file instanceof File && file.size > 0) {
-    return mode === "project" ? uploadProjectImage(file) : uploadRemoteImage(file, storagePrefix)
+    return uploadRemoteImage(file, storagePrefix)
   }
   const hinted = String(fd.get(`${field}_path`) ?? "").trim()
   if (hinted && hinted !== "[object File]") return hinted
@@ -365,7 +353,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let categoryImage = existingImage
       try {
-        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "storage", "categories")
+        categoryImage = await resolveImageUpload(fd, "category_image", existingImage, "categories")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปหมวดหมู่ไม่สำเร็จ")
       }
@@ -401,7 +389,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       }
       let shopImage = existingImage
       try {
-        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "project")
+        shopImage = await resolveImageUpload(fd, "shop_image", existingImage, "shops")
       } catch (err) {
         return fail(err instanceof Error ? err.message : "อัปโหลดรูปร้านค้าไม่สำเร็จ")
       }
@@ -467,7 +455,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       for (const entry of fd.getAll("product_images[]")) {
         if (entry instanceof File && entry.size > 0) {
           try {
-            uploaded.push(await uploadProjectImage(entry))
+            uploaded.push(await uploadRemoteImage(entry, "products"))
           } catch (err) {
             return fail(err instanceof Error ? err.message : "อัปโหลดรูปสินค้าไม่สำเร็จ")
           }

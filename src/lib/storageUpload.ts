@@ -18,8 +18,8 @@ function storageFailMessage(err: unknown, fallback: string) {
 
 /**
  * อัปโหลดไฟล์ไป Supabase Storage bucket "uploads"
- * ใช้กับแชท / KYC / หมวด / สไลด์ (ไม่ใช่รูปสินค้า/ร้าน)
- * คืน path สำหรับเก็บใน DB เช่น uploads/slides/....jpg หรือ support_chat/...
+ * ใช้กับแชท / KYC / หมวด / สไลด์ / รูปร้าน / สินค้าที่อัปโหลดใหม่
+ * คืน path สำหรับเก็บใน DB เช่น slides/....jpg, shops/....jpg, products/....jpg
  */
 export async function uploadToSupabaseStorage(file: File, prefix: string): Promise<string> {
   const cleanPrefix = String(prefix ?? "")

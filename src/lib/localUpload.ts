@@ -1,4 +1,4 @@
-/** อัปโหลดรูปสินค้า/ร้านลง public/images ผ่าน Vite middleware (yarn dev / vite preview) */
+/** อัปโหลดไฟล์ลง public/ ผ่าน Vite middleware — ไม่ใช้กับรูปร้าน/สินค้าใหม่อีกแล้ว (ไป Storage) */
 
 const LOCAL_UPLOAD_UNAVAILABLE =
   "อัปโหลดรูปสินค้า/ร้านเก็บในโปรเจกต์ได้เมื่อรันบนเครื่อง (yarn dev) แล้ว commit โฟลเดอร์ public/ ก่อน deploy"
