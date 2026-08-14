@@ -622,12 +622,13 @@ body.page-customer.page-cart .cart-history-top-btn {
 }
 
 body.page-customer.page-cart .cart-confirm-bar {
-  background: var(--app-surface);
-  border-top: 1px solid var(--app-border);
-  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   max-width: var(--app-shell-max);
   left: 50%;
   transform: translateX(-50%);
+  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Home aliases ── */

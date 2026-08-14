@@ -269,24 +269,31 @@ body.page-cart #app {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 52px;
-    background: #fff;
-    border-top: 1px solid #e5e7eb;
-    padding: 6px 12px 6px;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 8px 12px;
     z-index: 1001;
+    pointer-events: none;
 }
 
 .cart-confirm-btn {
+    appearance: none;
+    -webkit-appearance: none;
     width: 100%;
-    height: 36px;
+    height: 44px;
     border: none;
     border-radius: 999px;
-    background: linear-gradient(135deg, #0062e0, #0052c4);
+    background: #002fff;
+    background-image: none;
     color: #fff;
     font-family: var(--font-thai);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 4px 14px rgba(0, 47, 255, 0.28);
 }
 
 .cart-confirm-btn:disabled {

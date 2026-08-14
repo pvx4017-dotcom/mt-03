@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { AppProvider } from "@/context/AppContext"
 import { SessionIdleGuard } from "@/components/auth/SessionIdleGuard"
 import { LoginModal } from "@/components/layout/LoginModal"
-import { InstallAppDialog } from "@/components/layout/InstallAppDialog"
 import HomePage from "@/pages/HomePage"
 import SearchPage from "@/pages/SearchPage"
 import CategoriesPage from "@/pages/CategoriesPage"
@@ -54,7 +53,6 @@ export default function App() {
       <BrowserRouter>
         <SessionIdleGuard />
         <LoginModal />
-        <InstallAppDialog />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
