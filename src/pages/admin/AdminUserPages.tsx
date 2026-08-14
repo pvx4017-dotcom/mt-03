@@ -144,9 +144,7 @@ export default function AdminUsersPage() {
                     <div className="admin-user-cell-sub">{row.phone || row.email || "-"}</div>
                   </td>
                   <td>
-                    <div className="admin-password-cell" title={row.password}>
-                      {row.password || "-"}
-                    </div>
+                    <div className="admin-password-cell">••••••</div>
                   </td>
                   <td>
                     <span className="admin-code-pill">{row.referral_code || "-"}</span>
@@ -235,7 +233,7 @@ export default function AdminUsersPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={edit.password}
+                  placeholder="รหัสใหม่ (เว้นว่างถ้าไม่เปลี่ยน)"
                   autoComplete="new-password"
                 />
               </div>
@@ -726,7 +724,7 @@ export function AdminWithdrawPasswordsPage() {
                     </td>
                     <td>
                       <span className="admin-code-pill">
-                        {String(row.withdraw_password_hash ?? row.withdraw_password ?? "-")}
+                        {active ? "******" : "ยังไม่ตั้ง"}
                       </span>
                     </td>
                     <td>

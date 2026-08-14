@@ -2,7 +2,7 @@
 import { getSupabase } from "@/lib/supabase"
 import { API } from "@/lib/apiRoutes"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
-import { getSessionUserId, isAdminPanelRole } from "@/lib/session"
+import { getSessionUserId } from "@/lib/session"
 import {
   dbAdminFetchCart,
   dbAdminUpdateOrder,
@@ -50,17 +50,34 @@ function isCustomerScopedAdminGet(base: string, params: URLSearchParams) {
   return false
 }
 
-function ensureAdminPanelAccess(base: string, params?: URLSearchParams) {
-  if (base === API.submitReviewAdmin) {
-    if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
-    if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
-    return null
+let dbRoleCache: { uid: number; role: string; at: number } | null = null
+const DB_ROLE_CACHE_MS = 15_000
+
+async function fetchSessionRoleFromDb(uid: number): Promise<string | null> {
+  if (dbRoleCache && dbRoleCache.uid === uid && Date.now() - dbRoleCache.at < DB_ROLE_CACHE_MS) {
+    return dbRoleCache.role
   }
+  const sb = getSupabase()
+  const { data } = await sb.from("users").select("role, status").eq("id", uid).maybeSingle()
+  if (!data || data.status === "banned") return null
+  const role = String(data.role ?? "")
+  dbRoleCache = { uid, role, at: Date.now() }
+  return role
+}
+
+async function requireDbAdminRole() {
+  const uid = getSessionUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const role = await fetchSessionRoleFromDb(uid)
+  if (role !== "admin" && role !== "super_admin") return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+  return null
+}
+
+async function ensureAdminPanelAccess(base: string, params?: URLSearchParams) {
+  if (base === API.submitReviewAdmin) return requireDbAdminRole()
   if (!base.startsWith("admin/")) return null
   if (params && isCustomerScopedAdminGet(base, params)) return null
-  if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
-  if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
-  return null
+  return requireDbAdminRole()
 }
 
 function isEditAction(action: string) {
@@ -98,7 +115,7 @@ async function resolveValidUserId(raw: FormDataEntryValue | null) {
 export async function handleAdminGet(path: string): Promise<Json> {
   const [base, qs] = path.split("?")
   const params = new URLSearchParams(qs ?? "")
-  const denied = ensureAdminPanelAccess(base, params)
+  const denied = await ensureAdminPanelAccess(base, params)
   if (denied) return denied
 
   switch (base) {
@@ -158,18 +175,22 @@ export async function handleAdminGet(path: string): Promise<Json> {
       return (await import("@/lib/dbService")).dbFetchOrderContacts()
     case API.adminShippingHistory: {
       const toStatus = normalizeShippingToStatus(params.get("to_status") ?? "receiving")
-      const sb = getSupabase()
       const uid = (await import("@/lib/session")).getSessionUserId()
-      let q = sb.from("admin_cart_orders").select("*").eq("status", toStatus)
-      if (uid && params.get("filter_user") !== "0") q = q.eq("user_id", uid)
-      const { data } = await q.order("created_at", { ascending: false })
+      if (!uid) return ok({ items: [] })
+      const sb = getSupabase()
+      const { data } = await sb
+        .from("admin_cart_orders")
+        .select("*")
+        .eq("status", toStatus)
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false })
       return ok({ items: data ?? [] })
     }
     case API.supportChat: {
       const mode = params.get("mode")
       if (mode === "thread_user_count" || mode === "threads") {
-        if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
-        if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+        const deniedChat = await requireDbAdminRole()
+        if (deniedChat) return deniedChat
         if (mode === "thread_user_count") {
           const threads = await dbFetchChatThreads()
           return ok({ count: threads.length })
@@ -179,7 +200,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
       if (mode === "messages") {
         const userId = params.get("user_id")
         if (userId) {
-          if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+          const deniedChat = await requireDbAdminRole()
+          if (deniedChat) return deniedChat
           return dbFetchChatMessages(Number(userId))
         }
         return dbFetchChatMessages()
@@ -208,7 +230,10 @@ export async function handleAdminGet(path: string): Promise<Json> {
       const { data } = await sb.from("users").select("id, username, email, phone, withdraw_password_hash")
       return ok({
         passwords: (data ?? []).map((u) => ({
-          ...u,
+          id: u.id,
+          username: u.username,
+          email: u.email,
+          phone: u.phone,
           has_password: Boolean(u.withdraw_password_hash),
         })),
       })
@@ -251,7 +276,7 @@ export async function handleAdminGet(path: string): Promise<Json> {
 export async function handleAdminPost(path: string, fd: FormData): Promise<Json> {
   const sb = getSupabase()
   const action = String(fd.get("action") ?? fd.get("mode") ?? "")
-  const denied = ensureAdminPanelAccess(path)
+  const denied = await ensureAdminPanelAccess(path)
   if (denied) return denied
 
   switch (path) {
@@ -622,8 +647,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         mode === "update_message" ||
         (!mode && String(fd.get("sender_type") ?? "") === "admin")
       if (adminOnly) {
-        if (!getSessionUserId()) return fail("กรุณาเข้าสู่ระบบ")
-        if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์เข้าถึงฝั่งผู้ดูแล")
+        const deniedChat = await requireDbAdminRole()
+        if (deniedChat) return deniedChat
       }
       if (mode === "reset_message_count") {
         return dbResetChatReadState(userId)

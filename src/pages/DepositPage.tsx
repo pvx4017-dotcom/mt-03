@@ -8,6 +8,7 @@ import {
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { OrderTopNavbar } from "@/components/layout/OrderTopNavbar"
+import { useApp } from "@/context/AppContext"
 import "@/styles/deposit-style.css"
 
 const quickAmounts = [10, 50, 100, 500, 1000, 5000]
@@ -15,6 +16,7 @@ const quickAmounts = [10, 50, 100, 500, 1000, 5000]
 export default function DepositPage() {
   useBodyClass("page-deposit")
   const navigate = useNavigate()
+  const { requireLogin, sessionChecked } = useApp()
   const [amount, setAmount] = useState("")
   const [activeQuick, setActiveQuick] = useState<number | null>(null)
   const [balance, setBalance] = useState(0)
@@ -31,7 +33,7 @@ export default function DepositPage() {
     try {
       const [userData, limitsData] = await Promise.all([fetchUserInfo(), fetchPaymentLimits()])
       if (userData.user) setBalance(Number(userData.user.wallet_balance ?? 0))
-      const min = Number(limitsData.limits?.min_deposit ?? 10)
+      const min = Number(limitsData.min_deposit ?? limitsData.limits?.min_deposit ?? 10)
       if (Number.isFinite(min) && min >= 0) setMinDeposit(min)
     } catch {
       /* ignore */
@@ -39,8 +41,10 @@ export default function DepositPage() {
   }, [])
 
   useEffect(() => {
+    if (!sessionChecked) return
+    if (!requireLogin()) return
     load()
-  }, [load])
+  }, [load, requireLogin, sessionChecked])
 
   const submit = async () => {
     await load()

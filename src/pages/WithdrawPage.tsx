@@ -8,6 +8,7 @@ import {
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { OrderTopNavbar } from "@/components/layout/OrderTopNavbar"
+import { useApp } from "@/context/AppContext"
 import "@/styles/withdraw-style.css"
 
 function maskAccountNumber(value: unknown) {
@@ -20,6 +21,7 @@ function maskAccountNumber(value: unknown) {
 export default function WithdrawPage() {
   useBodyClass("page-withdraw")
   const navigate = useNavigate()
+  const { requireLogin, sessionChecked } = useApp()
   const [balance, setBalance] = useState(0)
   const [minWithdraw, setMinWithdraw] = useState(10)
   const [amount, setAmount] = useState("")
@@ -52,7 +54,7 @@ export default function WithdrawPage() {
           setAccountNumber("ยังไม่ได้ผูกบัญชี")
         }
       }
-      const min = Number(limitsData.limits?.min_withdraw ?? 10)
+      const min = Number(limitsData.min_withdraw ?? limitsData.limits?.min_withdraw ?? 10)
       if (Number.isFinite(min) && min >= 0) setMinWithdraw(min)
     } catch {
       /* ignore */
@@ -60,8 +62,10 @@ export default function WithdrawPage() {
   }, [])
 
   useEffect(() => {
+    if (!sessionChecked) return
+    if (!requireLogin()) return
     load()
-  }, [load])
+  }, [load, requireLogin, sessionChecked])
 
   const submit = async () => {
     if (!hasWithdrawPassword) {
@@ -80,15 +84,15 @@ export default function WithdrawPage() {
       showToast(`ถอนเงินขั้นต่ำ $${fmtMoney(minWithdraw)}`, true)
       return
     }
-    if (!/^\d{5,6}$/.test(pin)) {
-      showToast("กรุณากรอกรหัสผ่านถอน 5-6 หลัก", true)
+    if (!/^\d{6}$/.test(pin)) {
+      showToast("กรุณากรอกรหัสผ่านถอน 6 หลัก", true)
       return
     }
     setSubmitting(true)
     try {
       const data = await submitWithdrawRequest(amt, pin)
       if (!data.success) throw new Error(data.message ?? "ถอนเงินไม่สำเร็จ")
-      showToast(data.message ?? "ถอนเงินสำเร็จ")
+      showToast(data.message ?? "ส่งคำขอแล้ว รอแอดมินอนุมัติ")
       setAmount("")
       setPassword("")
       await load()

@@ -4,8 +4,8 @@ const LOGGED_IN_KEY = "meta_logged_in"
 const LAST_ACTIVITY_KEY = "meta_session_last_activity"
 const IDLE_LOGOUT_FLAG = "meta_idle_logout"
 
-/** ไม่มีการใช้งานเกิน 30 นาที → ออกจากระบบอัตโนมัติ */
-export const SESSION_IDLE_MS = 30 * 60 * 1000
+/** ไม่ได้กลับมาใช้งานเกิน 30 วัน → ให้เข้าสู่ระบบใหม่ (จำสถานะจนกว่าจะกดออก) */
+export const SESSION_IDLE_MS = 30 * 24 * 60 * 60 * 1000
 
 export function touchSessionActivity(at = Date.now()) {
   localStorage.setItem(LAST_ACTIVITY_KEY, String(at))
@@ -26,6 +26,12 @@ export function isSessionExpired(now = Date.now()): boolean {
     return false
   }
   return now - last > SESSION_IDLE_MS
+}
+
+export function restoreSessionActivity(now = Date.now()) {
+  if (!getSessionUserId() || isSessionExpired(now)) return false
+  touchSessionActivity(now)
+  return true
 }
 
 export function markIdleLogout() {

@@ -282,10 +282,11 @@ export async function dbConfirmProductOrders(fd: FormData) {
 // ─── Orders pipeline ────────────────────────────────────────────────────────
 
 export async function dbFetchOrdersByStatus(status: string, userOnly = false) {
-  const sb = getSupabase()
   const uid = getSessionUserId()
+  if (userOnly && !uid) return []
+  const sb = getSupabase()
   let q = sb.from("admin_cart_orders").select("*").order("created_at", { ascending: false })
-  if (userOnly && uid) q = q.eq("user_id", uid)
+  if (userOnly) q = q.eq("user_id", uid)
   if (status) q = q.eq("status", status)
   const { data } = await q
   return data ?? []
@@ -499,6 +500,8 @@ export async function dbFetchPaymentLimits() {
 export async function dbSubmitDeposit(amount: number) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const limits = await dbFetchPaymentLimits()
+  if (amount < Number(limits.min_deposit ?? 100)) return fail(`ฝากขั้นต่ำ $${Number(limits.min_deposit ?? 100).toFixed(2)}`)
   const sb = getSupabase()
   const requestNo = `DEP-${Date.now()}`
   const { error } = await sb.from("deposit_requests").insert({
@@ -1239,7 +1242,12 @@ export async function dbFetchWalletHistory(type: string) {
 
 export async function dbFetchUsers() {
   const sb = getSupabase()
-  const { data } = await sb.from("users").select("*").order("id")
+  const { data } = await sb
+    .from("users")
+    .select(
+      "id, username, email, phone, status, role, referral_code, referred_by, registered_at, created_at, credit, wallet_balance",
+    )
+    .order("id")
   return data ?? []
 }
 

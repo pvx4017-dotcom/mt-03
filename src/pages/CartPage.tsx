@@ -54,7 +54,12 @@ export default function CartPage() {
   }, [load, requireLogin])
 
   const totalCount = rows.reduce((s, r) => s + Math.max(1, Number(r.quantity ?? 1)), 0)
-  const totalPrice = rows.reduce((s, r) => s + Number(r.total_price ?? 0), 0)
+  const totalPrice = rows.reduce((s, r) => {
+    const qty = Math.max(1, Number(r.quantity ?? 1))
+    const line = Number(r.total_price ?? 0)
+    if (Number.isFinite(line) && line > 0) return s + line
+    return s + Number(r.unit_price ?? 0) * qty
+  }, 0)
   const hasItems = rows.length > 0
 
   const removeItem = async (orderId: number) => {

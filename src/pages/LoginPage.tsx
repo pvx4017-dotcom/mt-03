@@ -31,7 +31,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!consumeIdleLogoutFlag()) return
     setNotice({
-      msg: "ออกจากระบบอัตโนมัติ — ไม่มีการใช้งานเกิน 30 นาที กรุณาเข้าสู่ระบบใหม่",
+      msg: "เซสชันหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่",
       type: "error",
     })
     const t = window.setTimeout(() => setNotice(null), 4000)

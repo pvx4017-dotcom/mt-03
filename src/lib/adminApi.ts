@@ -149,7 +149,7 @@ export async function fetchAdminUsers() {
   const rows = await dbFetchUsers()
   return rows.map((u) => ({
     ...u,
-    password: String(u.password_hash ?? u.password ?? ""),
+    password: "••••••",
     registered_at: String(u.registered_at ?? u.created_at ?? ""),
     role: String(u.role ?? "customer"),
   })) as AdminUser[]

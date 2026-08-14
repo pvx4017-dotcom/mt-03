@@ -21,6 +21,7 @@ import {
   getSessionUserId,
   isSessionExpired,
   markIdleLogout,
+  restoreSessionActivity,
   setSession,
   touchSessionActivity,
 } from "@/lib/session"
@@ -100,6 +101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return
       }
+      restoreSessionActivity()
       const data = await fetchUserInfo()
       if (data.success && data.user) {
         setUser(data.user)
@@ -107,13 +109,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const role = String(data.user.role ?? getSessionRole() ?? "customer")
         if (uid > 0) setSession(uid, role)
         else localStorage.setItem("meta_logged_in", "true")
-      } else {
+      } else if (/กรุณาเข้าสู่ระบบ|unauthorized|not authenticated/i.test(String(data.message ?? ""))) {
         setUser(null)
         clearSession()
       }
     } catch {
-      setUser(null)
-      clearSession()
+      // เน็ตสะดุดหรือโปรไฟล์โหลดไม่สำเร็จ — คง session เดิมไว้
     } finally {
       setSessionChecked(true)
     }
@@ -170,7 +171,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (user) {
       refreshOrderHubCounts()
       refreshStoreStatus()
-      const t = setInterval(refreshUser, 5000)
+      const t = setInterval(refreshUser, 30_000)
       const t2 = setInterval(refreshOrderHubCounts, 30000)
       return () => {
         clearInterval(t)
@@ -184,7 +185,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [sessionChecked, user, refreshCartCount, refreshUser, refreshOrderHubCounts, refreshStoreStatus])
 
   const login = useCallback((nextUser?: CustomerUser) => {
-    if (nextUser) setUser(nextUser)
+    if (nextUser) {
+      setUser(nextUser)
+      const uid = Number(nextUser.id ?? 0)
+      if (uid > 0) setSession(uid, String(nextUser.role ?? getSessionRole() ?? "customer"))
+    }
     localStorage.setItem("meta_logged_in", "true")
     touchSessionActivity()
     setLoginModalOpen(false)

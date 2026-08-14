@@ -624,6 +624,10 @@ export function AdminCartPage() {
       showToast("กรุณากรอกข้อมูลผู้รับให้ครบ", "error")
       return
     }
+    if (walletInsufficient) {
+      showToast("ยอดในกระเป๋าไม่เพียงพอ — ลูกค้าต้องฝากเงินก่อน", "error")
+      return
+    }
     const unit = Number(orderModal.unit_price ?? 0)
     const comm = unit * qty * (Number(commPct) / 100)
     const fd = new FormData()
@@ -766,7 +770,12 @@ export function AdminCartPage() {
             <button type="button" className="admin-edit-btn cancel" onClick={() => setOrderModal(null)}>
               ยกเลิก
             </button>
-            <button type="button" className="admin-edit-btn save" onClick={saveOrder}>
+            <button
+              type="button"
+              className="admin-edit-btn save"
+              onClick={saveOrder}
+              disabled={walletInsufficient}
+            >
               บันทึก
             </button>
           </>
