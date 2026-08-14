@@ -83,9 +83,29 @@
   vertical-align: middle;
 }
 
+.pwa-install-hint {
+  color: #4b5563 !important;
+  font-size: 12px !important;
+  margin-bottom: 14px !important;
+}
+
 .pwa-install-error {
   color: #b91c1c !important;
   margin-bottom: 14px !important;
+}
+
+.pwa-install-copy {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px dashed #002fff;
+  border-radius: 10px;
+  background: #eef1ff;
+  color: #002fff;
+  font-family: Kanit, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .pwa-install-actions {

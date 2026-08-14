@@ -3,6 +3,9 @@ import { useLocation } from "react-router-dom"
 import { logoAsset } from "@/lib/assets"
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand"
 import {
+  copyPageUrl,
+  getInstallSurface,
+  getInstallWaitHint,
   getNativeInstallPrompt,
   isIosDevice,
   isIosSafari,
@@ -18,6 +21,8 @@ export function InstallAppDialog() {
   const [iosGuide, setIosGuide] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [copied, setCopied] = useState(false)
+  const [waitHint, setWaitHint] = useState("")
   const [promptReady, setPromptReady] = useState(() => Boolean(getNativeInstallPrompt()))
 
   const close = useCallback(() => {
@@ -25,6 +30,8 @@ export function InstallAppDialog() {
     setBusy(false)
     setError("")
     setIosGuide(false)
+    setCopied(false)
+    setWaitHint("")
   }, [])
 
   const dismiss = useCallback(() => {
@@ -33,7 +40,11 @@ export function InstallAppDialog() {
   }, [close])
 
   useEffect(() => {
-    const onReady = () => setPromptReady(true)
+    const onReady = () => {
+      setPromptReady(true)
+      setWaitHint("")
+      setError("")
+    }
     window.addEventListener("meta-pwa-prompt-ready", onReady)
     return () => window.removeEventListener("meta-pwa-prompt-ready", onReady)
   }, [])
@@ -44,19 +55,20 @@ export function InstallAppDialog() {
       return
     }
 
-    if (isIosDevice() || getNativeInstallPrompt()) {
-      const timer = window.setTimeout(() => setOpen(true), 400)
-      return () => window.clearTimeout(timer)
-    }
-
-    const timer = window.setTimeout(() => setOpen(true), 600)
-    const readyWait = window.setTimeout(() => setPromptReady(true), 12000)
+    const timer = window.setTimeout(() => setOpen(true), isIosDevice() ? 400 : 500)
     const poll = window.setInterval(() => {
-      if (getNativeInstallPrompt()) setPromptReady(true)
-    }, 300)
+      if (getNativeInstallPrompt()) {
+        setPromptReady(true)
+        setWaitHint("")
+      }
+    }, 250)
+    const hintWait = window.setTimeout(() => {
+      if (!getNativeInstallPrompt() && !isIosDevice()) setWaitHint(getInstallWaitHint())
+    }, 8000)
+
     return () => {
       window.clearTimeout(timer)
-      window.clearTimeout(readyWait)
+      window.clearTimeout(hintWait)
       window.clearInterval(poll)
     }
   }, [location.pathname])
@@ -70,12 +82,34 @@ export function InstallAppDialog() {
     return () => window.removeEventListener("appinstalled", onInstalled)
   }, [close])
 
+  const copyLink = async () => {
+    const ok = await copyPageUrl()
+    setCopied(ok)
+    if (!ok) setError("คัดลอกลิงก์ไม่สำเร็จ — คัดลอกจากแถบที่อยู่แล้วเปิดใน Safari")
+  }
+
   const install = () => {
     if (busy) return
     setError("")
 
     if (isIosDevice()) {
       setIosGuide(true)
+      return
+    }
+
+    const pending = getNativeInstallPrompt()
+    if (!pending) {
+      const surface = getInstallSurface()
+      if (surface === "chromium") {
+        setError(
+          window.isSecureContext
+            ? "Chrome ยังไม่พร้อมติดตั้งในแท็บนี้ — ปิดโหมดไม่ระบุตัวตน แล้วรีเฟรชหน้านี้"
+            : "ต้องเปิดผ่าน HTTPS จึงจะติดตั้งเป็นแอปได้",
+        )
+        return
+      }
+      setIosGuide(false)
+      setError("ใช้เมนูติดตั้งของเบราว์เซอร์ (ไอคอนติดตั้งบนแถบที่อยู่ หรือเมนู ⋮ → ติดตั้งแอป)")
       return
     }
 
@@ -92,7 +126,7 @@ export function InstallAppDialog() {
           dismiss()
           return
         }
-        setError("กรุณาเปิดด้วย Google Chrome แล้วกดติดตั้งอีกครั้ง")
+        setError("ยังติดตั้งไม่สำเร็จ — กดติดตั้งอีกครั้ง")
       })
       .catch(() => {
         setError("ติดตั้งไม่สำเร็จ กรุณากดติดตั้งอีกครั้ง")
@@ -105,6 +139,7 @@ export function InstallAppDialog() {
   const ios = isIosDevice()
   const safari = isIosSafari()
   const canAutoInstall = Boolean(promptReady || getNativeInstallPrompt())
+  const installEnabled = ios || canAutoInstall
 
   return (
     <div className="pwa-install-overlay" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
@@ -119,15 +154,31 @@ export function InstallAppDialog() {
             {safari ? (
               <ol className="pwa-install-ios">
                 <li>
-                  แตะ <span className="pwa-install-share"><i className="fa-solid fa-arrow-up-from-bracket" /></span> ด้านล่าง
+                  แตะ <span className="pwa-install-share"><i className="fa-solid fa-arrow-up-from-bracket" /></span> ที่แถบด้านล่าง
                 </li>
-                <li>เลือก <strong>เพิ่มไปยังหน้าจอโฮม</strong></li>
-                <li>แตะ <strong>เพิ่ม</strong> — จากนั้นเปิดจากไอคอนแอปได้เลย</li>
+                <li>
+                  เลื่อนหาแล้วเลือก <strong>เพิ่มไปยังหน้าจอโฮม</strong>
+                </li>
+                <li>
+                  แตะ <strong>เพิ่ม</strong> แล้วเปิดจากไอคอนแอปได้เลย
+                </li>
               </ol>
             ) : (
-              <p>
-                บน iOS ต้องเปิดเว็บนี้ด้วย <strong>Safari</strong> แล้วกดติดตั้งอีกครั้ง จึงจะเพิ่มเป็นแอปบนหน้าจอโฮมได้
-              </p>
+              <>
+                <p>
+                  บน iOS ต้องติดตั้งผ่าน <strong>Safari</strong> เท่านั้น — Chrome บน iPhone/iPad เพิ่มเป็นแอปบนหน้าจอโฮมไม่ได้
+                </p>
+                <ol className="pwa-install-ios">
+                  <li>คัดลอกลิงก์ด้านล่าง แล้วเปิดด้วย Safari</li>
+                  <li>
+                    แตะ <span className="pwa-install-share"><i className="fa-solid fa-arrow-up-from-bracket" /></span> → <strong>เพิ่มไปยังหน้าจอโฮม</strong>
+                  </li>
+                  <li>แตะ <strong>เพิ่ม</strong></li>
+                </ol>
+                <button type="button" className="pwa-install-copy" onClick={() => void copyLink()}>
+                  {copied ? "คัดลอกลิงก์แล้ว" : "คัดลอกลิงก์เพื่อเปิดใน Safari"}
+                </button>
+              </>
             )}
             <div className="pwa-install-actions">
               <button type="button" className="pwa-install-btn pwa-install-btn--ghost" onClick={dismiss}>
@@ -147,6 +198,7 @@ export function InstallAppDialog() {
                 : "กดติดตั้งเพื่อเพิ่มเป็นแอปบนมือถือทันที หรือกดยกเลิกเพื่อใช้ในเบราว์เซอร์ต่อ"}
             </p>
             <p className="pwa-install-tagline">{APP_TAGLINE}</p>
+            {waitHint && !canAutoInstall && !ios ? <p className="pwa-install-hint">{waitHint}</p> : null}
             {error ? <p className="pwa-install-error">{error}</p> : null}
             <div className="pwa-install-actions">
               <button type="button" className="pwa-install-btn pwa-install-btn--ghost" onClick={dismiss} disabled={busy}>
@@ -156,9 +208,9 @@ export function InstallAppDialog() {
                 type="button"
                 className="pwa-install-btn pwa-install-btn--primary"
                 onClick={install}
-                disabled={busy || (!ios && !canAutoInstall)}
+                disabled={busy || !installEnabled}
               >
-                {busy ? "กำลังติดตั้ง..." : !ios && !canAutoInstall ? "กำลังเตรียม..." : "ติดตั้ง"}
+                {busy ? "กำลังติดตั้ง..." : !installEnabled ? "กำลังเตรียม..." : "ติดตั้ง"}
               </button>
             </div>
           </>

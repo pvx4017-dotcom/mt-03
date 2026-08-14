@@ -29,5 +29,10 @@ export default defineConfig(({ command, mode }) => {
         "Service-Worker-Allowed": "/",
       },
     },
+    preview: {
+      headers: {
+        "Service-Worker-Allowed": "/",
+      },
+    },
   }
 })
