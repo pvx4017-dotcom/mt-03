@@ -16,6 +16,7 @@ import {
   adminPost,
   fetchAdminBankAccounts,
   fetchAdminCredits,
+  fetchAdminShippingAddresses,
   fetchAdminTopupWallets,
   fetchAdminUsers,
   fetchAdminVerifications,
@@ -1081,6 +1082,85 @@ export function AdminCustomerTopupPage() {
           </div>
         </div>
       </div>
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminShippingAddressesPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      setRows(await fetchAdminShippingAddresses())
+    } catch {
+      showToast("โหลดที่อยู่จัดส่งไม่สำเร็จ", "error")
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((row) =>
+      [row.user_id, row.username, row.phone, row.email, row.receiver_name, row.receiver_phone, row.receiver_address]
+        .map((v) => String(v ?? "").toLowerCase())
+        .some((v) => v.includes(q)),
+    )
+  }, [rows, search])
+
+  return (
+    <AdminPageShell barTitle="ที่อยู่จัดส่ง" pageTitle="ที่อยู่จัดส่งของลูกค้า" icon="fa-location-dot">
+      <AdminSearchBar value={search} onChange={setSearch} placeholder="ค้นหา User ID / ชื่อผู้ใช้ / เบอร์ / ที่อยู่" />
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>ผู้ใช้</th>
+              <th>ชื่อผู้รับ</th>
+              <th>เบอร์ติดต่อ</th>
+              <th>ที่อยู่จัดส่ง</th>
+              <th>ค่าเริ่มต้น</th>
+              <th>อัปเดตล่าสุด</th>
+            </tr>
+          </thead>
+          <tbody>
+            {showAdminTableLoading(loading, rows.length) ? (
+              <AdminLoadingRow cols={7} />
+            ) : filtered.length === 0 ? (
+              <AdminEmptyRow cols={7} message="ยังไม่มีที่อยู่จัดส่ง" />
+            ) : (
+              filtered.map((row) => (
+                <tr key={`${row.user_id}-${row.id}`}>
+                  <td>#{String(row.user_id ?? "-")}</td>
+                  <td>
+                    <strong>{String(row.username ?? "-")}</strong>
+                    <div style={{ color: "#666", fontSize: 12 }}>{String(row.phone || row.email || "-")}</div>
+                  </td>
+                  <td>{String(row.receiver_name ?? "-")}</td>
+                  <td>{String(row.receiver_phone ?? "-")}</td>
+                  <td>{String(row.receiver_address ?? "-")}</td>
+                  <td>
+                    <span className="admin-status-badge admin-finance-status-approved">ค่าเริ่มต้น</span>
+                  </td>
+                  <td>{formatAdminDate(String(row.updated_at ?? row.created_at ?? ""))}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
       {Toast}
     </AdminPageShell>
   )

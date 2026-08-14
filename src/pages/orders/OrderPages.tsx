@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import {
+  fetchAllCustomerOrders,
   fetchCompletedOrders,
-  fetchOrderContacts,
   fetchPendingPaymentOrders,
   fetchToReceiveOrders,
   fetchToShipOrders,
@@ -11,116 +11,24 @@ import {
   maskPhone,
   parseCustomerImage,
 } from "@/lib/customerApi"
-import { logoAsset } from "@/lib/assets"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
-import { BottomNav } from "@/components/layout/BottomNav"
 import "@/styles/order-list-style.css"
 
-type BillGroup = {
-  billNo: string
-  rows: Record<string, unknown>[]
-}
-
-function groupByBill(rows: Record<string, unknown>[]): BillGroup[] {
-  const map = new Map<string, BillGroup>()
-  for (const row of rows) {
-    const bill = String(row.bill_no ?? row.order_no ?? "").trim() || `NO-BILL-${String(row.id ?? "")}`
-    const existing = map.get(bill)
-    if (existing) {
-      existing.rows.push(row)
-    } else {
-      map.set(bill, { billNo: bill, rows: [row] })
-    }
-  }
-  return Array.from(map.values())
-}
-
-function lineTotal(row: Record<string, unknown>) {
-  const total = Number(row.total_price ?? 0)
-  if (Number.isFinite(total) && total > 0) return total
-  return Number(row.unit_price ?? 0) * Math.max(1, Number(row.quantity ?? 1))
-}
+type HubVariant = "pending" | "ship" | "receive" | "completed"
 
 export default function OrderHistoryPage() {
-  useBodyClass("page-orders")
-  const [rows, setRows] = useState<Record<string, unknown>[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchOrderContacts()
-      .then(setRows)
-      .finally(() => setLoading(false))
-  }, [])
-
-  const bills = groupByBill(rows)
-
   return (
-    <>
-      <header className="history-header">
-        <h2>ประวัติคำสั่งซื้อ</h2>
-      </header>
-      <main className="history-wrap">
-        {loading ? (
-          <div className="empty-state">กำลังโหลด...</div>
-        ) : bills.length === 0 ? (
-          <div className="empty-state">ยังไม่มีประวัติคำสั่งซื้อ</div>
-        ) : (
-          bills.map((group) => {
-            const first = group.rows[0] ?? {}
-            const billTotal = group.rows.reduce((sum, row) => sum + lineTotal(row), 0)
-            return (
-              <section className="bill-card" key={group.billNo}>
-                <div className="bill-head">
-                  <span>บิล: {group.billNo}</span>
-                  <span>{fmtDateTime(first.created_at)}</span>
-                </div>
-                <div className="bill-items">
-                  {group.rows.map((row, i) => {
-                    const meta: string[] = []
-                    if (row.selected_color) meta.push(`สี: ${String(row.selected_color)}`)
-                    if (row.selected_size) meta.push(`ไซซ์: ${String(row.selected_size)}`)
-                    return (
-                      <article className="order-item" key={String(row.id ?? i)}>
-                        <img
-                          src={parseCustomerImage(row.product_image)}
-                          alt={String(row.product_name ?? "สินค้า")}
-                          onError={(e) => {
-                            e.currentTarget.src = logoAsset()
-                          }}
-                        />
-                        <div className="order-info">
-                          <div className="order-name">{String(row.product_name ?? "สินค้า")}</div>
-                          <div className="order-meta">ร้าน: {String(row.shop_name ?? "-")}</div>
-                          {meta.length > 0 ? (
-                            <div className="order-meta">{meta.join(" | ")}</div>
-                          ) : null}
-                          <div className="order-price">
-                            <span>จำนวน {Math.max(1, Number(row.quantity ?? 1))}</span>
-                            <strong>{fmtMoney(lineTotal(row))}</strong>
-                          </div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-                <div className="bill-foot">
-                  ผู้รับ: {String(first.receiver_name ?? first.contact_name ?? "-")} | โทร:{" "}
-                  {maskPhone(first.receiver_phone ?? first.contact_phone)}
-                  <br />
-                  ที่อยู่: {String(first.receiver_address ?? first.contact_address ?? "-")}
-                  <div className="bill-total-row">
-                    <span>ยอดรวมบิล</span>
-                    <strong>{fmtMoney(billTotal)}</strong>
-                  </div>
-                </div>
-              </section>
-            )
-          })
-        )}
-      </main>
-      <BottomNav />
-    </>
+    <OrderHubPage
+      title="คำสั่งซื้อทั้งหมด"
+      activeKey="all"
+      loadOrders={fetchAllCustomerOrders}
+      statusLabel="ทั้งหมด"
+      variant="mixed"
+      emptyTitle="ยังไม่มีคำสั่งซื้อ"
+      emptyDesc="เมื่อคุณสั่งซื้อแล้ว รายการทุกสถานะจะปรากฏที่นี่"
+      emptyAction={{ label: "ไปช้อปปิ้ง", to: "/" }}
+    />
   )
 }
 
@@ -131,11 +39,19 @@ type OrderTab = {
 }
 
 const orderTabs: OrderTab[] = [
+  { label: "ทั้งหมด", to: "/orders", key: "all" },
   { label: "รอชำระเงิน", to: "/pending-payment", key: "pending" },
   { label: "รอจัดส่ง", to: "/to-ship", key: "ship" },
   { label: "รอรับสินค้า", to: "/to-receive", key: "receive" },
   { label: "สำเร็จ", to: "/completed", key: "completed" },
 ]
+
+const hubStatusLabel: Record<HubVariant, string> = {
+  pending: "รอชำระเงิน",
+  ship: "รอจัดส่ง",
+  receive: "รอรับสินค้า",
+  completed: "สำเร็จ",
+}
 
 type OrderLoader = () => Promise<Record<string, unknown>[]>
 
@@ -157,9 +73,16 @@ function buildOrderNumber(id: unknown) {
   return `34646761346${n}`
 }
 
-function cardShopName(variant: "pending" | "ship" | "receive" | "completed", row: Record<string, unknown>) {
+function cardShopName(variant: HubVariant, row: Record<string, unknown>) {
   if (variant === "receive") return String(row.shop_name ?? "ร้านค้า")
   return String(row.shop_name ?? "ลูกค้าทั่วไป")
+}
+
+function resolveHubVariant(row: Record<string, unknown>, fallback: HubVariant | "mixed"): HubVariant {
+  if (fallback !== "mixed") return fallback
+  const raw = String(row._hub ?? "pending")
+  if (raw === "ship" || raw === "receive" || raw === "completed" || raw === "pending") return raw
+  return "pending"
 }
 
 function OrderCardList({
@@ -170,26 +93,28 @@ function OrderCardList({
   rows: Record<string, unknown>[]
   statusLabel: string
   statusColor?: string
-  variant: "pending" | "ship" | "receive" | "completed"
+  variant: HubVariant | "mixed"
 }) {
   return (
     <div className="order-list">
       {rows.map((row, i) => {
         const qty = Math.max(1, Number(row.quantity ?? 1))
         const total = orderTotal(row)
+        const rowVariant = resolveHubVariant(row, variant)
+        const rowLabel = variant === "mixed" ? hubStatusLabel[rowVariant] : statusLabel
 
         return (
           <div
-            className={`order-card${variant === "pending" ? " order-card--pending" : ""}`}
+            className={`order-card${rowVariant === "pending" ? " order-card--pending" : ""}`}
             key={String(row.id ?? i)}
           >
             <div className="order-header">
               <div className="shop-info">
                 <i className="fa-solid fa-store" aria-hidden />
-                <span className="shop-name">{cardShopName(variant, row)}</span>
+                <span className="shop-name">{cardShopName(rowVariant, row)}</span>
               </div>
-              <span className={`order-status order-status--${variant}`}>
-                {statusLabel}
+              <span className={`order-status order-status--${rowVariant}`}>
+                {rowLabel}
               </span>
             </div>
 
@@ -199,7 +124,7 @@ function OrderCardList({
               </div>
               <div className="product-info">
                 <h4 className="product-title">{String(row.product_name ?? "-")}</h4>
-                {variant === "pending" && row.product_category ? (
+                {rowVariant === "pending" && row.product_category ? (
                   <p className="product-variant">หมวด: {String(row.product_category)}</p>
                 ) : null}
                 <div className="price-row">
@@ -210,7 +135,7 @@ function OrderCardList({
             </div>
 
             <div className="info-box">
-              {variant === "pending" ? (
+              {rowVariant === "pending" ? (
                 <>
                   <div className="info-row">
                     <span className="info-label">เวลาสั่งซื้อ:</span>
@@ -222,7 +147,7 @@ function OrderCardList({
                   </div>
                 </>
               ) : null}
-              {variant === "ship" ? (
+              {rowVariant === "ship" ? (
                 <>
                   <div className="info-row">
                     <span className="info-label">เวลาสั่งซื้อ:</span>
@@ -246,7 +171,7 @@ function OrderCardList({
                   </div>
                 </>
               ) : null}
-              {variant === "receive" ? (
+              {rowVariant === "receive" ? (
                 <>
                   <div className="info-row">
                     <span className="info-label">เวลาสั่งซื้อ:</span>
@@ -264,7 +189,7 @@ function OrderCardList({
                   </div>
                 </>
               ) : null}
-              {variant === "completed" ? (
+              {rowVariant === "completed" ? (
                 <>
                   <div className="info-row">
                     <span className="info-label">หมายเลขคำสั่งซื้อ:</span>
@@ -280,7 +205,7 @@ function OrderCardList({
               ) : null}
             </div>
 
-            {variant === "pending" ? (
+            {rowVariant === "pending" ? (
               <div className="order-footer order-footer--action">
                 <Link to="/help-center" className="btn-order-pay">
                   ชำระสินค้า
@@ -310,13 +235,13 @@ export function OrderHubPage({
   loadOrders: OrderLoader
   statusLabel: string
   statusColor?: string
-  variant: "pending" | "ship" | "receive" | "completed"
+  variant: HubVariant | "mixed"
   emptyTitle: string
   emptyDesc: string
   emptyAction?: { label: string; to: string }
 }) {
   useBodyClass("page-orders")
-  const { requireLogin } = useApp()
+  const { requireLogin, refreshOrderHubCounts } = useApp()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
   const [needLogin, setNeedLogin] = useState(false)
@@ -332,12 +257,13 @@ export function OrderHubPage({
     setLoading(true)
     try {
       setRows(await loadOrders())
+      await refreshOrderHubCounts()
     } catch {
       setRows([])
     } finally {
       setLoading(false)
     }
-  }, [loadOrders, requireLogin])
+  }, [loadOrders, requireLogin, refreshOrderHubCounts])
 
   useEffect(() => {
     load()

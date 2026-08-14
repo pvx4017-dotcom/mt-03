@@ -2,25 +2,41 @@ import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   fetchPaymentLimits,
-  fetchUserInfo,
+  fetchReceivingAccounts,
   fmtMoney,
   submitDepositRequest,
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
-import { OrderTopNavbar } from "@/components/layout/OrderTopNavbar"
 import { useApp } from "@/context/AppContext"
-import "@/styles/deposit-style.css"
+import "@/styles/original-extra.css"
 
-const quickAmounts = [10, 50, 100, 500, 1000, 5000]
+type DepositChannel = "usdt" | "eth" | "btc" | "bank_card"
+type PayMethod = "bank_account" | "bank_transfer"
+
+const channels: { id: DepositChannel; label: string; icon: string }[] = [
+  { id: "usdt", label: "USDT", icon: "fa-coins" },
+  { id: "eth", label: "ETH", icon: "fa-gem" },
+  { id: "btc", label: "BTC", icon: "fa-bitcoin-sign" },
+  { id: "bank_card", label: "Bank card", icon: "fa-building-columns" },
+]
 
 export default function DepositPage() {
   useBodyClass("page-deposit")
   const navigate = useNavigate()
   const { requireLogin, sessionChecked } = useApp()
+  const [minDeposit, setMinDeposit] = useState(100)
+  const [channel, setChannel] = useState<DepositChannel | "">("")
   const [amount, setAmount] = useState("")
-  const [activeQuick, setActiveQuick] = useState<number | null>(null)
-  const [balance, setBalance] = useState(0)
-  const [minDeposit, setMinDeposit] = useState(10)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [recvOpen, setRecvOpen] = useState(false)
+  const [payMethod, setPayMethod] = useState<PayMethod>("bank_transfer")
+  const [bankAccountNo, setBankAccountNo] = useState("")
+  const [payerName, setPayerName] = useState("")
+  const [orderNo, setOrderNo] = useState("-")
+  const [accounts, setAccounts] = useState<Record<string, unknown>[]>([])
+  const [recv, setRecv] = useState<Record<string, unknown> | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null)
 
@@ -31,10 +47,10 @@ export default function DepositPage() {
 
   const load = useCallback(async () => {
     try {
-      const [userData, limitsData] = await Promise.all([fetchUserInfo(), fetchPaymentLimits()])
-      if (userData.user) setBalance(Number(userData.user.wallet_balance ?? 0))
-      const min = Number(limitsData.min_deposit ?? limitsData.limits?.min_deposit ?? 10)
+      const [limitsData, recvRows] = await Promise.all([fetchPaymentLimits(), fetchReceivingAccounts()])
+      const min = Number(limitsData.min_deposit ?? limitsData.limits?.min_deposit ?? 100)
       if (Number.isFinite(min) && min >= 0) setMinDeposit(min)
+      setAccounts(recvRows)
     } catch {
       /* ignore */
     }
@@ -46,8 +62,36 @@ export default function DepositPage() {
     load()
   }, [load, requireLogin, sessionChecked])
 
-  const submit = async () => {
-    await load()
+  const closeAll = () => {
+    setSheetOpen(false)
+    setPayOpen(false)
+    setInfoOpen(false)
+    setRecvOpen(false)
+  }
+
+  const selectedMethod = () => {
+    if (channel === "usdt" || channel === "eth" || channel === "btc") return channel
+    return payMethod
+  }
+
+  const goHelpCenter = (payload: { user_id?: number | null; amount?: string; request_no?: string | null }) => {
+    sessionStorage.setItem("pendingDepositRequest", JSON.stringify(payload))
+    navigate("/help-center")
+  }
+
+  const channelKey = () => {
+    if (channel === "usdt" || channel === "eth" || channel === "btc") return channel
+    return "bank"
+  }
+
+  const openReceiving = () => {
+    const key = channelKey()
+    const found = accounts.find((row) => String(row.channel ?? "") === key) ?? null
+    setRecv(found)
+    setRecvOpen(true)
+  }
+
+  const submit = async (toHelpCenter = false) => {
     const amt = parseFloat(amount || "0")
     if (!amt || amt < minDeposit) {
       showToast(`กรุณากรอกจำนวนเงินอย่างน้อย $${fmtMoney(minDeposit)}`, true)
@@ -56,25 +100,22 @@ export default function DepositPage() {
     setSubmitting(true)
     try {
       const [data] = await Promise.all([
-        submitDepositRequest(amt),
-        new Promise((r) => setTimeout(r, 3000)),
+        submitDepositRequest(amt, selectedMethod(), {
+          payer_name: payerName.trim() || undefined,
+          payer_account: bankAccountNo.trim() || undefined,
+        }),
+        new Promise((r) => setTimeout(r, toHelpCenter ? 0 : 3000)),
       ])
-      if (data.success) {
-        showToast("ส่งคำขอฝากเงินเรียบร้อยแล้ว")
-        const payload = {
-          user_id: data.user_id ?? null,
-          amount: data.amount ?? amt.toFixed(2),
-          request_no: data.request_no ?? null,
-        }
-        sessionStorage.setItem("pendingDepositRequest", JSON.stringify(payload))
-        setTimeout(() => {
-          // เก็บรายละเอียดใน sessionStorage อย่างเดียว — ไม่ใส่ query เพื่อลดการส่งแชทซ้ำตอนรีเฟรช
-          navigate("/help-center")
-        }, 2100)
-        setAmount("")
-        setActiveQuick(null)
-      } else if (data.has_pending) {
-        showToast("คุณยังมีรายการที่ยังรอดำเนินอยู่", true)
+      const payload = {
+        user_id: data.user_id ?? null,
+        amount: data.amount ?? amt.toFixed(2),
+        request_no: data.request_no ?? null,
+      }
+      if (data.success || data.has_pending) {
+        closeAll()
+        if (data.has_pending) showToast("คุณยังมีรายการที่ยังรอดำเนินอยู่", true)
+        else if (!toHelpCenter) showToast("ส่งคำขอฝากเงินเรียบร้อยแล้ว")
+        goHelpCenter(payload)
       } else {
         showToast(data.message ?? "ส่งคำขอไม่สำเร็จ", true)
       }
@@ -85,106 +126,184 @@ export default function DepositPage() {
     }
   }
 
+  const openAmount = (id: DepositChannel) => {
+    setChannel(id)
+    setAmount(String(Math.max(1, minDeposit)))
+    setSheetOpen(true)
+  }
+
+  const confirmAmount = async () => {
+    await load()
+    const amt = parseFloat(amount || "0")
+    if (!amt || amt < minDeposit) {
+      showToast(`กรุณากรอกจำนวนเงินอย่างน้อย $${fmtMoney(minDeposit)}`, true)
+      return
+    }
+    setSheetOpen(false)
+    if (channel === "usdt" || channel === "eth" || channel === "btc") {
+      openReceiving()
+      return
+    }
+    setPayOpen(true)
+  }
+
+  const confirmPay = async () => {
+    if (payMethod === "bank_account") {
+      setOrderNo(`C${Date.now()}${Math.random().toString(16).slice(2, 10)}`)
+      setBankAccountNo("")
+      setPayerName("")
+      setPayOpen(false)
+      setInfoOpen(true)
+      return
+    }
+    setPayOpen(false)
+    openReceiving()
+  }
+
+  const confirmInfo = async () => {
+    if (!bankAccountNo.trim()) {
+      showToast("กรุณากรอกเลขบัญชีธนาคาร", true)
+      return
+    }
+    if (!payerName.trim()) {
+      showToast("กรุณากรอกชื่อผู้ใช้บัญชี", true)
+      return
+    }
+    setInfoOpen(false)
+    openReceiving()
+  }
+
+  const confirmReceiving = async () => {
+    await submit(true)
+  }
+
   return (
-    <div id="app">
-      <OrderTopNavbar
-        title="เติมเงิน"
-        rightAction={
-          <Link to="/deposit-history" className="history-btn" aria-label="ประวัติการฝากเงิน">
-            <i className="fa-solid fa-clock-rotate-left" />
-          </Link>
-        }
-      />
-      <main className="deposit-content">
-        <section className="balance-banner">
-          <div className="banner-overlay" />
-          <div className="banner-content">
-            <p className="balance-label">ยอดคงเหลือในบัญชี</p>
-            <h1 className="balance-amount">
-              <span className="currency">$</span>
-              {fmtMoney(balance)}
-            </h1>
-          </div>
-        </section>
-        <section className="deposit-form-card">
-          <div className="input-group">
-            <label className="input-label">จำนวนเงินที่ต้องการเติม</label>
-            <div className="input-wrapper">
-              <span className="input-prefix">$</span>
-              <input
-                type="number"
-                placeholder="กรุณากรอกจำนวนเงิน"
-                className="deposit-input"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value)
-                  setActiveQuick(null)
-                }}
-              />
-            </div>
-          </div>
-          <div className="quick-select-grid">
-            {quickAmounts.map((val) => (
-              <button
-                key={val}
-                type="button"
-                className={`quick-btn${activeQuick === val ? " active" : ""}`}
-                onClick={() => {
-                  setAmount(String(val))
-                  setActiveQuick(val)
-                }}
-              >
-                ${val}
-              </button>
-            ))}
-          </div>
-          <div className="input-group">
-            <label className="input-label">ช่องทางการชำระเงิน</label>
-            <div className="payment-method-card active">
-              <div className="method-icon">
-                <i className="fa-solid fa-building-columns" />
-              </div>
-              <div className="method-info">
-                <div className="method-name">โอนจากธนาคาร</div>
-                <div className="method-desc">รองรับทุกธนาคารชั้นนำ</div>
-              </div>
-              <div className="method-check">
-                <i className="fa-solid fa-circle-check" />
-              </div>
-            </div>
-          </div>
-          <button type="button" className="submit-deposit-btn" disabled={submitting} onClick={submit}>
-            {submitting ? "กำลังส่งคำขอ..." : "ส่งคำขอเติมเงิน"}
-          </button>
-        </section>
-        <section className="deposit-instructions">
-          <h3>
-            <i className="fa-solid fa-circle-info" /> คำแนะนำการเติมเงิน
-          </h3>
-          <ul>
-            <li>เติมเงินขั้นต่ำ ${fmtMoney(minDeposit)}</li>
-            <li>กรุณาใช้บัญชีธนาคารที่มีชื่อตรงกับที่ลงทะเบียนไว้</li>
-            <li>หลังจากโอนเงินเสร็จแล้ว ยอดเงินจะเข้าสู่บัญชีภายใน 1-5 นาที</li>
-            <li>หากยอดเงินไม่เข้าภายในเวลาที่กำหนด โปรดติดต่อฝ่ายบริการลูกค้า</li>
-          </ul>
-        </section>
-      </main>
-      {toast ? (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: toast.error ? "#dc2626" : "#16a34a",
-            color: "#fff",
-            padding: "12px 24px",
-            borderRadius: 12,
-            zIndex: 9999,
-          }}
-        >
-          {toast.msg}
+    <div className="ox-page">
+      <header className="ox-topbar">
+        <Link to="/wallet" className="ox-back" aria-label="กลับ">
+          <i className="fa-solid fa-chevron-left" />
+        </Link>
+        <h1>การเติมเงินบัญชี</h1>
+        <Link to="/deposit-history" className="ox-history-link">
+          ประวัติ
+        </Link>
+      </header>
+      <main className="ox-deposit-main">
+        <p className="ox-deposit-notice">
+          กรุณากรอกจำนวนเงินที่โอนจริงตามความเป็นจริง ไม่เช่นนั้นระบบอาจล้มเหลวในการตรวจสอบและส่งผลต่อความคืบหน้าในการเติมเงิน
+        </p>
+        <div className="ox-method-list">
+          {channels.map((item) => (
+            <button key={item.id} type="button" className="ox-method-item" onClick={() => openAmount(item.id)}>
+              <span className="ox-method-icon">
+                <i className={`fa-solid ${item.icon}`} />
+              </span>
+              <span>{item.label}</span>
+              <i className="fa-solid fa-chevron-right" />
+            </button>
+          ))}
         </div>
+      </main>
+
+      {sheetOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => setSheetOpen(false)}>
+          <div className="ox-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="ox-sheet-handle" />
+            <label className="ox-sheet-row">
+              <span>จำนวนเงินที่เติม</span>
+              <span className="ox-amount-wrap">
+                <span>$</span>
+                <input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </span>
+            </label>
+            <button type="button" className="ox-primary-btn" disabled={submitting} onClick={confirmAmount}>
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {payOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => setPayOpen(false)}>
+          <div className="ox-pay-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ox-pay-head">
+              <h2>เคาน์เตอร์ชำระเงิน</h2>
+              <button type="button" className="ox-back" onClick={() => setPayOpen(false)} aria-label="ปิด">
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+            <div className="ox-wallet-balance">${fmtMoney(Number(amount || 0))}</div>
+            <button
+              type="button"
+              className={`ox-pay-method${payMethod === "bank_account" ? " active" : ""}`}
+              onClick={() => setPayMethod("bank_account")}
+            >
+              <span>บัญชีธนาคาร</span>
+              {payMethod === "bank_account" ? <i className="fa-solid fa-check" /> : null}
+            </button>
+            <button
+              type="button"
+              className={`ox-pay-method${payMethod === "bank_transfer" ? " active" : ""}`}
+              onClick={() => setPayMethod("bank_transfer")}
+            >
+              <span>
+                <strong>Bank</strong>
+                <small> บัญชีธนาคาร</small>
+              </span>
+              {payMethod === "bank_transfer" ? <i className="fa-solid fa-check" /> : null}
+            </button>
+            <button type="button" className="ox-primary-btn" disabled={submitting} onClick={confirmPay}>
+              ยืนยันชำระเงิน
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {infoOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => setInfoOpen(false)}>
+          <div className="ox-sheet ox-form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="ox-h2">กรุณากรอกและส่งข้อมูลการชำระเงิน</h2>
+            <label>เลขบัญชีธนาคาร</label>
+            <input value={bankAccountNo} onChange={(e) => setBankAccountNo(e.target.value)} />
+            <label>ชื่อ-นามสกุล</label>
+            <input value={payerName} onChange={(e) => setPayerName(e.target.value)} />
+            <p className="ox-note">หมายเลขการสั่งซื้อ {orderNo}</p>
+            <button type="button" className="ox-primary-btn" disabled={submitting} onClick={confirmInfo}>
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {recvOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => setRecvOpen(false)}>
+          <div className="ox-sheet ox-form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="ox-h2">โอนเข้าบัญชีบริษัท</h2>
+            {recv ? (
+              <>
+                <p className="ox-note">กรุณาโอนยอด ${fmtMoney(Number(amount || 0))} ตามช่องทางที่เลือก</p>
+                <label>ช่องทาง</label>
+                <input readOnly value={String(recv.channel ?? channelKey())} />
+                <label>ชื่อบัญชี</label>
+                <input readOnly value={String(recv.account_name ?? "-")} />
+                <label>เลขบัญชี / ที่อยู่</label>
+                <input readOnly value={String(recv.account_number ?? "-")} />
+                <label>เครือข่าย / ธนาคาร</label>
+                <input readOnly value={String(recv.network ?? "-")} />
+                {recv.note ? <p className="ox-note">{String(recv.note)}</p> : null}
+              </>
+            ) : (
+              <p className="ox-note">ยังไม่มีบัญชีรับเงินช่องทางนี้ — แจ้งแอดมินในแชทได้หลังยืนยัน</p>
+            )}
+            <button type="button" className="ox-primary-btn" disabled={submitting} onClick={confirmReceiving}>
+              โอนแล้ว แจ้งแชท
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className={`ox-toast${toast.error ? " error" : ""}`}>{toast.msg}</div>
       ) : null}
     </div>
   )

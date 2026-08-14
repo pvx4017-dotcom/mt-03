@@ -47,6 +47,7 @@ function isCustomerScopedAdminGet(base: string, params: URLSearchParams) {
   if (base === API.adminCart && params.get("filter_user") === "1") return true
   if (base === API.adminCartOrders && params.get("filter_user") === "1") return true
   if (base === API.adminShippingHistory) return true
+  if (base === API.adminPaymentLimits) return true
   return false
 }
 
@@ -143,6 +144,10 @@ export async function handleAdminGet(path: string): Promise<Json> {
       return dbFetchPaymentLimits()
     case API.adminCommission:
       return dbFetchCommissionSettings()
+    case API.adminShippingAddresses:
+      return ok({ addresses: await (await import("@/lib/dbService")).dbFetchAdminShippingAddresses() })
+    case API.adminCustomerStores:
+      return ok({ stores: await (await import("@/lib/dbService")).dbFetchAllCustomerStores() })
     case API.adminNotifications:
       return ok({ rows: await (await import("@/lib/dbService")).dbAdminNotifications() })
     case API.customerShopProducts:
@@ -268,6 +273,29 @@ export async function handleAdminGet(path: string): Promise<Json> {
       return ok({ products: await (await import("@/lib/dbService")).dbFetchOtherStoreProducts() })
     case API.storeStatus:
       return (await import("@/lib/dbService")).dbFetchStoreStatus()
+    case API.receivingAccounts:
+      return (await import("@/lib/parityDb")).dbFetchReceivingAccounts(true)
+    case API.adminReceivingAccounts:
+      return (await import("@/lib/parityDb")).dbFetchReceivingAccounts(false)
+    case API.userAddresses:
+      return (await import("@/lib/parityDb")).dbFetchDefaultAddress()
+    case API.userPayoutWallets:
+      return (await import("@/lib/parityDb")).dbFetchPayoutWallets()
+    case API.engagementCheckin:
+      return (await import("@/lib/parityDb")).dbFetchCheckinState()
+    case API.sellerLevels:
+    case API.adminSellerLevels:
+      return (await import("@/lib/parityDb")).dbFetchSellerLevels()
+    case API.loansMine:
+      return (await import("@/lib/parityDb")).dbFetchMyLoans()
+    case API.adminLoans:
+      return ok({ items: await (await import("@/lib/parityDb")).dbFetchAdminLoans() })
+    case API.couponsList:
+      return (await import("@/lib/parityDb")).dbFetchCouponsForUser()
+    case API.adminCoupons:
+      return ok({ items: await (await import("@/lib/parityDb")).dbFetchAdminCoupons() })
+    case API.adminFeedback:
+      return ok({ items: await (await import("@/lib/parityDb")).dbFetchAdminFeedback() })
     default:
       return fail(`ไม่รองรับ GET ${base}`)
   }
@@ -343,9 +371,18 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
           commission_amount: fd.has("commission_amount") ? Number(fd.get("commission_amount")) : undefined,
         })
       }
+      if (action === "update_status") {
+        return dbAdminUpdateOrder(Number(fd.get("id")), { status: String(fd.get("status") ?? "") })
+      }
       if (action === "delete") {
         await sb.from("admin_cart_orders").delete().eq("id", Number(fd.get("id")))
         return ok({ message: "ลบแล้ว" })
+      }
+      return fail("action ไม่ถูกต้อง")
+    }
+    case API.adminCustomerStores: {
+      if (action === "delete") {
+        return (await import("@/lib/dbService")).dbDeleteCustomerStore(Number(fd.get("id")))
       }
       return fail("action ไม่ถูกต้อง")
     }
@@ -722,11 +759,22 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         Number(fd.get("quantity")),
       )
     case API.walletDeposit:
-      return (await import("@/lib/dbService")).dbSubmitDeposit(Number(fd.get("amount")))
+      return (await import("@/lib/dbService")).dbSubmitDeposit(
+        Number(fd.get("amount")),
+        String(fd.get("payment_method") ?? "bank_transfer"),
+        {
+          payer_name: String(fd.get("payer_name") ?? ""),
+          payer_account: String(fd.get("payer_account") ?? ""),
+        },
+      )
     case API.walletWithdraw:
       return (await import("@/lib/dbService")).dbSubmitWithdraw(
         Number(fd.get("amount")),
         String(fd.get("withdraw_password") ?? ""),
+        {
+          withdraw_method: String(fd.get("withdraw_method") ?? ""),
+          payout_destination: String(fd.get("payout_destination") ?? ""),
+        },
       )
     case API.userNotifications:
       if (action === "read") {
@@ -798,6 +846,83 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         String(fd.get("withdraw_password") ?? ""),
         String(fd.get("confirm_password") ?? ""),
       )
+    case API.adminReceivingAccounts: {
+      if (action === "delete") {
+        return (await import("@/lib/parityDb")).dbDeleteReceivingAccount(Number(fd.get("id")))
+      }
+      return (await import("@/lib/parityDb")).dbSaveReceivingAccount({
+        id: fd.get("id") ? Number(fd.get("id")) : undefined,
+        channel: String(fd.get("channel") ?? "bank"),
+        account_name: String(fd.get("account_name") ?? ""),
+        account_number: String(fd.get("account_number") ?? ""),
+        network: String(fd.get("network") ?? ""),
+        note: String(fd.get("note") ?? ""),
+        is_active: String(fd.get("is_active") ?? "1") !== "0",
+        sort_order: Number(fd.get("sort_order") ?? 0),
+      })
+    }
+    case API.userAddresses:
+      return (await import("@/lib/parityDb")).dbSaveUserAddress({
+        receiver_name: String(fd.get("receiver_name") ?? ""),
+        receiver_phone: String(fd.get("receiver_phone") ?? ""),
+        receiver_address: String(fd.get("receiver_address") ?? ""),
+      })
+    case API.userPayoutWallets:
+      return (await import("@/lib/parityDb")).dbSavePayoutWallets({
+        usdt_trc20: String(fd.get("usdt_trc20") ?? ""),
+        usdt_erc20: String(fd.get("usdt_erc20") ?? ""),
+        eth: String(fd.get("eth") ?? ""),
+      })
+    case API.engagementCheckin:
+      return (await import("@/lib/parityDb")).dbPerformCheckin(20)
+    case API.adminSellerLevels:
+      return (await import("@/lib/parityDb")).dbSaveSellerLevel({
+        id: Number(fd.get("id")),
+        code: String(fd.get("code") ?? ""),
+        name: String(fd.get("name") ?? ""),
+        min_topup: Number(fd.get("min_topup") ?? 0),
+        commission_rate: String(fd.get("commission_rate") ?? ""),
+        referral_reward: String(fd.get("referral_reward") ?? ""),
+        sort_order: Number(fd.get("sort_order") ?? 0),
+        is_active: String(fd.get("is_active") ?? "1") !== "0",
+      })
+    case API.loansMine:
+      return (await import("@/lib/parityDb")).dbSubmitLoan({
+        amount: Number(fd.get("amount")),
+        full_name: String(fd.get("full_name") ?? fd.get("name") ?? ""),
+        phone: String(fd.get("phone") ?? ""),
+      })
+    case API.adminLoans:
+      return (await import("@/lib/parityDb")).dbUpdateLoanStatus(
+        Number(fd.get("id")),
+        String(fd.get("status") ?? ""),
+      )
+    case API.couponsList:
+      return (await import("@/lib/parityDb")).dbUseCoupon(Number(fd.get("coupon_id")))
+    case API.adminCoupons: {
+      if (action === "delete") {
+        return (await import("@/lib/parityDb")).dbDeleteCoupon(Number(fd.get("id")))
+      }
+      return (await import("@/lib/parityDb")).dbSaveCoupon({
+        id: fd.get("id") ? Number(fd.get("id")) : undefined,
+        code: String(fd.get("code") ?? ""),
+        title: String(fd.get("title") ?? ""),
+        description: String(fd.get("description") ?? ""),
+        value_label: String(fd.get("value_label") ?? ""),
+        expires_at: String(fd.get("expires_at") ?? ""),
+        is_active: String(fd.get("is_active") ?? "1") !== "0",
+      })
+    }
+    case API.feedbackSubmit: {
+      const image = fd.get("image")
+      return (await import("@/lib/parityDb")).dbSubmitFeedback({
+        ftype: String(fd.get("ftype") ?? "complaint"),
+        subject: String(fd.get("subject") ?? ""),
+        detail: String(fd.get("detail") ?? ""),
+        contact: String(fd.get("contact") ?? ""),
+        image: image instanceof File ? image : null,
+      })
+    }
     case API.adminSettings:
       if (action === "reset_admin_password") {
         return (await import("@/lib/dbService")).dbSuperAdminResetAdminPassword(

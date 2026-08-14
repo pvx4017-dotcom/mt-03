@@ -238,6 +238,13 @@ export async function fetchAdminPaymentLimits() {
   return dbFetchPaymentLimits()
 }
 
+export async function fetchAdminShippingAddresses() {
+  const data = await adminGet<{ success?: boolean; addresses?: Record<string, unknown>[] }>(
+    API.adminShippingAddresses,
+  )
+  return data.addresses ?? []
+}
+
 export async function fetchAdminNotifications() {
   return dbAdminNotifications()
 }

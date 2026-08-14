@@ -1,0 +1,549 @@
+.ox-page {
+  min-height: 100vh;
+  background: #f3f5f8;
+  font-family: Kanit, sans-serif;
+  color: #111827;
+}
+
+.ox-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 48px;
+  background: #fff;
+  border-bottom: 1px solid #eceff3;
+}
+
+.ox-topbar h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ox-topbar--light {
+  background: transparent;
+  border: none;
+  color: #fff;
+}
+
+.ox-back {
+  position: absolute;
+  left: 12px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.ox-back--light {
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+}
+
+.ox-pad {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.ox-wallet-main {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.ox-wallet-card,
+.ox-list-card,
+.ox-info-card,
+.ox-choice {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.ox-wallet-head {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.ox-wallet-mid {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ox-wallet-balance {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.ox-wallet-bank {
+  text-decoration: none;
+  color: inherit;
+  text-align: right;
+}
+
+.ox-wallet-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ox-muted {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ox-wallet-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.ox-wallet-actions a,
+.ox-list-card a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ox-list-card a {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ox-list-card a:last-child {
+  border-bottom: none;
+}
+
+.ox-choice {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ox-choice.active {
+  border-color: #002fff;
+  color: #002fff;
+}
+
+.ox-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: transparent;
+}
+
+.ox-choice.active .ox-radio {
+  background: #002fff;
+  border-color: #002fff;
+  color: #fff;
+}
+
+.ox-primary-btn,
+.ox-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+}
+
+.ox-primary-btn {
+  background: #002fff;
+  color: #fff;
+}
+
+.ox-primary-btn:disabled {
+  opacity: 0.45;
+}
+
+.ox-ghost-btn {
+  background: #fff;
+  color: #002fff;
+  border: 1px solid #002fff;
+}
+
+.ox-note {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ox-error {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.ox-loan-hero {
+  background: #002fff;
+  color: #fff;
+  padding: 20px 16px 24px;
+}
+
+.ox-muted-on-blue {
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.ox-loan-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ox-h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.ox-form input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+}
+
+.ox-points-hero {
+  background: #2f7bff;
+  color: #fff;
+  padding-bottom: 28px;
+}
+
+.ox-points-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.ox-points-summary img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+}
+
+.ox-points-value {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.ox-task {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ox-task p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.ox-task span {
+  color: #002fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ox-history-link {
+  position: absolute;
+  right: 14px;
+  font-size: 13px;
+  color: #374151;
+  text-decoration: none;
+}
+
+.ox-deposit-main {
+  padding: 16px;
+}
+
+.ox-deposit-notice {
+  background: #fff7ed;
+  color: #9a3412;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.ox-method-list,
+.ox-method-item,
+.ox-pay-method,
+.ox-select {
+  background: #fff;
+}
+
+.ox-method-list {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ox-method-item,
+.ox-pay-method,
+.ox-select,
+.ox-sheet-option,
+.ox-sheet-cancel {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ox-method-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 15px;
+}
+
+.ox-method-item:last-child {
+  border-bottom: none;
+}
+
+.ox-method-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #002fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ox-method-item > .fa-chevron-right {
+  margin-left: auto;
+  color: #9ca3af;
+}
+
+.ox-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+}
+
+.ox-sheet,
+.ox-pay-modal,
+.ox-method-sheet,
+.ox-pin-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.ox-sheet-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  margin: 0 auto 8px;
+}
+
+.ox-sheet-row,
+.ox-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ox-amount-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ox-amount-wrap input {
+  width: 140px;
+  border: none;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: inherit;
+}
+
+.ox-pay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ox-pay-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.ox-pay-method {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.ox-pay-method.active {
+  border-color: #002fff;
+  color: #002fff;
+}
+
+.ox-select {
+  min-height: 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+}
+
+.ox-sheet-option,
+.ox-sheet-cancel {
+  padding: 14px 0;
+  background: #fff;
+  font-size: 15px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.ox-sheet-cancel {
+  color: #6b7280;
+  border-bottom: none;
+  text-align: center;
+}
+
+.ox-pin-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.ox-pin-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.ox-pin-box.filled {
+  background: #111827;
+}
+
+.ox-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ox-keypad button {
+  min-height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: #f3f4f6;
+  font-size: 18px;
+  font-family: inherit;
+}
+
+.ox-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #16a34a;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  z-index: 99;
+}
+
+.ox-toast.error {
+  background: #dc2626;
+}
+
+.ci-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ci-cal-cell {
+  min-height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: #f8fafc;
+}
+
+.ci-cal-cell.checked {
+  background: #002fff;
+  color: #fff;
+}
+
+.ox-cal-nav {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-family: inherit;
+  margin-left: 8px;
+  cursor: pointer;
+}

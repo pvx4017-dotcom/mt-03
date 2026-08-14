@@ -105,6 +105,7 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
   const messagesRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const depositSentRef = useRef(false)
+  const forgotSentRef = useRef(false)
   const longPressTimerRef = useRef<number | null>(null)
   const stickToBottomRef = useRef(true)
 
@@ -212,6 +213,26 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
       loadMessages()
     })
   }, [loggedIn, loading, loadMessages, params, rows, clearDepositQuery])
+
+  useEffect(() => {
+    if (forgotSentRef.current || !loggedIn || loading) return
+    if (sessionStorage.getItem("pendingForgotPassword") !== "1") return
+    const text = "ลืมรหัสผ่าน ต้องการให้แอดมินช่วยรีเซ็ตบัญชี"
+    const alreadyExists = rows.some((row) => String(row.message ?? "") === text)
+    sessionStorage.removeItem("pendingForgotPassword")
+    forgotSentRef.current = true
+    if (alreadyExists) return
+    sendChatMessage(text).then((res) => {
+      if (res.success) {
+        sigRef.current = ""
+        stickToBottomRef.current = true
+        loadMessages()
+      } else {
+        forgotSentRef.current = false
+        sessionStorage.setItem("pendingForgotPassword", "1")
+      }
+    })
+  }, [loggedIn, loading, loadMessages, rows])
 
   useEffect(() => {
     const el = messagesRef.current

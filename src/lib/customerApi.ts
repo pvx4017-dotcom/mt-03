@@ -12,13 +12,59 @@ export type CustomerUser = {
   role?: string
   credit?: number | string
   wallet_balance?: number
+  points?: number
   is_bank_linked?: boolean
   has_withdraw_password?: boolean
+  kyc_status?: string
+  kyc_rejection_reason?: string | null
   bank_account?: {
     account_name?: string
     account_number?: string
     bank_name?: string
+    usdt_trc20?: string
+    usdt_erc20?: string
+    eth?: string
   }
+}
+
+export type PayoutWallets = {
+  usdt_trc20?: string
+  usdt_erc20?: string
+  eth?: string
+}
+
+function payoutStorageKey(userId: string | number) {
+  return `meta_payout_wallets_${userId}`
+}
+
+export async function fetchPayoutWallets() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.userPayoutWallets)
+  return (data.wallets ?? {}) as PayoutWallets
+}
+
+export async function savePayoutWallets(wallets: PayoutWallets) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("usdt_trc20", wallets.usdt_trc20 ?? "")
+  fd.append("usdt_erc20", wallets.usdt_erc20 ?? "")
+  fd.append("eth", wallets.eth ?? "")
+  return handleAdminPost(API.userPayoutWallets, fd) as Promise<ApiResult>
+}
+
+export function readPayoutWallets(userId: string | number | undefined | null): PayoutWallets {
+  if (userId == null || userId === "") return {}
+  try {
+    const raw = localStorage.getItem(payoutStorageKey(userId))
+    return raw ? (JSON.parse(raw) as PayoutWallets) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function writePayoutWallets(userId: string | number | undefined | null, wallets: PayoutWallets) {
+  if (userId == null || userId === "") return
+  localStorage.setItem(payoutStorageKey(userId), JSON.stringify(wallets))
 }
 
 export type ProductOrderRow = {
@@ -237,7 +283,9 @@ export async function fetchToShipOrders() {
 
 export async function fetchToReceiveOrders() {
   ensureConfigured()
-  const data = await handleAdminGet(apiPath(API.adminShippingHistory, { to_status: "receiving" }))
+  const data = await handleAdminGet(
+    apiPath(API.adminCartOrders, { order_status: "receiving", filter_user: "1" }),
+  )
   return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
     ...row,
     ordered_at: row.ordered_at ?? row.created_at,
@@ -246,11 +294,28 @@ export async function fetchToReceiveOrders() {
 
 export async function fetchCompletedOrders() {
   ensureConfigured()
-  const data = await handleAdminGet(apiPath(API.adminShippingHistory, { to_status: "success" }))
+  const data = await handleAdminGet(
+    apiPath(API.adminCartOrders, { order_status: "completed", filter_user: "1" }),
+  )
   return ((data.items ?? []) as Record<string, unknown>[]).map((row) => ({
     ...row,
     ordered_at: row.ordered_at ?? row.created_at,
   }))
+}
+
+export async function fetchAllCustomerOrders() {
+  const [pending, ship, receive, completed] = await Promise.all([
+    fetchPendingPaymentOrders(),
+    fetchToShipOrders(),
+    fetchToReceiveOrders(),
+    fetchCompletedOrders(),
+  ])
+  return [
+    ...pending.map((row) => ({ ...row, _hub: "pending" })),
+    ...ship.map((row) => ({ ...row, _hub: "ship" })),
+    ...receive.map((row) => ({ ...row, _hub: "receive" })),
+    ...completed.map((row) => ({ ...row, _hub: "completed" })),
+  ]
 }
 
 export async function fetchOrderContacts() {
@@ -261,7 +326,76 @@ export async function fetchOrderContacts() {
     ...row,
     bill_no: row.bill_no ?? row.order_no,
     created_at: row.created_at ?? row.added_at,
-  }))
+  })) as Record<string, unknown>[]
+}
+
+export type SavedShippingAddress = {
+  receiver_name: string
+  receiver_phone: string
+  receiver_address: string
+}
+
+function addressStorageKey(userId: string | number) {
+  return `meta_default_shipping_${userId}`
+}
+
+export function readSavedShippingAddress(userId: string | number | undefined | null): SavedShippingAddress | null {
+  if (userId == null || userId === "") return null
+  try {
+    const raw = localStorage.getItem(addressStorageKey(userId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SavedShippingAddress
+    if (!parsed?.receiver_name && !parsed?.receiver_address) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function writeSavedShippingAddress(userId: string | number | undefined | null, addr: SavedShippingAddress) {
+  if (userId == null || userId === "") return
+  localStorage.setItem(addressStorageKey(userId), JSON.stringify(addr))
+}
+
+export async function resolveCheckoutAddress(userId: string | number | undefined | null): Promise<SavedShippingAddress | null> {
+  try {
+    const data = await handleAdminGet(API.userAddresses)
+    const row = data.address as Record<string, unknown> | null | undefined
+    if (row) {
+      const found = {
+        receiver_name: String(row.receiver_name ?? "").trim(),
+        receiver_phone: String(row.receiver_phone ?? "").trim(),
+        receiver_address: String(row.receiver_address ?? "").trim(),
+      }
+      if (found.receiver_name || found.receiver_address) return found
+    }
+  } catch {
+    /* fall through */
+  }
+  const saved = readSavedShippingAddress(userId)
+  if (saved?.receiver_name || saved?.receiver_address) return saved
+  const orders = await fetchOrderContacts()
+  const row = orders.find((item) => {
+    const name = String(item.receiver_name ?? item.contact_name ?? "").trim()
+    const address = String(item.receiver_address ?? item.contact_address ?? "").trim()
+    return Boolean(name || address)
+  })
+  if (!row) return null
+  return {
+    receiver_name: String(row.receiver_name ?? row.contact_name ?? "").trim(),
+    receiver_phone: String(row.receiver_phone ?? row.contact_phone ?? "").trim(),
+    receiver_address: String(row.receiver_address ?? row.contact_address ?? "").trim(),
+  }
+}
+
+export async function saveShippingAddress(addr: SavedShippingAddress) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("receiver_name", addr.receiver_name)
+  fd.append("receiver_phone", addr.receiver_phone)
+  fd.append("receiver_address", addr.receiver_address)
+  const res = await handleAdminPost(API.userAddresses, fd)
+  return res as ApiResult
 }
 
 export async function fetchOrderHubCounts() {
@@ -294,11 +428,17 @@ export async function fetchStoreCustomerStatus() {
   }>
 }
 
-export async function submitDepositRequest(amount: number) {
+export async function submitDepositRequest(
+  amount: number,
+  paymentMethod = "bank_transfer",
+  extra?: { payer_name?: string; payer_account?: string },
+) {
   ensureConfigured()
   const fd = new FormData()
   fd.append("amount", amount.toFixed(2))
-  fd.append("payment_method", "bank_transfer")
+  fd.append("payment_method", paymentMethod)
+  if (extra?.payer_name) fd.append("payer_name", extra.payer_name)
+  if (extra?.payer_account) fd.append("payer_account", extra.payer_account)
   return handleAdminPost(API.walletDeposit, fd) as Promise<{
     success: boolean
     message?: string
@@ -309,12 +449,97 @@ export async function submitDepositRequest(amount: number) {
   }>
 }
 
-export async function submitWithdrawRequest(amount: number, withdrawPassword: string) {
+export async function fetchReceivingAccounts() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.receivingAccounts)
+  return (data.accounts ?? []) as Record<string, unknown>[]
+}
+
+export async function submitWithdrawRequest(
+  amount: number,
+  withdrawPassword: string,
+  extra?: { withdraw_method?: string; payout_destination?: string },
+) {
   ensureConfigured()
   const fd = new FormData()
   fd.append("amount", String(amount))
   fd.append("withdraw_password", withdrawPassword)
+  if (extra?.withdraw_method) fd.append("withdraw_method", extra.withdraw_method)
+  if (extra?.payout_destination) fd.append("payout_destination", extra.payout_destination)
   return handleAdminPost(API.walletWithdraw, fd) as Promise<{ success: boolean; message?: string }>
+}
+
+export async function fetchCheckinState() {
+  ensureConfigured()
+  return handleAdminGet(API.engagementCheckin) as Promise<{
+    success: boolean
+    dates?: string[]
+    total?: number
+    checked_today?: boolean
+    message?: string
+  }>
+}
+
+export async function submitCheckin() {
+  ensureConfigured()
+  return handleAdminPost(API.engagementCheckin, new FormData()) as Promise<{
+    success: boolean
+    message?: string
+    dates?: string[]
+    total?: number
+    checked_today?: boolean
+  }>
+}
+
+export async function fetchSellerLevels() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.sellerLevels)
+  return (data.levels ?? []) as import("@/lib/engagement").SellerLevel[]
+}
+
+export async function fetchMyLoans() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.loansMine)
+  return (data.items ?? []) as Record<string, unknown>[]
+}
+
+export async function submitLoanApplication(fields: { amount: number; full_name: string; phone: string }) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("amount", String(fields.amount))
+  fd.append("full_name", fields.full_name)
+  fd.append("phone", fields.phone)
+  return handleAdminPost(API.loansMine, fd) as Promise<ApiResult>
+}
+
+export async function fetchMyCoupons() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.couponsList)
+  return (data.items ?? []) as Record<string, unknown>[]
+}
+
+export async function useCoupon(couponId: number) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("coupon_id", String(couponId))
+  return handleAdminPost(API.couponsList, fd) as Promise<ApiResult>
+}
+
+export async function submitFeedback(fields: {
+  ftype: string
+  subject: string
+  detail: string
+  contact: string
+  image?: File | null
+}) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("ftype", fields.ftype)
+  fd.append("subject", fields.subject)
+  fd.append("detail", fields.detail)
+  fd.append("contact", fields.contact)
+  if (fields.image) fd.append("image", fields.image)
+  return handleAdminPost(API.feedbackSubmit, fd) as Promise<ApiResult>
 }
 
 export async function resetAfterSalesBadge() {

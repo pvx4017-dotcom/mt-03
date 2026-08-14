@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { adminMainNav, isNavGroup } from "@/admin/navConfig"
 import { fetchAdminBadges } from "@/lib/adminApi"
@@ -61,22 +61,29 @@ export default function AdminDashboard() {
               <strong>สินค้าของลูกค้า</strong> — เลือกสินค้าจากร้านลูกค้า → เพิ่มลงตะกร้า (ผูก user_id เจ้าของร้าน)
             </li>
             <li>
-              <strong>ตะกร้าสินค้า</strong> — ยืนยันคำสั่งซื้อ → หักกระเป๋าลูกค้า + ค่าคอม → สถานะ รอจัดส่ง
+              <strong>ตะกร้าสินค้า</strong> — ยืนยันคำสั่งซื้อ → หักกระเป๋าลูกค้า (ราคาสินค้า + ค่าคอม) → สถานะ รอจัดส่ง
             </li>
             <li>
-              <strong>สินค้ารอจัดส่ง</strong> → <strong>รอรับสินค้า</strong> → <strong>สำเร็จ</strong> (เครดิตกำไรคอมมิชชั่น)
+              <strong>สินค้ารอจัดส่ง</strong> → <strong>รอรับสินค้า</strong> → <strong>สำเร็จ</strong> (คืนราคาสินค้าเข้ากระเป๋า + บวกค่าคอมเข้ากำไร)
             </li>
           </ol>
           <p className="admin-workflow-note">
             ลูกค้าสั่งเองจากตะกร้าได้เช่นกัน — รายการจะเข้า ตะกร้าสินค้า รอแอดมินยืนยัน (Admin ไม่ใช่ผู้ซื้อ)
           </p>
         </div>
-        {visibleNav.map((item) => {
+        {visibleNav.map((item, index) => {
+          const section = item.section
+          const prevSection = index > 0 ? visibleNav[index - 1]?.section : undefined
+          const heading =
+            section && section !== prevSection ? (
+              <p className="dash-section-label">{section}</p>
+            ) : null
+
           if (isNavGroup(item)) {
             const groupOpen =
               openGroups[item.label] ??
               (item.label === "จัดการผู้ใช้"
-                ? ["/admin/users", "/admin/credit-management", "/admin/verification"].some((p) =>
+                ? ["/admin/users", "/admin/customer-shipping-addresses", "/admin/credit-management", "/admin/verification"].some((p) =>
                     location.pathname.startsWith(p),
                   )
                 : ["/admin/customer-deposits", "/admin/customer-withdrawals", "/admin/payment-limits"].some(
@@ -84,7 +91,9 @@ export default function AdminDashboard() {
                   ))
 
             return (
-              <div key={item.label} className={`menu-group${groupOpen ? " active" : ""}`}>
+              <Fragment key={item.label}>
+                {heading}
+                <div className={`menu-group${groupOpen ? " active" : ""}`}>
                 <button
                   type="button"
                   className="menu-item"
@@ -104,17 +113,19 @@ export default function AdminDashboard() {
                     </Link>
                   ))}
                 </div>
-              </div>
+                </div>
+              </Fragment>
             )
           }
 
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="menu-item"
-              style={{ position: "relative" }}
-            >
+            <Fragment key={item.path}>
+              {heading}
+              <Link
+                to={item.path}
+                className="menu-item"
+                style={{ position: "relative" }}
+              >
               <div className="item-left">
                 <i className={`fa-solid ${item.icon} item-icon`} />
                 <span className="item-label">{item.label}</span>
@@ -125,6 +136,7 @@ export default function AdminDashboard() {
                 <MenuBadge count={badgeCount(item.badgeKey)} />
               )}
             </Link>
+            </Fragment>
           )
         })}
       </main>

@@ -260,7 +260,12 @@ export default function LoginPage() {
 
             {mode === "login" && (
               <div className="helper-link login-only">
-                <a href="#">ลืมรหัสผ่าน?</a>
+                <Link
+                  to="/help-center"
+                  onClick={() => sessionStorage.setItem("pendingForgotPassword", "1")}
+                >
+                  ลืมรหัสผ่าน?
+                </Link>
               </div>
             )}
 

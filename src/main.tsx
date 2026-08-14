@@ -46,6 +46,7 @@ import "./styles/home-modern.css"
 import "./styles/customer-theme.css"
 import "./index.css"
 import "./styles/fontawesome-guard.css"
+import "./styles/original-extra.css"
 import App from "./App.tsx"
 
 createRoot(document.getElementById("root")!).render(

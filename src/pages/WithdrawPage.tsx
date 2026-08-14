@@ -1,35 +1,41 @@
 import { useCallback, useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import {
   fetchPaymentLimits,
+  fetchPayoutWallets,
   fetchUserInfo,
   fmtMoney,
   submitWithdrawRequest,
+  type PayoutWallets,
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
-import { OrderTopNavbar } from "@/components/layout/OrderTopNavbar"
 import { useApp } from "@/context/AppContext"
-import "@/styles/withdraw-style.css"
+import "@/styles/original-extra.css"
 
-function maskAccountNumber(value: unknown) {
-  const s = String(value ?? "").trim()
-  if (!s) return "-"
-  if (s.length <= 4) return "****"
-  return s.slice(0, -4) + "****"
-}
+type WithdrawMethod = "bank" | "usdt_trc20" | "usdt_erc20" | "eth"
+
+const methods: { id: WithdrawMethod; label: string }[] = [
+  { id: "bank", label: "บัญชีธนาคาร" },
+  { id: "usdt_trc20", label: "USDT TRC20" },
+  { id: "usdt_erc20", label: "USDT ERC20" },
+  { id: "eth", label: "ETH" },
+]
 
 export default function WithdrawPage() {
   useBodyClass("page-withdraw")
   const navigate = useNavigate()
-  const { requireLogin, sessionChecked } = useApp()
+  const { requireLogin, sessionChecked, user } = useApp()
   const [balance, setBalance] = useState(0)
-  const [minWithdraw, setMinWithdraw] = useState(10)
+  const [minWithdraw, setMinWithdraw] = useState(100)
   const [amount, setAmount] = useState("")
   const [password, setPassword] = useState("")
+  const [method, setMethod] = useState<WithdrawMethod | "">("")
+  const [methodOpen, setMethodOpen] = useState(false)
+  const [pinOpen, setPinOpen] = useState(false)
+  const [pin, setPin] = useState("")
   const [linked, setLinked] = useState(false)
-  const [accountName, setAccountName] = useState("-")
-  const [accountNumber, setAccountNumber] = useState("ยังไม่ได้ผูกบัญชี")
   const [hasWithdrawPassword, setHasWithdrawPassword] = useState(false)
+  const [wallets, setWallets] = useState<{ usdt_trc20?: string; usdt_erc20?: string; eth?: string }>({})
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null)
 
@@ -44,17 +50,16 @@ export default function WithdrawPage() {
       if (userData.success && userData.user) {
         setBalance(Number(userData.user.wallet_balance ?? 0))
         setHasWithdrawPassword(!!userData.user.has_withdraw_password)
-        if (userData.user.is_bank_linked && userData.user.bank_account) {
-          setLinked(true)
-          setAccountName(String(userData.user.bank_account.account_name ?? "-"))
-          setAccountNumber(maskAccountNumber(userData.user.bank_account.account_number))
-        } else {
-          setLinked(false)
-          setAccountName("-")
-          setAccountNumber("ยังไม่ได้ผูกบัญชี")
-        }
+        setLinked(!!userData.user.is_bank_linked && !!userData.user.bank_account)
+        const fromProfile = userData.user.bank_account ?? {}
+        const fromDb = await fetchPayoutWallets().catch(() => ({}) as PayoutWallets)
+        setWallets({
+          usdt_trc20: String(fromDb.usdt_trc20 || fromProfile.usdt_trc20 || ""),
+          usdt_erc20: String(fromDb.usdt_erc20 || fromProfile.usdt_erc20 || ""),
+          eth: String(fromDb.eth || fromProfile.eth || ""),
+        })
       }
-      const min = Number(limitsData.min_withdraw ?? limitsData.limits?.min_withdraw ?? 10)
+      const min = Number(limitsData.min_withdraw ?? limitsData.limits?.min_withdraw ?? 100)
       if (Number.isFinite(min) && min >= 0) setMinWithdraw(min)
     } catch {
       /* ignore */
@@ -67,139 +72,207 @@ export default function WithdrawPage() {
     load()
   }, [load, requireLogin, sessionChecked])
 
-  const submit = async () => {
-    if (!hasWithdrawPassword) {
-      showToast("คุณยังไม่ได้ตั้งรหัสผ่านถอน", true)
-      setTimeout(() => navigate("/withdraw-password"), 900)
+  const methodReady = (selected: WithdrawMethod | "") => {
+    if (selected === "bank") return linked
+    if (selected === "usdt_trc20") return Boolean(wallets.usdt_trc20?.trim())
+    if (selected === "usdt_erc20") return Boolean(wallets.usdt_erc20?.trim())
+    if (selected === "eth") return Boolean(wallets.eth?.trim())
+    return false
+  }
+
+  const destinationFor = (selected: WithdrawMethod) => {
+    if (selected === "bank") return String(user?.bank_account?.account_number ?? "")
+    if (selected === "usdt_trc20") return wallets.usdt_trc20 ?? ""
+    if (selected === "usdt_erc20") return wallets.usdt_erc20 ?? ""
+    return wallets.eth ?? ""
+  }
+
+  const submitWithdraw = async (passwordValue: string) => {
+    const amt = Number(amount)
+    const pinValue = passwordValue.trim()
+    await load()
+    if (!method) {
+      setPinOpen(false)
+      showToast("กรุณาเลือกวิธีการรับเงิน", true)
       return
     }
-    const amt = Number(amount)
-    const pin = password.trim()
-    await load()
+    if (!methodReady(method)) {
+      setPinOpen(false)
+      showToast("กรุณาผูกข้อมูลบัญชีให้ครบก่อน", true)
+      setTimeout(() => navigate("/link-account"), 900)
+      return
+    }
     if (!amt || amt <= 0) {
+      setPinOpen(false)
       showToast("กรุณากรอกจำนวนเงินที่ต้องการถอน", true)
       return
     }
     if (amt < minWithdraw) {
+      setPinOpen(false)
       showToast(`ถอนเงินขั้นต่ำ $${fmtMoney(minWithdraw)}`, true)
       return
     }
-    if (!/^\d{6}$/.test(pin)) {
-      showToast("กรุณากรอกรหัสผ่านถอน 6 หลัก", true)
+    if (amt > balance) {
+      setPinOpen(false)
+      showToast("จำนวนเงินถอนเกินยอดคงเหลือ", true)
+      return
+    }
+    if (!hasWithdrawPassword) {
+      setPinOpen(false)
+      showToast("คุณยังไม่ได้ตั้งรหัสผ่านถอน", true)
+      setTimeout(() => navigate("/withdraw-password"), 900)
+      return
+    }
+    if (!/^\d{5,6}$/.test(pinValue)) {
+      showToast("กรุณากรอกรหัสผ่านถอน 5-6 หลัก", true)
+      setPin("")
       return
     }
     setSubmitting(true)
     try {
-      const data = await submitWithdrawRequest(amt, pin)
+      const data = await submitWithdrawRequest(amt, pinValue, {
+        withdraw_method: method,
+        payout_destination: destinationFor(method),
+      })
       if (!data.success) throw new Error(data.message ?? "ถอนเงินไม่สำเร็จ")
+      setPinOpen(false)
       showToast(data.message ?? "ส่งคำขอแล้ว รอแอดมินอนุมัติ")
       setAmount("")
       setPassword("")
+      setPin("")
       await load()
+      setTimeout(() => navigate("/wallet"), 1200)
     } catch (e) {
       showToast(e instanceof Error ? e.message : "ถอนเงินไม่สำเร็จ", true)
+      setPin("")
     } finally {
       setSubmitting(false)
     }
   }
 
+  const confirm = async () => {
+    if (!amount || Number(amount) <= 0) {
+      showToast("กรุณากรอกจำนวนเงินที่ต้องการถอน", true)
+      return
+    }
+    if (!method) {
+      showToast("กรุณาเลือกวิธีการรับเงิน", true)
+      return
+    }
+    if (password.trim()) {
+      await submitWithdraw(password)
+      return
+    }
+    setPin("")
+    setPinOpen(true)
+  }
+
+  const methodLabel = methods.find((row) => row.id === method)?.label
+    ?? `จำนวนเงินที่ถอนออกต้องมากกว่า ${minWithdraw}$`
+
   return (
-    <div id="app">
-      <OrderTopNavbar
-        title="ถอนเงิน"
-        rightAction={
-          <Link to="/withdraw-history" className="history-btn" aria-label="ประวัติ">
-            <i className="fa-solid fa-clock-rotate-left" />
-          </Link>
-        }
-      />
-      <main className="withdraw-content">
-        <section className="balance-banner">
-          <div className="banner-overlay" />
-          <div className="banner-content">
-            <p className="balance-label">ยอดคงเหลือในบัญชี</p>
-            <h1 className="balance-amount">
-              <span className="currency">$</span>
-              {fmtMoney(balance)}
-            </h1>
-          </div>
-        </section>
-        <section className="withdraw-form-card">
-          <div className="input-group">
-            <label className="input-label">จำนวนเงินที่ต้องการถอน</label>
-            <div className="input-wrapper">
-              <span className="input-prefix">$</span>
-              <input
-                type="number"
-                placeholder="กรุณากรอกจำนวนเงิน"
-                className="withdraw-input"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="input-group">
-            <label className="input-label">บัญชีธนาคาร</label>
-            <div className="bank-info-box">
-              <div className="bank-row">
-                <span className="info-label">หมายเลขบัญชี:</span>
-                <span className="info-value">{accountNumber}</span>
-              </div>
-              <div className="bank-row">
-                <span className="info-label">ชื่อเจ้าของบัญชี:</span>
-                <span className="info-value">{accountName}</span>
-              </div>
-              <Link to="/link-account" className={`edit-bank-btn ${linked ? "link-mode" : "bind-mode"}`}>
-                {linked ? "แก้ไขข้อมูล" : "ผูกบัญชี"}
-              </Link>
-            </div>
-          </div>
-          <div className="input-group">
-            <label className="input-label">รหัสผ่านการถอนเงิน</label>
-            <div className="input-wrapper">
-              <input
-                type="password"
-                placeholder={
-                  hasWithdrawPassword ? "กรุณากรอกรหัสผ่าน 6 หลัก" : "ยังไม่ได้ตั้งรหัสผ่านถอน"
-                }
-                className="withdraw-input"
-                maxLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
-          </div>
-          <button type="button" className="submit-withdraw-btn" disabled={submitting} onClick={submit}>
-            {submitting ? "กำลังส่งคำขอ..." : "ส่งคำขอถอนเงิน"}
-          </button>
-        </section>
-        <section className="withdraw-instructions">
-          <h3>
-            <i className="fa-solid fa-circle-info" /> คำแนะนำการถอนเงิน
-          </h3>
-          <ul>
-            <li>ถอนเงินขั้นต่ำ ${fmtMoney(minWithdraw)}</li>
-            <li>เวลาดำเนินการถอนเงินคือ 24/7</li>
-            <li>หากพบปัญหา โปรดติดต่อฝ่ายบริการลูกค้าออนไลน์</li>
-          </ul>
-        </section>
+    <div className="ox-page">
+      <header className="ox-topbar">
+        <button type="button" className="ox-back" onClick={() => navigate(-1)} aria-label="กลับ">
+          <i className="fa-solid fa-chevron-left" />
+        </button>
+      </header>
+      <main className="ox-pad ox-form">
+        <label>ถอนเงิน</label>
+        <input
+          type="number"
+          placeholder="กรุณาระบุยอดเงินถอน"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <label>รหัสผ่านถอนเงิน</label>
+        <input
+          type="password"
+          placeholder="กรุณากรอกรหัสผ่านการถอนเงิน"
+          maxLength={6}
+          inputMode="numeric"
+          value={password}
+          onChange={(e) => setPassword(e.target.value.replace(/\D/g, ""))}
+        />
+        <label>วิธีการรับเงิน</label>
+        <button type="button" className="ox-select" onClick={() => setMethodOpen(true)}>
+          <span className={method ? "" : "ox-muted"}>{methodLabel}</span>
+          <i className="fa-solid fa-caret-down" />
+        </button>
+        <p className="ox-note">ยอดคงเหลือปัจจุบัน: {fmtMoney(balance)}</p>
+        <button type="button" className="ox-primary-btn" disabled={submitting} onClick={confirm}>
+          ยืนยัน
+        </button>
       </main>
-      {toast ? (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: toast.error ? "#dc2626" : "#16a34a",
-            color: "#fff",
-            padding: "12px 24px",
-            borderRadius: 12,
-            zIndex: 9999,
-          }}
-        >
-          {toast.msg}
+
+      {methodOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => setMethodOpen(false)}>
+          <div className="ox-method-sheet" onClick={(e) => e.stopPropagation()}>
+            {methods.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className="ox-sheet-option"
+                onClick={() => {
+                  setMethod(row.id)
+                  setMethodOpen(false)
+                }}
+              >
+                {row.label}
+              </button>
+            ))}
+            <button type="button" className="ox-sheet-cancel" onClick={() => setMethodOpen(false)}>
+              ยกเลิก
+            </button>
+          </div>
         </div>
+      ) : null}
+
+      {pinOpen ? (
+        <div className="ox-sheet-overlay" onClick={() => !submitting && setPinOpen(false)}>
+          <div className="ox-pin-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="ox-pay-head">
+              <h2>ป้อนรหัสการถอน</h2>
+              <button type="button" className="ox-back" onClick={() => setPinOpen(false)} aria-label="ปิด">
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+            <div className="ox-pin-row">
+              {Array.from({ length: 6 }, (_, i) => (
+                <span key={i} className={`ox-pin-box${i < pin.length ? " filled" : ""}`} />
+              ))}
+            </div>
+            <p className="ox-note">กรุณากรอกรหัสชำระเงิน</p>
+            <div className="ox-keypad">
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"].map((key) =>
+                key === "" ? (
+                  <span key="spacer" />
+                ) : (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => {
+                      if (key === "back") {
+                        setPin((prev) => prev.slice(0, -1))
+                        return
+                      }
+                      const next = pin.length >= 6 ? pin : pin + key
+                      setPin(next)
+                      if (next.length === 6) submitWithdraw(next)
+                    }}
+                  >
+                    {key === "back" ? <i className="fa-solid fa-delete-left" /> : key}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className={`ox-toast${toast.error ? " error" : ""}`}>{toast.msg}</div>
       ) : null}
     </div>
   )

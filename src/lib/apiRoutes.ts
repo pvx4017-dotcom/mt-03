@@ -12,6 +12,8 @@ export const API = {
   adminWithdrawRequests: "admin/withdrawals",
   adminPaymentLimits: "admin/payment-limits",
   adminCommission: "admin/commission",
+  adminShippingAddresses: "admin/shipping-addresses",
+  adminCustomerStores: "admin/customer-stores",
   adminNotifications: "admin/notifications",
   customerShopProducts: "customer/shop-products",
   adminCart: "admin/cart",
@@ -49,6 +51,19 @@ export const API = {
   verificationSubmit: "verification/submit",
   userUpdatePassword: "user/update-password",
   userSetWithdrawPassword: "user/set-withdraw-password",
+  receivingAccounts: "wallet/receiving-accounts",
+  adminReceivingAccounts: "admin/receiving-accounts",
+  userAddresses: "user/addresses",
+  userPayoutWallets: "user/payout-wallets",
+  engagementCheckin: "engagement/checkin",
+  sellerLevels: "engagement/seller-levels",
+  adminSellerLevels: "admin/seller-levels",
+  loansMine: "loans/mine",
+  adminLoans: "admin/loans",
+  couponsList: "coupons/list",
+  adminCoupons: "admin/coupons",
+  feedbackSubmit: "feedback/submit",
+  adminFeedback: "admin/feedback",
 } as const
 
 export type ApiRoute = (typeof API)[keyof typeof API]

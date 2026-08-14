@@ -7,8 +7,11 @@ import {
   fetchCartOrders,
   fmtMoney,
   parseCustomerImage,
+  resolveCheckoutAddress,
+  saveShippingAddress,
   setProductOrderQty,
   updateProductOrderQty,
+  writeSavedShippingAddress,
   type ProductOrderRow,
 } from "@/lib/customerApi"
 import { BottomNav } from "@/components/layout/BottomNav"
@@ -20,7 +23,7 @@ import "@/styles/cart-style.css"
 export default function CartPage() {
   useBodyClass("page-cart")
   const navigate = useNavigate()
-  const { refreshCartCount, refreshOrderHubCounts, requireLogin } = useApp()
+  const { refreshCartCount, refreshOrderHubCounts, requireLogin, user } = useApp()
   const [rows, setRows] = useState<ProductOrderRow[]>([])
   const [loading, setLoading] = useState(true)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -52,6 +55,16 @@ export default function CartPage() {
     if (!requireLogin()) return
     load()
   }, [load, requireLogin])
+
+  useEffect(() => {
+    if (!user?.id) return
+    void resolveCheckoutAddress(user.id).then((addr) => {
+      if (!addr) return
+      setContactName((cur) => cur || addr.receiver_name)
+      setContactPhone((cur) => cur || addr.receiver_phone)
+      setContactAddress((cur) => cur || addr.receiver_address)
+    })
+  }, [user?.id])
 
   const totalCount = rows.reduce((s, r) => s + Math.max(1, Number(r.quantity ?? 1)), 0)
   const totalPrice = rows.reduce((s, r) => {
@@ -100,10 +113,17 @@ export default function CartPage() {
         return
       }
       showNotice("ส่งคำสั่งซื้อแล้ว — รอแอดมินดำเนินการ")
+      writeSavedShippingAddress(user?.id, {
+        receiver_name: contactName.trim(),
+        receiver_phone: contactPhone.trim(),
+        receiver_address: contactAddress.trim(),
+      })
+      await saveShippingAddress({
+        receiver_name: contactName.trim(),
+        receiver_phone: contactPhone.trim(),
+        receiver_address: contactAddress.trim(),
+      }).catch(() => {})
       setCheckoutOpen(false)
-      setContactName("")
-      setContactAddress("")
-      setContactPhone("")
       await refreshCartCount()
       await refreshOrderHubCounts()
       window.setTimeout(() => navigate("/pending-payment"), 1200)

@@ -3,9 +3,11 @@ import { API } from "@/lib/apiRoutes"
 import { AdminPageShell } from "@/components/admin/AdminPageShell"
 import {
   AdminConfirmModal,
+  AdminDetailModal,
   AdminEditModal,
   AdminEmptyRow,
   AdminLoadingRow,
+  AdminSearchBar,
   AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
@@ -14,6 +16,8 @@ import {
   fetchAdminCategories,
   fetchAdminGeneralShops,
   fetchAdminRecommendedShops,
+  fetchCustomerShopProducts,
+  fetchCustomerStores,
   formatAdminDate,
   type AdminCategory,
   type AdminShop,
@@ -571,4 +575,135 @@ export function AdminRecommendedShopsPage() {
 
 export function AdminGeneralShopsPage() {
   return <AdminShopsPage variant="general" />
+}
+
+export function AdminUserShopsPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [stores, setStores] = useState<Record<string, unknown>[]>([])
+  const [products, setProducts] = useState<Record<string, unknown>[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [openStore, setOpenStore] = useState<Record<string, unknown> | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [storeRows, productRows] = await Promise.all([fetchCustomerStores(), fetchCustomerShopProducts()])
+      setStores(storeRows)
+      setProducts(productRows)
+    } catch {
+      showToast("โหลดร้านค้าลูกค้าไม่สำเร็จ", "error")
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const filtered = stores.filter((store) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (
+      String(store.shop_name ?? "").toLowerCase().includes(q) ||
+      String(store.user_id ?? "").includes(q) ||
+      String(store.main_category ?? "").toLowerCase().includes(q)
+    )
+  })
+
+  const storeProducts = products.filter((p) => Number(p.user_id) === Number(openStore?.user_id))
+
+  const deleteStore = async () => {
+    if (deleteId == null) return
+    const fd = new FormData()
+    fd.append("action", "delete")
+    fd.append("id", String(deleteId))
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminCustomerStores, fd)
+    if (res.success) {
+      showToast("ลบร้านค้าแล้ว")
+      setDeleteId(null)
+      setOpenStore(null)
+      void load()
+    } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
+  }
+
+  return (
+    <AdminPageShell barTitle="ร้านค้าของผู้ใช้" pageTitle="ร้านค้าของผู้ใช้ (ลูกค้า)" icon="fa-store">
+      <AdminSearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อร้าน, รหัสผู้ใช้..." />
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>ร้านค้า</th>
+              <th>รหัสผู้ใช้</th>
+              <th>หมวดหมู่</th>
+              <th>สินค้า</th>
+              <th>ขายแล้ว</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {showAdminTableLoading(loading, stores.length) ? (
+              <AdminLoadingRow cols={6} />
+            ) : filtered.length === 0 ? (
+              <AdminEmptyRow cols={6} message="ไม่พบร้านค้าของผู้ใช้ (ลูกค้า)" />
+            ) : (
+              filtered.map((store) => (
+                <tr key={String(store.id)}>
+                  <td>{String(store.shop_name ?? "-")}</td>
+                  <td>#{String(store.user_id ?? "-")}</td>
+                  <td>{String(store.main_category ?? "-")}</td>
+                  <td>{String(store.product_count ?? 0)}</td>
+                  <td>{String(store.sold_count ?? 0)}</td>
+                  <td>
+                    <button type="button" className="admin-action-btn" onClick={() => setOpenStore(store)}>
+                      สินค้า
+                    </button>{" "}
+                    <button type="button" className="admin-action-btn cancel" onClick={() => setDeleteId(Number(store.id))}>
+                      ลบ
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+
+      <AdminDetailModal
+        open={!!openStore}
+        title={`สินค้าในร้าน ${String(openStore?.shop_name ?? "")}`}
+        onClose={() => setOpenStore(null)}
+        footer={
+          <button type="button" className="admin-edit-btn cancel" onClick={() => setOpenStore(null)}>
+            ปิด
+          </button>
+        }
+      >
+        {storeProducts.length === 0 ? (
+          <p>ยังไม่มีสินค้าในร้านนี้</p>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8 }}>
+            {storeProducts.map((p) => (
+              <li key={String(p.id)}>
+                {String(p.product_name ?? "-")} · สต็อก {String(p.product_stock ?? 0)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminDetailModal>
+
+      <AdminConfirmModal
+        open={deleteId != null}
+        title="ยืนยันการลบ"
+        message="ยืนยันลบร้านค้านี้และสินค้าในร้านใช่หรือไม่?"
+        onCancel={() => setDeleteId(null)}
+        onConfirm={deleteStore}
+      />
+      {Toast}
+    </AdminPageShell>
+  )
 }

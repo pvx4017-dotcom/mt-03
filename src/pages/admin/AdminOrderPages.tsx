@@ -543,6 +543,7 @@ export function AdminCustomerStoreProductsPage() {
 
 export function AdminCartPage() {
   useBodyClass("admin-page")
+  const navigate = useNavigate()
   const { showToast, Toast } = useAdminToast()
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -551,7 +552,7 @@ export function AdminCartPage() {
   const [shippingCount, setShippingCount] = useState(0)
   const [orderModal, setOrderModal] = useState<CartItem | null>(null)
   const [customerWallet, setCustomerWallet] = useState<number | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [cancelId, setCancelId] = useState<number | null>(null)
   const [qty, setQty] = useState(1)
   const [receiver, setReceiver] = useState({ name: "", address: "", phone: "" })
 
@@ -641,23 +642,24 @@ export function AdminCartPage() {
     fd.append("commission_amount", String(comm))
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminCart, fd)
     if (res.success) {
-      showToast("บันทึกข้อมูลลงตารางเรียบร้อยแล้ว")
+      showToast("หักกระเป๋าแล้ว — ย้ายไปรอจัดส่ง")
       setOrderModal(null)
-      load(true)
+      navigate("/admin/shipping-orders")
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
   }
 
-  const deleteItem = async () => {
-    if (deleteId == null) return
+  const cancelItem = async () => {
+    if (cancelId == null) return
     const fd = new FormData()
-    fd.append("action", "delete")
-    fd.append("id", String(deleteId))
+    fd.append("action", "update_status")
+    fd.append("id", String(cancelId))
+    fd.append("status", "cancelled")
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminCart, fd)
     if (res.success) {
-      showToast("ลบแล้ว")
-      setDeleteId(null)
+      showToast("ยกเลิกสินค้าแล้ว")
+      setCancelId(null)
       load(true)
-    } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
+    } else showToast(res.message ?? "ยกเลิกไม่สำเร็จ", "error")
   }
 
   return (
@@ -748,8 +750,8 @@ export function AdminCartPage() {
                         <button type="button" className="admin-order-act ok" onClick={() => openOrder(row)}>
                           <i className="fa-solid fa-check" />
                         </button>
-                        <button type="button" className="admin-order-act del" onClick={() => setDeleteId(Number(row.id))}>
-                          <i className="fa-solid fa-trash-can" />
+                        <button type="button" className="admin-order-act del" onClick={() => setCancelId(Number(row.id))}>
+                          <i className="fa-solid fa-circle-minus" />
                         </button>
                       </td>
                     </tr>
@@ -872,11 +874,11 @@ export function AdminCartPage() {
       </AdminDetailModal>
 
       <AdminConfirmModal
-        open={deleteId != null}
-        title="ยืนยันการลบ"
-        message="ต้องการลบรายการนี้ออกจากตะกร้าใช่หรือไม่?"
-        onCancel={() => setDeleteId(null)}
-        onConfirm={deleteItem}
+        open={cancelId != null}
+        title="ยืนยันการยกเลิกสินค้า"
+        message="ต้องการยกเลิกสินค้านี้และเปลี่ยนสถานะเป็นสินค้าถูกยกเลิกใช่หรือไม่?"
+        onCancel={() => setCancelId(null)}
+        onConfirm={cancelItem}
       />
       {Toast}
     </>
@@ -935,16 +937,37 @@ function AdminFlowOrdersPage({
 
   const updateStatus = async (ids: number[]) => {
     let ok = 0
+    let totalBalanceAdded = 0
+    let totalProfitAdded = 0
     for (const id of ids) {
       const fd = new FormData()
       fd.append("action", "update_status")
       fd.append("id", String(id))
       fd.append("order_status", nextStatus)
       fd.append("trigger_type", ids.length > 1 ? "bulk" : "single")
-      const res = await adminPost<{ success: boolean }>(API.adminCartOrders, fd)
-      if (res.success) ok++
+      const res = await adminPost<{
+        success: boolean
+        message?: string
+        balance_added?: number
+        profit_added?: number
+      }>(API.adminCartOrders, fd)
+      if (res.success) {
+        ok++
+        totalBalanceAdded += Number(res.balance_added ?? 0)
+        totalProfitAdded += Number(res.profit_added ?? 0)
+      }
     }
-    showToast(`ดำเนินการสำเร็จ ${ok} รายการ`)
+    if (orderStatus === "receiving" && totalBalanceAdded > 0) {
+      const money = totalBalanceAdded.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      const profit = totalProfitAdded.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      showToast(
+        ids.length > 1
+          ? `จัดส่งเสร็จ ${ok} รายการ + บวกยอดรวม $${money}`
+          : `จัดส่งเสร็จ + บวกยอด $${money} (กำไร $${profit})`,
+      )
+    } else {
+      showToast(`ดำเนินการสำเร็จ ${ok} รายการ`)
+    }
     setConfirmIds(null)
     setSelected(new Set())
     load(true)

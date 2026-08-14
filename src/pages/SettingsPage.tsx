@@ -41,7 +41,21 @@ export default function SettingsPage() {
       </nav>
       <div className="settings-group">
         {[
-          { to: "/verification", icon: "fa-id-card", label: "ยืนยันตัวตนระดับสูง (KYC)", regular: true },
+          {
+            to: "/verification",
+            icon: "fa-id-card",
+            label: "ยืนยันตัวตนระดับสูง (KYC)",
+            regular: true,
+            badge:
+              user?.kyc_status === "approved"
+                ? "ยืนยันแล้ว"
+                : user?.kyc_status === "pending"
+                  ? "รอตรวจสอบ"
+                  : user?.kyc_status === "rejected"
+                    ? "ไม่ผ่าน"
+                    : "ยังไม่ได้ยืนยัน",
+            linked: user?.kyc_status === "approved",
+          },
           {
             to: "/link-account",
             icon: "fa-building-columns",

@@ -86,6 +86,15 @@ body.admin-page .admin-container {
   gap: 12px;
 }
 
+body.admin-page .dash-section-label {
+  grid-column: 1 / -1;
+  margin: 10px 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
 body.admin-page .admin-dashboard-intro {
   grid-column: 1 / -1;
   margin: 0 0 4px;

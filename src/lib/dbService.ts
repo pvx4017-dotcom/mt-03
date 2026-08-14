@@ -74,7 +74,19 @@ export async function dbFetchUserInfo() {
   const sb = getSupabase()
   const { data, error } = await sb.rpc("get_user_profile", { p_user_id: uid })
   if (error) return fail(error.message)
-  return data as Result<{ user?: Record<string, unknown> }>
+  const payload = (data ?? fail("ไม่พบผู้ใช้")) as Result<{ user?: Record<string, unknown> }>
+  if (payload.success && payload.user) {
+    const { data: kyc } = await sb
+      .from("identity_verifications")
+      .select("status, rejection_reason")
+      .eq("user_id", uid)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    payload.user.kyc_status = kyc?.status ?? "none"
+    payload.user.kyc_rejection_reason = kyc?.rejection_reason ?? null
+  }
+  return payload
 }
 
 export async function dbLogout() {
@@ -319,6 +331,67 @@ export async function dbFetchOrderContacts() {
   return ok({ orders: data ?? [] })
 }
 
+export async function dbFetchAdminShippingAddresses() {
+  const fromBook = await (await import("@/lib/parityDb")).dbFetchUserAddressesAdmin()
+  const seen = new Set<number>()
+  const rows: Record<string, unknown>[] = []
+  for (const row of fromBook) {
+    const uid = Number(row.user_id)
+    if (!uid || seen.has(uid)) continue
+    seen.add(uid)
+    rows.push({ ...row, is_default: Boolean(row.is_default) })
+  }
+
+  const sb = getSupabase()
+  const joined = await sb
+    .from("admin_cart_orders")
+    .select(
+      "id, user_id, receiver_name, receiver_address, receiver_phone, contact_name, contact_address, contact_phone, updated_at, created_at, users(username, phone, email)",
+    )
+    .order("created_at", { ascending: false })
+
+  let rawRows = (joined.data ?? []) as Record<string, unknown>[]
+  if (joined.error) {
+    const plain = await sb
+      .from("admin_cart_orders")
+      .select(
+        "id, user_id, receiver_name, receiver_address, receiver_phone, contact_name, contact_address, contact_phone, updated_at, created_at",
+      )
+      .order("created_at", { ascending: false })
+    if (plain.error) throw new Error(plain.error.message)
+    rawRows = (plain.data ?? []) as Record<string, unknown>[]
+  }
+
+  for (const raw of rawRows) {
+    const row = flattenUserJoin(raw)
+    const uid = Number(row.user_id)
+    if (!uid || seen.has(uid)) continue
+    const name = String(row.receiver_name ?? row.contact_name ?? "").trim()
+    const address = String(row.receiver_address ?? row.contact_address ?? "").trim()
+    const phone = String(row.receiver_phone ?? row.contact_phone ?? "").trim()
+    if (!name && !address && !phone) continue
+    seen.add(uid)
+    rows.push({
+      ...row,
+      receiver_name: name || "-",
+      receiver_address: address || "-",
+      receiver_phone: phone || "-",
+      is_default: false,
+    })
+  }
+  return rows
+}
+
+export async function dbDeleteCustomerStore(storeId: number) {
+  const sb = getSupabase()
+  const { data: store } = await sb.from("customer_stores").select("id, user_id").eq("id", storeId).maybeSingle()
+  if (!store) return fail("ไม่พบร้านค้า")
+  await sb.from("customer_store_products_mirror").delete().eq("user_id", store.user_id)
+  const { error } = await sb.from("customer_stores").delete().eq("id", storeId)
+  if (error) return fail(error.message)
+  return ok({ message: "ลบร้านค้าแล้ว" })
+}
+
 export async function dbFetchOrderHubCounts() {
   const uid = requireUserId()
   if (!uid) return {}
@@ -363,6 +436,21 @@ export async function dbAdminUpdateOrder(
 
   const prevStatus = String(order.status ?? "pending")
   const nextStatus = patch.status ?? prevStatus
+  const allowedNext: Record<string, string[]> = {
+    pending: ["shipping", "cancelled"],
+    shipping: ["receiving"],
+    receiving: ["completed"],
+    completed: [],
+    cancelled: [],
+  }
+  if (nextStatus !== prevStatus) {
+    const allowed = allowedNext[prevStatus] ?? []
+    if (!allowed.includes(nextStatus)) {
+      return fail(
+        `ไม่สามารถเปลี่ยนสถานะจาก ${prevStatus} เป็น ${nextStatus} ได้ — ต้องเดินตามลำดับ รอชำระเงิน → รอจัดส่ง → รอรับสินค้า → สำเร็จ`,
+      )
+    }
+  }
   const qty =
     patch.quantity != null && !Number.isNaN(patch.quantity)
       ? patch.quantity
@@ -380,11 +468,15 @@ export async function dbAdminUpdateOrder(
   if (patch.receiver_address) updates.receiver_address = patch.receiver_address
   if (patch.receiver_phone) updates.receiver_phone = patch.receiver_phone
 
-  // Admin ยืนยันจากตะกร้า → หัก wallet + คำนวณค่าคอมจาก settings
+  // Admin ยืนยันจากตะกร้า → หัก wallet + ค่าคอม (ราคาสินค้า + ค่าคอมมิชชัน)
   if (nextStatus === "shipping" && prevStatus === "pending") {
     const { data: cs } = await sb.from("commission_settings").select("percent").eq("id", 1).single()
     const pct = Number(cs?.percent ?? 20)
-    const commission = totalPrice * (pct / 100)
+    const computed = totalPrice * (pct / 100)
+    const commission =
+      patch.commission_amount != null && Number.isFinite(patch.commission_amount) && patch.commission_amount >= 0
+        ? Number(patch.commission_amount)
+        : computed
     updates.commission_amount = commission
     const totalDue = totalPrice + commission
     const { data: user } = await sb.from("users").select("wallet_balance").eq("id", order.user_id).single()
@@ -401,17 +493,28 @@ export async function dbAdminUpdateOrder(
     if (walletErr) return fail(walletErr.message)
   }
 
-  // จัดส่งเสร็จ → เครดิตกำไร + นับยอดขายร้านลูกค้า
+  let balanceAdded = 0
+  let profitAdded = 0
+
   if (nextStatus === "completed" && prevStatus !== "completed") {
     const commission = Number(updates.commission_amount ?? order.commission_amount ?? 0)
-    if (commission > 0) {
-      const { data: u } = await sb.from("users").select("wallet_profit").eq("id", order.user_id).single()
-      const { error: profitErr } = await sb
-        .from("users")
-        .update({ wallet_profit: Number(u?.wallet_profit ?? 0) + commission })
-        .eq("id", order.user_id)
-      if (profitErr) return fail(profitErr.message)
-    }
+    const { data: u } = await sb
+      .from("users")
+      .select("wallet_balance,wallet_profit")
+      .eq("id", order.user_id)
+      .single()
+    const nextBalance = Number(u?.wallet_balance ?? 0) + totalPrice
+    const nextProfit = Number(u?.wallet_profit ?? 0) + Math.max(0, commission)
+    const { error: profitErr } = await sb
+      .from("users")
+      .update({
+        wallet_balance: nextBalance,
+        wallet_profit: nextProfit,
+      })
+      .eq("id", order.user_id)
+    if (profitErr) return fail(profitErr.message)
+    balanceAdded = totalPrice
+    profitAdded = Math.max(0, commission)
     const { data: store } = await sb
       .from("customer_stores")
       .select("sold_count")
@@ -449,13 +552,14 @@ export async function dbAdminUpdateOrder(
       to_status: nextStatus,
     })
   }
-  return ok()
+  return ok({ balance_added: balanceAdded, profit_added: profitAdded })
 }
 
 export async function dbAdminSubmitReview(orderId: number, reviewText: string, starRating: number) {
   const sb = getSupabase()
   const { data: order } = await sb.from("admin_cart_orders").select("*").eq("id", orderId).single()
   if (!order) return fail("ไม่พบคำสั่งซื้อ")
+  if (order.star_rating != null) return fail("รีวิวคำสั่งซื้อนี้ไปแล้ว")
   await sb
     .from("admin_cart_orders")
     .update({ review_text: reviewText, star_rating: starRating })
@@ -497,25 +601,53 @@ export async function dbFetchPaymentLimits() {
   }
 }
 
-export async function dbSubmitDeposit(amount: number) {
+export async function dbSubmitDeposit(
+  amount: number,
+  paymentMethod = "bank_transfer",
+  extra?: { payer_name?: string; payer_account?: string },
+) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const limits = await dbFetchPaymentLimits()
   if (amount < Number(limits.min_deposit ?? 100)) return fail(`ฝากขั้นต่ำ $${Number(limits.min_deposit ?? 100).toFixed(2)}`)
   const sb = getSupabase()
+  const { data: pending } = await sb
+    .from("deposit_requests")
+    .select("amount,request_no,user_id")
+    .eq("user_id", uid)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle()
+  if (pending) {
+    return {
+      success: false,
+      has_pending: true,
+      user_id: uid,
+      amount: Number(pending.amount).toFixed(2),
+      request_no: pending.request_no,
+      message: "คุณยังมีรายการที่ยังรอดำเนินอยู่",
+    }
+  }
   const requestNo = `DEP-${Date.now()}`
+  const method = String(paymentMethod || "bank_transfer").trim() || "bank_transfer"
   const { error } = await sb.from("deposit_requests").insert({
     user_id: uid,
     amount,
-    payment_method: "bank_transfer",
+    payment_method: method,
     request_no: requestNo,
+    payer_name: extra?.payer_name?.trim() || null,
+    payer_account: extra?.payer_account?.trim() || null,
     status: "pending",
   })
   if (error) return fail(error.message)
   return ok({ user_id: uid, amount: amount.toFixed(2), request_no: requestNo })
 }
 
-export async function dbSubmitWithdraw(amount: number, withdrawPassword: string) {
+export async function dbSubmitWithdraw(
+  amount: number,
+  withdrawPassword: string,
+  extra?: { withdraw_method?: string; payout_destination?: string },
+) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
@@ -529,7 +661,13 @@ export async function dbSubmitWithdraw(amount: number, withdrawPassword: string)
   const limits = await dbFetchPaymentLimits()
   if (amount < Number(limits.min_withdraw ?? 100)) return fail(`ถอนขั้นต่ำ ${limits.min_withdraw}`)
   if (Number(user.wallet_balance) < amount) return fail("ยอดเงินไม่เพียงพอ")
-  const { error } = await sb.from("withdraw_requests").insert({ user_id: uid, amount, status: "pending" })
+  const { error } = await sb.from("withdraw_requests").insert({
+    user_id: uid,
+    amount,
+    status: "pending",
+    withdraw_method: extra?.withdraw_method?.trim() || null,
+    payout_destination: extra?.payout_destination?.trim() || null,
+  })
   if (error) return fail(error.message)
   return ok({ message: "ส่งคำขอถอนแล้ว" })
 }
@@ -1143,6 +1281,17 @@ export async function dbSubmitVerification(fields: {
 }) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const sbCheck = getSupabase()
+  const { data: latest } = await sbCheck
+    .from("identity_verifications")
+    .select("status")
+    .eq("user_id", uid)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const kyc = String(latest?.status ?? "none")
+  if (kyc === "pending") return fail("คำขอยืนยันตัวตนกำลังรอตรวจสอบ")
+  if (kyc === "approved") return fail("ยืนยันตัวตนแล้ว")
   let front: string
   let back: string
   let selfie: string
@@ -1368,6 +1517,10 @@ export async function dbSubmitReview(orderId: number, reviewText: string, starRa
   const sb = getSupabase()
   const { data: order } = await sb.from("admin_cart_orders").select("*").eq("id", orderId).eq("user_id", uid).single()
   if (!order) return fail("ไม่พบคำสั่งซื้อ")
+  if (String(order.status ?? "") !== "completed") {
+    return fail("รีวิวได้เฉพาะคำสั่งซื้อที่สำเร็จแล้ว")
+  }
+  if (order.star_rating != null) return fail("รีวิวคำสั่งซื้อนี้ไปแล้ว")
   await sb.from("admin_cart_orders").update({ review_text: reviewText, star_rating: starRating }).eq("id", orderId)
   await sb.from("reviews").insert({
     user_id: uid,

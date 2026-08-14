@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { asset, logoAsset } from "@/lib/assets"
 import { APP_NAME } from "@/lib/brand"
 import { useBodyClass } from "@/hooks/useBodyClass"
@@ -9,7 +9,9 @@ import { CustomerChatPanel } from "@/components/chat/CustomerChatPanel"
 import { useApp } from "@/context/AppContext"
 import {
   addProductToMyStore,
+  fetchCheckinState,
   fetchFollowingShops,
+  fetchMyCoupons,
   fetchMyReviews,
   fetchPendingReviewOrders,
   fetchOtherStoreProducts,
@@ -18,9 +20,12 @@ import {
   fmtMoney,
   parseCustomerImage,
   parseProductRowImage,
+  submitCheckin,
   submitCustomerReview,
+  submitFeedback,
   submitStoreCustomer,
   unfollowShop,
+  useCoupon,
   type FollowShopRow,
   type StoreProductRow,
 } from "@/lib/customerApi"
@@ -28,39 +33,108 @@ import { shopPath } from "@/lib/marketplaceApi"
 
 export function CheckinPage() {
   useBodyClass("page-checkin")
+  const { user, requireLogin, sessionChecked, refreshUser } = useApp()
+  const [dates, setDates] = useState<string[]>([])
+  const [total, setTotal] = useState(0)
   const [done, setDone] = useState(false)
+  const [msg, setMsg] = useState("")
+  const [cursor, setCursor] = useState(() => new Date())
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!sessionChecked) return
+    if (!requireLogin()) return
+    void fetchCheckinState().then((data) => {
+      setDates(data.dates ?? [])
+      setTotal(Number(data.total ?? user?.points ?? 0))
+      setDone(!!data.checked_today)
+    })
+  }, [requireLogin, sessionChecked, user?.id, user?.points])
+
+  const checkin = async () => {
+    setBusy(true)
+    try {
+      const res = await submitCheckin()
+      setDates(res.dates ?? dates)
+      setTotal(Number(res.total ?? total))
+      setDone(!!res.checked_today || res.success)
+      setMsg(res.message ?? "")
+      if (res.success) await refreshUser()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const year = cursor.getFullYear()
+  const month = cursor.getMonth()
+  const first = new Date(year, month, 1)
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const startPad = first.getDay()
+  const today = new Date()
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+  const cells = [
+    ...Array.from({ length: startPad }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
 
   return (
     <>
-      <SimpleTopbar title="เช็กอินรายวัน" />
+      <SimpleTopbar title="เช็กอิน" />
       <main className="page">
         <section className="hero-card">
           <div className="hero-top">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div className="hero-badge"><i className="fa-regular fa-calendar-check" /></div>
               <div className="hero-text">
-                <h2>เช็กอินวันนี้ รับโบนัสทันที</h2>
-                <p>เช็กอินเพื่อรับ 20 พอยท์ และสะสมต่อเนื่องทุกวัน</p>
+                <h2>{done ? "เช็กอินแล้ววันนี้" : "(ยังไม่ได้เช็คอินในวันนี้)"}</h2>
+                <p>มีการเช็คอินอย่างต่อเนื่อง {dates.length} วัน, เช็คอินทั้งหมด {dates.length} วัน · {total} พอยท์</p>
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className={`checkin-btn${done ? " done" : ""}`}
-            onClick={() => setDone(true)}
-            disabled={done}
-          >
+          <button type="button" className={`checkin-btn${done ? " done" : ""}`} onClick={checkin} disabled={done || busy}>
             {done ? "เช็กอินแล้ววันนี้" : "เช็กอินรับ +20 พอยท์"}
           </button>
+          {msg ? <p style={{ marginTop: 10, fontSize: 13 }}>{msg}</p> : null}
+        </section>
+        <section className="section-card">
+          <div className="section-title">
+            <h3>{year} / {String(month + 1).padStart(2, "0")}</h3>
+            <span>
+              <button type="button" className="ox-cal-nav" onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="เดือนก่อน">
+                <i className="fa-solid fa-angle-left" />
+              </button>
+              <button type="button" className="ox-cal-nav" onClick={() => setCursor(new Date())}>today</button>
+              <button type="button" className="ox-cal-nav" onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="เดือนถัดไป">
+                <i className="fa-solid fa-angle-right" />
+              </button>
+            </span>
+          </div>
+          <div className="ci-cal-grid">
+            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
+              <div key={d} className="ci-cal-cell" style={{ background: "transparent", fontWeight: 700 }}>
+                {d}
+              </div>
+            ))}
+            {cells.map((day, i) => {
+              if (!day) return <div key={`pad-${i}`} />
+              const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+              const checked = dates.includes(key)
+              return (
+                <div key={key} className={`ci-cal-cell${checked ? " checked" : ""}${key === todayKey ? " today" : ""}`}>
+                  {day}
+                </div>
+              )
+            })}
+          </div>
         </section>
         <section className="section-card">
           <div className="section-title">
             <h3>รางวัลเช็กอิน 7 วัน</h3>
-            <span>สะสม {done ? 1 : 0} วัน</span>
+            <span>สะสม {dates.length} วัน · {total} พอยท์</span>
           </div>
           <div className="reward-grid">
             {["+20", "+20", "+30", "+30", "+40", "+40", "+80"].map((pts, i) => (
-              <div key={i} className={`day-item${done && i === 0 ? " checked" : ""}`}>
+              <div key={i} className={`day-item${dates.length > i ? " checked" : ""}`}>
                 <strong>Day {i + 1}</strong>
                 <small>{pts}</small>
               </div>
@@ -74,7 +148,37 @@ export function CheckinPage() {
 
 export function CouponPage() {
   useBodyClass("page-coupon")
+  const navigate = useNavigate()
+  const { requireLogin, sessionChecked } = useApp()
   const [tab, setTab] = useState<"available" | "used" | "expired">("available")
+  const [items, setItems] = useState<Record<string, unknown>[]>([])
+  const [busyId, setBusyId] = useState<number | null>(null)
+
+  const load = useCallback(async () => {
+    if (!sessionChecked) return
+    if (!requireLogin()) return
+    setItems(await fetchMyCoupons())
+  }, [requireLogin, sessionChecked])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const filtered = items.filter((row) => String(row.user_status ?? "available") === tab)
+  const availableCount = items.filter((row) => String(row.user_status) === "available").length
+
+  const useIt = async (id: number) => {
+    setBusyId(id)
+    try {
+      const res = await useCoupon(id)
+      if (res.success) {
+        await load()
+        navigate("/")
+      }
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   return (
     <>
@@ -83,9 +187,9 @@ export function CouponPage() {
         <section className="summary-card">
           <div className="summary-left">
             <h2>คูปองพร้อมใช้งาน</h2>
-            <p>ใช้เป็นส่วนลดตอนชำระเงินได้ทันที</p>
+            <p>เก็บคูปองไว้ใช้ในร้าน ไม่ตัดยอดกระเป๋าอัตโนมัติ</p>
           </div>
-          <div className="summary-badge"><strong>2</strong><span>ใบ</span></div>
+          <div className="summary-badge"><strong>{availableCount}</strong><span>ใบ</span></div>
         </section>
         <section className="tabs">
           {([
@@ -104,47 +208,41 @@ export function CouponPage() {
           ))}
         </section>
         <section className="coupon-list">
-          {tab === "available" ? (
-            <>
-              <article className="coupon-card">
-                <div className="coupon-main">
-                  <div className="coupon-value"><strong>50฿</strong><span>OFF</span></div>
-                  <div className="coupon-content">
-                    <div className="coupon-title">ส่วนลดสินค้าในร้าน</div>
-                    <div className="coupon-desc">ขั้นต่ำ 499 บาท ใช้ได้กับสินค้าที่ร่วมรายการ</div>
-                    <div className="coupon-meta">
-                      <span><i className="fa-regular fa-clock" /> หมดอายุ 30 เม.ย. 2026</span>
-                      <span className="coupon-tag">ใหม่</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="coupon-footer">
-                  <div className="coupon-code">โค้ด: <strong>MEATT50</strong></div>
-                  <button type="button" className="use-btn">ใช้งาน</button>
-                </div>
-              </article>
-              <article className="coupon-card">
-                <div className="coupon-main">
-                  <div className="coupon-value"><strong>10%</strong><span>OFF</span></div>
-                  <div className="coupon-content">
-                    <div className="coupon-title">ส่วนลดทั้งร้าน</div>
-                    <div className="coupon-desc">สูงสุด 200 บาท</div>
-                    <div className="coupon-meta">
-                      <span><i className="fa-regular fa-clock" /> หมดอายุ 15 พ.ค. 2026</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="coupon-footer">
-                  <div className="coupon-code">โค้ด: <strong>SAVE10</strong></div>
-                  <button type="button" className="use-btn">ใช้งาน</button>
-                </div>
-              </article>
-            </>
-          ) : (
+          {filtered.length === 0 ? (
             <div className="empty-state" style={{ display: "block" }}>
               <i className="fa-regular fa-face-smile" />
               <p>ไม่มีคูปองในหมวดนี้</p>
             </div>
+          ) : (
+            filtered.map((row) => (
+              <article className={`coupon-card${tab !== "available" ? ` ${tab}` : ""}`} key={String(row.id)}>
+                <div className="coupon-main">
+                  <div className="coupon-value"><strong>{String(row.value_label ?? "-")}</strong></div>
+                  <div className="coupon-content">
+                    <div className="coupon-title">{String(row.title ?? "-")}</div>
+                    <div className="coupon-desc">{String(row.description ?? "")}</div>
+                    <div className="coupon-meta">
+                      <span>
+                        <i className="fa-regular fa-clock" /> {row.expires_at ? `หมดอายุ ${String(row.expires_at)}` : "ไม่มีวันหมดอายุ"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="coupon-footer">
+                  <div className="coupon-code">โค้ด: <strong>{String(row.code ?? "-")}</strong></div>
+                  {tab === "available" ? (
+                    <button
+                      type="button"
+                      className="use-btn"
+                      disabled={busyId === Number(row.id)}
+                      onClick={() => useIt(Number(row.id))}
+                    >
+                      ใช้งาน
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ))
           )}
         </section>
       </main>
@@ -369,7 +467,13 @@ export function ChatDetailPage() {
 
 export function OpenStorePage() {
   useBodyClass("page-open-store")
-  const { refreshStoreStatus } = useApp()
+  const navigate = useNavigate()
+  const { refreshStoreStatus, hasStore: alreadyHasStore } = useApp()
+  useEffect(() => {
+    if (alreadyHasStore) return
+    const type = new URLSearchParams(window.location.search).get("type") || sessionStorage.getItem("open_store_shop_type")
+    if (!type) navigate("/select-shop-type", { replace: true })
+  }, [alreadyHasStore, navigate])
   const [shopName, setShopName] = useState("")
   const [category, setCategory] = useState("")
   const [categories, setCategories] = useState<string[]>([])
@@ -1000,7 +1104,40 @@ export function CollectionsPage() {
 
 export function FeedbackPage() {
   useBodyClass("page-feedback")
+  const { requireLogin, sessionChecked } = useApp()
+  const [ftype, setFtype] = useState("complaint")
   const [subject, setSubject] = useState("")
+  const [detail, setDetail] = useState("")
+  const [contact, setContact] = useState("")
+  const [image, setImage] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState("")
+
+  useEffect(() => {
+    if (!sessionChecked) return
+    requireLogin()
+  }, [requireLogin, sessionChecked])
+
+  const submit = async () => {
+    if (!subject.trim()) {
+      setMsg("กรุณาระบุหัวข้อ")
+      return
+    }
+    setBusy(true)
+    setMsg("")
+    try {
+      const res = await submitFeedback({ ftype, subject, detail, contact, image })
+      setMsg(res.message ?? (res.success ? "ส่งเรื่องแล้ว" : "ส่งไม่สำเร็จ"))
+      if (res.success) {
+        setSubject("")
+        setDetail("")
+        setContact("")
+        setImage(null)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <>
@@ -1013,7 +1150,7 @@ export function FeedbackPage() {
         <section className="form-card">
           <div className="field">
             <label htmlFor="feedbackType">ประเภทเรื่อง</label>
-            <select id="feedbackType" className="select" defaultValue="complaint">
+            <select id="feedbackType" className="select" value={ftype} onChange={(e) => setFtype(e.target.value)}>
               <option value="complaint">ร้องเรียนการใช้งาน</option>
               <option value="payment">ปัญหาการชำระเงิน</option>
               <option value="delivery">ปัญหาการจัดส่ง</option>
@@ -1026,32 +1163,34 @@ export function FeedbackPage() {
             <input id="feedbackSubject" className="input" type="text" placeholder="ระบุหัวข้อสั้นๆ" value={subject} onChange={(e) => setSubject(e.target.value)} />
             <div className="quick-tags">
               {["แอปช้า", "สั่งซื้อไม่ได้", "การชำระเงินมีปัญหา", "ขอปรับปรุงระบบ"].map((tag) => (
-                <button key={tag} type="button" className="quick-tag" onClick={() => setSubject(tag)}>{tag}</button>
+                <button key={tag} type="button" className={`quick-tag${subject === tag ? " active" : ""}`} onClick={() => setSubject(tag)}>{tag}</button>
               ))}
             </div>
           </div>
           <div className="field">
             <label htmlFor="feedbackDetail">รายละเอียด</label>
-            <textarea id="feedbackDetail" className="textarea" placeholder="อธิบายปัญหา/ข้อเสนอแนะ" />
+            <textarea id="feedbackDetail" className="textarea" placeholder="อธิบายปัญหา/ข้อเสนอแนะ" value={detail} onChange={(e) => setDetail(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="contactInfo">ช่องทางติดต่อกลับ</label>
-            <input id="contactInfo" className="input" type="text" placeholder="เบอร์โทร หรืออีเมล" />
+            <input id="contactInfo" className="input" type="text" placeholder="เบอร์โทร หรืออีเมล" value={contact} onChange={(e) => setContact(e.target.value)} />
           </div>
           <div className="field">
             <label>แนบหลักฐาน (ถ้ามี)</label>
-            <div className="upload-box">
+            <label className="upload-box">
               <i className="fa-regular fa-image" />
-              อัปโหลดรูปภาพ/สกรีนช็อตได้สูงสุด 3 รูป
+              {image ? image.name : "อัปโหลดรูปภาพ/สกรีนช็อตได้สูงสุด 1 รูป"}
               <br />
               <small>รองรับ .jpg .png .webp</small>
-            </div>
+              <input type="file" accept="image/*" hidden onChange={(e) => setImage(e.target.files?.[0] ?? null)} />
+            </label>
           </div>
+          {msg ? <p style={{ marginTop: 12, fontSize: 13 }}>{msg}</p> : null}
         </section>
       </main>
       <div className="submit-wrap">
-        <button className="submit-btn" type="button">
-          <i className="fa-regular fa-paper-plane" /> ส่งเรื่องให้ทีมงาน
+        <button className="submit-btn" type="button" disabled={busy} onClick={submit}>
+          <i className="fa-regular fa-paper-plane" /> {busy ? "กำลังส่ง..." : "ส่งเรื่องให้ทีมงาน"}
         </button>
       </div>
     </>

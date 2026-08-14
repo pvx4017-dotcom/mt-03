@@ -15,6 +15,7 @@ Shopping marketplace SPA — **ข้อมูลอยู่บน Supabase Pos
 4. เปิด **SQL Editor** → วางเนื้อหาทั้งไฟล์ [`database.sql`](database.sql) → **Run**  
    - มีตาราง + ข้อมูลสินค้า/ร้าน/หมวด/สไลด์ + บัญชีทดสอบครบ  
    - path รูปชี้ไปที่ไฟล์ใน `public/images` ที่มีอยู่ในโปรเจกต์แล้ว  
+   - ถ้าฐานข้อมูลมีอยู่แล้ว (ไม่รัน `database.sql` ใหม่) ให้รัน [`scripts/patch-original-parity-tables.sql`](scripts/patch-original-parity-tables.sql) ครั้งเดียว เพื่อตารางที่อยู่ / ฝาก-ถอนเพิ่มเติม / เช็กอิน / คูปอง / สินเชื่อ  
 5. รัน [`scripts/setup-storage-uploads.sql`](scripts/setup-storage-uploads.sql) สำหรับ Storage (แชท/KYC/หมวด/สไลด์/ร้าน/สินค้าใหม่)  
 6. ตรวจว่าพร้อมใช้:
    ```bash

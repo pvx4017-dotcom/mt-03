@@ -4,6 +4,7 @@ import AdminDashboard from "./AdminDashboard"
 import AdminProductCategoriesPage, {
   AdminRecommendedShopsPage,
   AdminGeneralShopsPage,
+  AdminUserShopsPage,
 } from "./AdminCatalogPages"
 import AdminUsersPage, {
   AdminCreditManagementPage,
@@ -11,11 +12,17 @@ import AdminUsersPage, {
   AdminBankAccountsPage,
   AdminWithdrawPasswordsPage,
   AdminCustomerTopupPage,
+  AdminShippingAddressesPage,
 } from "./AdminUserPages"
 import {
   AdminCustomerDepositsPage,
   AdminCustomerWithdrawalsPage,
   AdminPaymentLimitsPage,
+  AdminSellerLevelsPage,
+  AdminReceivingAccountsPage,
+  AdminLoansPage,
+  AdminCouponsPage,
+  AdminFeedbackPage,
 } from "./AdminFinancePages"
 import {
   AdminCustomerStoreProductsPage,
@@ -44,8 +51,10 @@ export default function AdminRoutes() {
       <Route path="product-categories" element={<AdminProductCategoriesPage />} />
       <Route path="recommended-shops" element={<AdminRecommendedShopsPage />} />
       <Route path="general-shops" element={<AdminGeneralShopsPage />} />
+      <Route path="user-shops" element={<AdminUserShopsPage />} />
       <Route path="add-product" element={<AdminAddProductPage />} />
       <Route path="users" element={<AdminUsersPage />} />
+      <Route path="customer-shipping-addresses" element={<AdminShippingAddressesPage />} />
       <Route path="credit-management" element={<AdminCreditManagementPage />} />
       <Route path="verification" element={<AdminVerificationPage />} />
       <Route path="bank-accounts" element={<AdminBankAccountsPage />} />
@@ -54,6 +63,11 @@ export default function AdminRoutes() {
       <Route path="customer-deposits" element={<AdminCustomerDepositsPage />} />
       <Route path="customer-withdrawals" element={<AdminCustomerWithdrawalsPage />} />
       <Route path="payment-limits" element={<AdminPaymentLimitsPage />} />
+      <Route path="receiving-accounts" element={<AdminReceivingAccountsPage />} />
+      <Route path="seller-levels" element={<AdminSellerLevelsPage />} />
+      <Route path="loans" element={<AdminLoansPage />} />
+      <Route path="coupons" element={<AdminCouponsPage />} />
+      <Route path="feedback" element={<AdminFeedbackPage />} />
       <Route path="notifications" element={<AdminNotificationsPage />} />
       <Route path="chat" element={<AdminChatPage />} />
       <Route path="settings" element={<AdminSettingsPage />} />

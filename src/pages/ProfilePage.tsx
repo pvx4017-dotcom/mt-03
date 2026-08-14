@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { logoAsset } from "@/lib/assets"
 import { fmtMoney, resetAfterSalesBadge } from "@/lib/customerApi"
@@ -23,9 +23,16 @@ function OrderBadge({ count, afterSales }: { count?: number; afterSales?: boolea
 export default function ProfilePage() {
   useBodyClass("page-profile")
   const navigate = useNavigate()
-  const { user, isLoggedIn, hasStore, storeInfo, orderHubCounts } = useApp()
+  const { user, isLoggedIn, hasStore, storeInfo, orderHubCounts, refreshUser, refreshOrderHubCounts } = useApp()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [storeToast, setStoreToast] = useState(false)
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+    void refreshUser()
+    void refreshOrderHubCounts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh once when opening profile
+  }, [isLoggedIn])
 
   const balance = Number(user?.wallet_balance ?? 0)
   const credit = user?.credit ?? 0
@@ -112,11 +119,11 @@ export default function ProfilePage() {
             {fmtMoney(balance)}
           </h1>
           <div className="wallet-actions">
-            <Link to="/withdraw" className="btn btn-outline">
+            <Link to="/wallet" className="btn btn-outline">
               <i className="fa-solid fa-arrow-up-from-bracket" />
               ถอนเงิน
             </Link>
-            <Link to="/deposit" className="btn btn-solid" style={{ textDecoration: "none" }}>
+            <Link to="/wallet" className="btn btn-solid" style={{ textDecoration: "none" }}>
               <i className="fa-solid fa-plus" />
               เติมเงิน
             </Link>
@@ -126,7 +133,7 @@ export default function ProfilePage() {
         <section className="profile-card orders-card">
           <div className="card-header">
             <h3>คำสั่งซื้อของฉัน</h3>
-            <Link to="/pending-payment" className="see-all">
+            <Link to="/orders" className="see-all">
               ทั้งหมด <i className="fa-solid fa-chevron-right" />
             </Link>
           </div>
@@ -175,7 +182,7 @@ export default function ProfilePage() {
             <i className="fa-solid fa-chevron-right store-banner-arrow" />
           </Link>
         ) : (
-          <Link to="/open-store" className="store-banner" style={{ textDecoration: "none" }}>
+          <Link to="/select-shop-type" className="store-banner" style={{ textDecoration: "none" }}>
             <div className="banner-left">
               <div className="store-banner-icon">
                 <i className="fa-solid fa-store" />
@@ -189,8 +196,22 @@ export default function ProfilePage() {
           </Link>
         )}
 
+        <Link to="/loan-application" className="store-banner loan-banner" style={{ textDecoration: "none" }}>
+          <div className="banner-left">
+            <div className="store-banner-icon">
+              <i className="fa-solid fa-file-invoice-dollar" />
+            </div>
+            <div>
+              <div className="store-banner-title">การสมัครสินเชื่อ</div>
+              <div className="store-banner-sub">สินเชื่อธุรกิจสำหรับผู้ประกอบการ</div>
+            </div>
+          </div>
+          <i className="fa-solid fa-chevron-right store-banner-arrow" />
+        </Link>
+
         <section className="menu-list-card">
           {[
+            { to: "/help-center", icon: "fa-headset", label: "ฝ่ายบริการลูกค้า" },
             { to: "/help-manual", icon: "fa-circle-question", label: "คู่มือช่วยเหลือ", regular: true },
             { to: "/reviews", icon: "fa-pen-to-square", label: "การรีวิวของฉัน", regular: true },
             { to: "/settings", icon: "fa-gear", label: "การตั้งค่า" },
@@ -233,7 +254,7 @@ export default function ProfilePage() {
           </Link>
           {[
             { to: "/coupon", icon: "fa-ticket", label: "คูปอง" },
-            { to: "#", icon: "fa-coins", label: "พอยท์มอลล์" },
+            { to: "/points-center", icon: "fa-coins", label: "คะแนนร้านค้า" },
             { to: "/address", icon: "fa-location-dot", label: "ที่อยู่รับสินค้า" },
             { to: "/feedback", icon: "fa-shield-halved", label: "ข้อเสนอแนะการร้องเรียน" },
             { to: "/about", icon: "fa-user", label: "เกี่ยวกับเรา", regular: true },

@@ -10,6 +10,7 @@ import {
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
+  adminGet,
   adminPost,
   fetchAdminDeposits,
   fetchAdminPaymentLimits,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/adminApi"
 import { adminFmtMoney } from "@/lib/adminUtils"
 import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
+import { DEFAULT_SELLER_LEVELS, type SellerLevel } from "@/lib/engagement"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 function statusBadgeClass(status: unknown) {
@@ -121,7 +123,7 @@ function FinanceTablePage({
               <th>ผู้ใช้</th>
               <th>เลขรายการ</th>
               <th>จำนวนเงิน</th>
-              <th>{isWithdraw ? "หมายเหตุ" : "ช่องทาง"}</th>
+              <th>{isWithdraw ? "วิธีรับเงิน" : "ผู้ฝาก"}</th>
               <th>สถานะ</th>
               <th>เวลา</th>
               <th>จัดการ</th>
@@ -142,7 +144,11 @@ function FinanceTablePage({
                   </td>
                   <td>{String(row.transaction_ref ?? row.reference_no ?? row.request_no ?? row.ref ?? row.transaction_id ?? "-")}</td>
                   <td>${adminFmtMoney(row.amount)}</td>
-                  <td>{String(isWithdraw ? (row.note ?? row.remark ?? "-") : (row.channel ?? row.payment_channel ?? row.payment_method ?? "-"))}</td>
+                  <td>
+                    {isWithdraw
+                      ? `${String(row.withdraw_method ?? "-")}${row.payout_destination ? ` · ${String(row.payout_destination)}` : ""}`
+                      : `${String(row.channel ?? row.payment_method ?? "-")}${row.payer_name ? ` · ${String(row.payer_name)}` : ""}`}
+                  </td>
                   <td>
                     <span className={statusBadgeClass(row.status)}>{String(row.status ?? "-")}</span>
                   </td>
@@ -267,6 +273,456 @@ export function AdminPaymentLimitsPage() {
                   <td>{String(row.min_deposit ?? "-")}</td>
                   <td>{String(row.min_withdraw ?? "-")}</td>
                   <td>{formatAdminDate(String(row.updated_at ?? row.created_at ?? ""))}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminSellerLevelsPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<SellerLevel[]>(DEFAULT_SELLER_LEVELS)
+  const [edit, setEdit] = useState<SellerLevel | null>(null)
+
+  const load = useCallback(async () => {
+    const data = await adminGet<{ success?: boolean; levels?: SellerLevel[] }>(API.adminSellerLevels)
+    if (data.levels?.length) setRows(data.levels)
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const save = async () => {
+    if (!edit) return
+    const fd = new FormData()
+    fd.append("id", String(edit.id))
+    fd.append("code", edit.code)
+    fd.append("name", edit.name)
+    fd.append("min_topup", String(edit.min_topup))
+    fd.append("commission_rate", edit.commission_rate)
+    fd.append("referral_reward", edit.referral_reward)
+    fd.append("sort_order", String(edit.sort_order))
+    fd.append("is_active", edit.is_active ? "1" : "0")
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminSellerLevels, fd)
+    if (!res.success) {
+      showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
+      return
+    }
+    showToast("บันทึกระดับผู้ขายแล้ว")
+    setEdit(null)
+    await load()
+  }
+
+  return (
+    <AdminPageShell barTitle="จัดการระดับ" pageTitle="จัดการระดับผู้ขาย" icon="fa-ranking-star">
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>รหัส</th>
+              <th>ชื่อระดับ</th>
+              <th>ยอดเติมขั้นต่ำ</th>
+              <th>ค่าคอมมิชชั่น</th>
+              <th>รางวัลแนะนำ</th>
+              <th>ลำดับ</th>
+              <th>สถานะ</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.code}</td>
+                <td>{row.name}</td>
+                <td>${row.min_topup}</td>
+                <td>{row.commission_rate}</td>
+                <td>{row.referral_reward}</td>
+                <td>{row.sort_order}</td>
+                <td>{row.is_active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
+                <td>
+                  <button type="button" className="admin-action-btn edit" onClick={() => setEdit(row)}>
+                    แก้ไข
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+      {edit ? (
+        <div className="admin-sheet-overlay show" onClick={() => setEdit(null)}>
+          <div className="admin-sheet-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-sheet-head">
+              <h3>แก้ไขระดับผู้ขาย</h3>
+            </div>
+            <div className="admin-sheet-body" style={{ display: "grid", gap: 10 }}>
+              <input className="admin-form-control" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} />
+              <input className="admin-form-control" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+              <input className="admin-form-control" type="number" value={edit.min_topup} onChange={(e) => setEdit({ ...edit, min_topup: Number(e.target.value) })} />
+              <input className="admin-form-control" value={edit.commission_rate} onChange={(e) => setEdit({ ...edit, commission_rate: e.target.value })} />
+              <input className="admin-form-control" value={edit.referral_reward} onChange={(e) => setEdit({ ...edit, referral_reward: e.target.value })} />
+              <select className="admin-form-control" value={edit.is_active ? "1" : "0"} onChange={(e) => setEdit({ ...edit, is_active: e.target.value === "1" })}>
+                <option value="1">เปิดใช้งาน</option>
+                <option value="0">ปิดใช้งาน</option>
+              </select>
+            </div>
+            <div className="admin-sheet-foot">
+              <button type="button" className="admin-edit-btn cancel" onClick={() => setEdit(null)}>ยกเลิก</button>
+              <button type="button" className="admin-edit-btn save" onClick={save}>บันทึก</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminReceivingAccountsPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [form, setForm] = useState({
+    id: "",
+    channel: "bank",
+    account_name: "",
+    account_number: "",
+    network: "",
+    note: "",
+    is_active: "1",
+    sort_order: "0",
+  })
+
+  const load = useCallback(async () => {
+    const data = await adminGet<{ accounts?: Record<string, unknown>[] }>(API.adminReceivingAccounts)
+    setRows(data.accounts ?? [])
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const save = async () => {
+    const fd = new FormData()
+    if (form.id) fd.append("id", form.id)
+    fd.append("channel", form.channel)
+    fd.append("account_name", form.account_name)
+    fd.append("account_number", form.account_number)
+    fd.append("network", form.network)
+    fd.append("note", form.note)
+    fd.append("is_active", form.is_active)
+    fd.append("sort_order", form.sort_order)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminReceivingAccounts, fd)
+    if (!res.success) {
+      showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
+      return
+    }
+    showToast("บันทึกบัญชีรับเงินแล้ว")
+    setForm({ id: "", channel: "bank", account_name: "", account_number: "", network: "", note: "", is_active: "1", sort_order: "0" })
+    await load()
+  }
+
+  const remove = async (id: number) => {
+    const fd = new FormData()
+    fd.append("action", "delete")
+    fd.append("id", String(id))
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminReceivingAccounts, fd)
+    if (res.success) {
+      showToast("ลบแล้ว")
+      await load()
+    } else showToast(res.message ?? "ลบไม่สำเร็จ", "error")
+  }
+
+  return (
+    <AdminPageShell barTitle="บัญชีรับเงินบริษัท" pageTitle="บัญชีรับเงินตอนฝาก" icon="fa-building-columns">
+      <div className="admin-card" style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+        <div className="admin-form-row">
+          <select className="admin-form-control" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })}>
+            <option value="bank">bank</option>
+            <option value="usdt">usdt</option>
+            <option value="eth">eth</option>
+            <option value="btc">btc</option>
+          </select>
+          <input className="admin-form-control" placeholder="ชื่อบัญชี" value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} />
+          <input className="admin-form-control" placeholder="เลขบัญชี / ที่อยู่" value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
+        </div>
+        <div className="admin-form-row">
+          <input className="admin-form-control" placeholder="เครือข่าย / ธนาคาร" value={form.network} onChange={(e) => setForm({ ...form, network: e.target.value })} />
+          <input className="admin-form-control" placeholder="หมายเหตุ" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          <button type="button" className="admin-submit-btn" onClick={save}>{form.id ? "อัปเดต" : "เพิ่มบัญชี"}</button>
+        </div>
+      </div>
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>ช่องทาง</th>
+              <th>ชื่อบัญชี</th>
+              <th>เลขบัญชี</th>
+              <th>เครือข่าย</th>
+              <th>สถานะ</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <AdminEmptyRow cols={6} message="ยังไม่มีบัญชีรับเงิน" />
+            ) : (
+              rows.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{String(row.channel ?? "-")}</td>
+                  <td>{String(row.account_name ?? "-")}</td>
+                  <td>{String(row.account_number ?? "-")}</td>
+                  <td>{String(row.network ?? "-")}</td>
+                  <td>{row.is_active ? "เปิด" : "ปิด"}</td>
+                  <td>
+                    <button type="button" className="admin-action-btn edit" onClick={() => setForm({
+                      id: String(row.id ?? ""),
+                      channel: String(row.channel ?? "bank"),
+                      account_name: String(row.account_name ?? ""),
+                      account_number: String(row.account_number ?? ""),
+                      network: String(row.network ?? ""),
+                      note: String(row.note ?? ""),
+                      is_active: row.is_active ? "1" : "0",
+                      sort_order: String(row.sort_order ?? 0),
+                    })}>แก้ไข</button>
+                    <button type="button" className="admin-action-btn cancel" onClick={() => remove(Number(row.id))}>ลบ</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminLoansPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+
+  const load = useCallback(async () => {
+    const data = await adminGet<{ items?: Record<string, unknown>[] }>(API.adminLoans)
+    setRows(data.items ?? [])
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const setStatus = async (id: number, status: string) => {
+    const fd = new FormData()
+    fd.append("id", String(id))
+    fd.append("status", status)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminLoans, fd)
+    if (res.success) {
+      showToast("อัปเดตแล้ว")
+      await load()
+    } else showToast(res.message ?? "ไม่สำเร็จ", "error")
+  }
+
+  return (
+    <AdminPageShell barTitle="สินเชื่อลูกค้า" pageTitle="คำขอสินเชื่อ" icon="fa-hand-holding-dollar">
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>ผู้ใช้</th>
+              <th>ชื่อ</th>
+              <th>เบอร์</th>
+              <th>ยอด</th>
+              <th>สถานะ</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <AdminEmptyRow cols={7} message="ยังไม่มีคำขอ" />
+            ) : (
+              rows.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{String(row.id)}</td>
+                  <td>#{String(row.user_id)}</td>
+                  <td>{String(row.full_name ?? "-")}</td>
+                  <td>{String(row.phone ?? "-")}</td>
+                  <td>${adminFmtMoney(row.amount)}</td>
+                  <td>{String(row.status ?? "-")}</td>
+                  <td>
+                    <button type="button" className="admin-action-btn approve" onClick={() => setStatus(Number(row.id), "approved")}>อนุมัติ</button>
+                    <button type="button" className="admin-action-btn cancel" onClick={() => setStatus(Number(row.id), "rejected")}>ปฏิเสธ</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminCouponsPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [form, setForm] = useState({
+    id: "",
+    code: "",
+    title: "",
+    description: "",
+    value_label: "",
+    expires_at: "",
+    is_active: "1",
+  })
+
+  const load = useCallback(async () => {
+    const data = await adminGet<{ items?: Record<string, unknown>[] }>(API.adminCoupons)
+    setRows(data.items ?? [])
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const save = async () => {
+    const fd = new FormData()
+    if (form.id) fd.append("id", form.id)
+    fd.append("code", form.code)
+    fd.append("title", form.title)
+    fd.append("description", form.description)
+    fd.append("value_label", form.value_label)
+    fd.append("expires_at", form.expires_at)
+    fd.append("is_active", form.is_active)
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminCoupons, fd)
+    if (!res.success) {
+      showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
+      return
+    }
+    showToast("บันทึกคูปองแล้ว")
+    setForm({ id: "", code: "", title: "", description: "", value_label: "", expires_at: "", is_active: "1" })
+    await load()
+  }
+
+  const remove = async (id: number) => {
+    const fd = new FormData()
+    fd.append("action", "delete")
+    fd.append("id", String(id))
+    const res = await adminPost<{ success: boolean; message?: string }>(API.adminCoupons, fd)
+    if (res.success) {
+      showToast("ลบแล้ว")
+      await load()
+    }
+  }
+
+  return (
+    <AdminPageShell barTitle="คูปอง" pageTitle="จัดการคูปอง" icon="fa-ticket">
+      <div className="admin-card" style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+        <div className="admin-form-row">
+          <input className="admin-form-control" placeholder="โค้ด" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <input className="admin-form-control" placeholder="ชื่อ" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <input className="admin-form-control" placeholder="มูลค่า เช่น 50฿" value={form.value_label} onChange={(e) => setForm({ ...form, value_label: e.target.value })} />
+        </div>
+        <div className="admin-form-row">
+          <input className="admin-form-control" placeholder="รายละเอียด" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <input className="admin-form-control" type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+          <button type="button" className="admin-submit-btn" onClick={save}>{form.id ? "อัปเดต" : "เพิ่มคูปอง"}</button>
+        </div>
+      </div>
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>โค้ด</th>
+              <th>ชื่อ</th>
+              <th>มูลค่า</th>
+              <th>หมดอายุ</th>
+              <th>สถานะ</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <AdminEmptyRow cols={6} message="ยังไม่มีคูปอง" />
+            ) : (
+              rows.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{String(row.code)}</td>
+                  <td>{String(row.title)}</td>
+                  <td>{String(row.value_label ?? "-")}</td>
+                  <td>{String(row.expires_at ?? "-")}</td>
+                  <td>{row.is_active ? "เปิด" : "ปิด"}</td>
+                  <td>
+                    <button type="button" className="admin-action-btn edit" onClick={() => setForm({
+                      id: String(row.id ?? ""),
+                      code: String(row.code ?? ""),
+                      title: String(row.title ?? ""),
+                      description: String(row.description ?? ""),
+                      value_label: String(row.value_label ?? ""),
+                      expires_at: String(row.expires_at ?? "").slice(0, 10),
+                      is_active: row.is_active ? "1" : "0",
+                    })}>แก้ไข</button>
+                    <button type="button" className="admin-action-btn cancel" onClick={() => remove(Number(row.id))}>ลบ</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableWrap>
+      {Toast}
+    </AdminPageShell>
+  )
+}
+
+export function AdminFeedbackPage() {
+  useBodyClass("admin-page")
+  const { showToast, Toast } = useAdminToast()
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+
+  useEffect(() => {
+    adminGet<{ items?: Record<string, unknown>[] }>(API.adminFeedback)
+      .then((data) => setRows(data.items ?? []))
+      .catch(() => showToast("โหลดไม่สำเร็จ", "error"))
+  }, [showToast])
+
+  return (
+    <AdminPageShell barTitle="ข้อเสนอแนะ" pageTitle="กล่องรับเรื่องจากลูกค้า" icon="fa-inbox">
+      <AdminTableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>ผู้ใช้</th>
+              <th>ประเภท</th>
+              <th>หัวข้อ</th>
+              <th>รายละเอียด</th>
+              <th>ติดต่อ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <AdminEmptyRow cols={6} message="ยังไม่มีเรื่อง" />
+            ) : (
+              rows.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{formatAdminDate(String(row.created_at ?? ""))}</td>
+                  <td>#{String(row.user_id ?? "-")}</td>
+                  <td>{String(row.ftype ?? "-")}</td>
+                  <td>{String(row.subject ?? "-")}</td>
+                  <td>{String(row.detail ?? "-")}</td>
+                  <td>{String(row.contact ?? "-")}</td>
                 </tr>
               ))
             )}

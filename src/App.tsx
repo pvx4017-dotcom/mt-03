@@ -38,6 +38,14 @@ import {
   FeedbackPage,
   AboutPage,
 } from "@/pages/MiscPages"
+import WalletPage from "@/pages/WalletPage"
+import {
+  SelectShopTypePage,
+  LoanApplicationPage,
+  LoanApplyPage,
+  LoanMyPage,
+  PointsCenterPage,
+} from "@/pages/OriginalExtraPages"
 import AdminRoutes from "@/pages/admin/AdminRoutes"
 import {
   VerificationPage,
@@ -80,6 +88,12 @@ export default function App() {
 
           <Route path="/withdraw" element={<WithdrawPage />} />
           <Route path="/deposit" element={<DepositPage />} />
+          <Route path="/wallet" element={<WalletPage />} />
+          <Route path="/select-shop-type" element={<SelectShopTypePage />} />
+          <Route path="/loan-application" element={<LoanApplicationPage />} />
+          <Route path="/loan-apply" element={<LoanApplyPage />} />
+          <Route path="/loan-my" element={<LoanMyPage />} />
+          <Route path="/points-center" element={<PointsCenterPage />} />
           <Route path="/deposit-history" element={<DepositHistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/address" element={<AddressPage />} />

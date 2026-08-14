@@ -3,9 +3,11 @@ import { Link } from "react-router-dom"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
 import {
+  fetchPayoutWallets,
   fetchWithdrawHistory,
   fmtDateTime,
   fmtMoney,
+  savePayoutWallets,
   setWithdrawPassword,
   submitBankAccount,
   submitVerification,
@@ -48,7 +50,7 @@ const fieldStyle: React.CSSProperties = {
 
 
 export function VerificationPage() {
-  const { refreshUser } = useApp()
+  const { refreshUser, user } = useApp()
   const [fullName, setFullName] = useState("")
   const [idCard, setIdCard] = useState("")
   const [front, setFront] = useState<File | null>(null)
@@ -57,7 +59,23 @@ export function VerificationPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
 
+  const kycStatus = user?.kyc_status ?? "none"
+  const kycLabel =
+    kycStatus === "approved"
+      ? "สถานะ: ยืนยันแล้ว"
+      : kycStatus === "pending"
+        ? "สถานะ: รอแอดมินตรวจสอบ"
+        : kycStatus === "rejected"
+          ? `สถานะ: ไม่ผ่าน${user?.kyc_rejection_reason ? ` — ${user.kyc_rejection_reason}` : ""}`
+          : "สถานะ: ยังไม่ได้ส่งเอกสาร"
+
+  const canSubmit = kycStatus === "none" || kycStatus === "rejected"
+
   const submit = async () => {
+    if (!canSubmit) {
+      setMsg(kycStatus === "pending" ? "คำขอกำลังรอตรวจสอบ" : "ยืนยันตัวตนแล้ว")
+      return
+    }
     if (!fullName.trim() || !idCard.trim()) {
       setMsg("กรุณากรอกชื่อ-นามสกุลและเลขบัตรประชาชน")
       return
@@ -85,8 +103,11 @@ export function VerificationPage() {
 
   return (
     <SettingsFormPage title="ยืนยันตัวตน (KYC)">
-      <p style={{ fontSize: 13, color: "#666", marginBottom: 16, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: "#666", marginBottom: 8, lineHeight: 1.6 }}>
         อัปโหลดเอกสารเพื่อยืนยันตัวตนและเพิ่มวงเงินถอน
+      </p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: kycStatus === "approved" ? "#15803d" : "#2563eb", marginBottom: 16 }}>
+        {kycLabel}
       </p>
       <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
         <input
@@ -140,22 +161,44 @@ export function VerificationPage() {
           </label>
         ))}
       </div>
+      {kycStatus === "rejected" ? (
+        <p style={{ fontSize: 13, color: "#b45309", marginBottom: 12 }}>ส่งเอกสารใหม่ได้หลังจากถูกปฏิเสธ</p>
+      ) : null}
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
-      <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
-        {busy ? "กำลังส่ง..." : "ส่งคำขอยืนยันตัวตน"}
+      <button type="button" className="settings-submit-btn" disabled={busy || !canSubmit} onClick={submit}>
+        {busy ? "กำลังส่ง..." : kycStatus === "rejected" ? "ส่งเอกสารใหม่" : "ส่งคำขอยืนยันตัวตน"}
       </button>
     </SettingsFormPage>
   )
 }
 
 export function LinkAccountPage() {
-  const { refreshUser } = useApp()
+  const { refreshUser, user } = useApp()
   const [bankName, setBankName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [accountName, setAccountName] = useState("")
   const [phone, setPhone] = useState("")
+  const [usdtTrc20, setUsdtTrc20] = useState("")
+  const [usdtErc20, setUsdtErc20] = useState("")
+  const [eth, setEth] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
+
+  useEffect(() => {
+    void fetchPayoutWallets()
+      .then((wallets) => {
+        setUsdtTrc20(wallets.usdt_trc20 ?? "")
+        setUsdtErc20(wallets.usdt_erc20 ?? "")
+        setEth(wallets.eth ?? "")
+      })
+      .catch(() => {})
+    const fromUser = user?.bank_account
+    if (fromUser) {
+      setUsdtTrc20((cur) => cur || String(fromUser.usdt_trc20 ?? ""))
+      setUsdtErc20((cur) => cur || String(fromUser.usdt_erc20 ?? ""))
+      setEth((cur) => cur || String(fromUser.eth ?? ""))
+    }
+  }, [user?.id, user?.bank_account])
 
   const submit = async () => {
     if (!bankName || !accountNumber.trim() || !accountName.trim()) {
@@ -170,6 +213,11 @@ export function LinkAccountPage() {
         account_number: accountNumber.trim(),
         account_name: accountName.trim(),
         phone_number: phone.trim() || undefined,
+      })
+      await savePayoutWallets({
+        usdt_trc20: usdtTrc20.trim(),
+        usdt_erc20: usdtErc20.trim(),
+        eth: eth.trim(),
       })
       setMsg(res.message ?? (res.success ? "บันทึกข้อมูลแล้ว" : "บันทึกไม่สำเร็จ"))
       if (res.success) await refreshUser()
@@ -224,6 +272,36 @@ export function LinkAccountPage() {
             style={{ ...fieldStyle, marginTop: 6 }}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 13, color: "#444" }}>
+          USDT TRC20
+          <input
+            type="text"
+            placeholder="ที่อยู่ USDT TRC20"
+            style={{ ...fieldStyle, marginTop: 6 }}
+            value={usdtTrc20}
+            onChange={(e) => setUsdtTrc20(e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 13, color: "#444" }}>
+          USDT ERC20
+          <input
+            type="text"
+            placeholder="ที่อยู่ USDT ERC20"
+            style={{ ...fieldStyle, marginTop: 6 }}
+            value={usdtErc20}
+            onChange={(e) => setUsdtErc20(e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 13, color: "#444" }}>
+          ETH
+          <input
+            type="text"
+            placeholder="ที่อยู่ ETH"
+            style={{ ...fieldStyle, marginTop: 6 }}
+            value={eth}
+            onChange={(e) => setEth(e.target.value)}
           />
         </label>
       </div>
