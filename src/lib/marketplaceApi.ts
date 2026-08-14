@@ -129,38 +129,44 @@ export function formatNumberText(value: number | string): string {
   return Number.isFinite(num) ? num.toLocaleString("th-TH") : "0"
 }
 
+function requireSupabase() {
+  if (!isSupabaseConfigured()) {
+    throw new Error("ยังไม่ได้ตั้งค่า VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY")
+  }
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   const rows = await dbFetchCategories()
   return rows.filter((c) => c.category_name?.trim() && c.category_image?.trim()) as ApiCategory[]
 }
 
 export async function fetchShops(): Promise<ApiShop[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   const rows = await dbFetchShops(true)
   return rows.filter((s) => s.shop_name?.trim()) as ApiShop[]
 }
 
 export async function fetchSlideBanners(): Promise<string[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   const { dbFetchSlides } = await import("@/lib/dbService")
   const rows = await dbFetchSlides()
   return rows.map((r) => String(r.slide_image ?? r.image_path ?? "").trim()).filter(Boolean)
 }
 
 export async function fetchProducts(): Promise<ApiProduct[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   return (await dbFetchProducts()) as ApiProduct[]
 }
 
 export async function fetchMirrorProducts(): Promise<ApiProduct[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   const { dbFetchAllCustomerShopProducts } = await import("@/lib/dbService")
   return (await dbFetchAllCustomerShopProducts()) as ApiProduct[]
 }
 
 export async function fetchShopsForLookup(): Promise<ApiShop[]> {
-  if (!isSupabaseConfigured()) return []
+  requireSupabase()
   const { dbFetchShops } = await import("@/lib/dbService")
   const [recommended, general] = await Promise.all([dbFetchShops(true), dbFetchShops(false)])
   const byName = new Map<string, ApiShop>()

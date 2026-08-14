@@ -46,6 +46,21 @@ yarn images:pull --skip-existing  # ดึงรูป catalog ลง public/ (�
 
 อย่าใช้ `yarn images:mirror` (เลิกใช้แล้ว)
 
+## Production บน Vercel ไม่ขึ้นสินค้า
+
+แอปเป็น SPA ที่ **ฝังค่า env ตอน `yarn build`** ไฟล์ `.env` บนเครื่องถูก gitignore จึง **ไม่ไปกับ GitHub/Vercel**
+
+ต้องตั้งใน Vercel → Project → **Settings → Environment Variables** (อย่างน้อย Production):
+
+| ชื่อ | ค่า |
+|------|------|
+| `VITE_SUPABASE_URL` | Project URL จาก Supabase → Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | anon public key จากหน้าเดียวกัน |
+
+แล้ว **Redeploy** (Deployments → ⋯ → Redeploy) เพราะแก้ env อย่างเดียวไม่รีบิลด์ให้
+
+ถ้าไม่ตั้งสองค่านี้ หน้าแรกจะว่าง (เดิมโค้ดคืน `[]` เงียบ ๆ) — ตอนนี้ build จะล้มพร้อมข้อความชัดเจน
+
 ---
 
 # React + TypeScript + Vite

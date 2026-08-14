@@ -286,8 +286,8 @@ body.page-home {
 }
 
 .home-catalog-section .home-product-feed {
-  gap: 10px;
-  padding: 10px 8px 4px;
+  gap: 6px;
+  padding: 4px;
 }
 
 .catalog-toolbar {

@@ -104,7 +104,7 @@ export async function dbFetchShops(recommendedOnly = false) {
 export async function dbFetchProducts() {
   const sb = getSupabase()
   const { data, error } = await sb.from("store_products").select("*").order("id")
-  if (error) return []
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
