@@ -48,6 +48,19 @@ import "./index.css"
 import "./styles/fontawesome-guard.css"
 import App from "./App.tsx"
 
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault()
+  window.__pwaInstallPrompt = event as BeforeInstallPromptEvent
+})
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* ignore — install dialog still offers manual steps */
+    })
+  })
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
