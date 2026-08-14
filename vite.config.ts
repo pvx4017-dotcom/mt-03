@@ -24,5 +24,10 @@ export default defineConfig(({ command, mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    server: {
+      headers: {
+        "Service-Worker-Allowed": "/",
+      },
+    },
   }
 })

@@ -1,10 +1,6 @@
-const STORAGE_KEY = "meta_pwa_install_choice"
+const STORAGE_KEY = "meta_pwa_install_choice_v2"
 
-type PromptWaiter = (event: BeforeInstallPromptEvent) => void
-
-const waiters: PromptWaiter[] = []
-
-function isStandaloneDisplay() {
+export function isStandaloneDisplay() {
   if (typeof window === "undefined") return false
   if (window.matchMedia("(display-mode: standalone)").matches) return true
   if (window.matchMedia("(display-mode: fullscreen)").matches) return true
@@ -12,16 +8,32 @@ function isStandaloneDisplay() {
   return nav.standalone === true
 }
 
+export function isIosDevice() {
+  const ua = navigator.userAgent
+  if (/iPhone|iPad|iPod/i.test(ua)) return true
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+}
+
+export function isIosSafari() {
+  if (!isIosDevice()) return false
+  const ua = navigator.userAgent
+  const isOther = /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|YaBrowser/i.test(ua)
+  return /Safari/i.test(ua) && !isOther
+}
+
 export function captureInstallPrompt(event: Event) {
   event.preventDefault()
-  const next = event as BeforeInstallPromptEvent
-  window.__pwaInstallPrompt = next
-  waiters.splice(0).forEach((fn) => fn(next))
+  window.__pwaInstallPrompt = event as BeforeInstallPromptEvent
+  window.dispatchEvent(new Event("meta-pwa-prompt-ready"))
 }
 
 export function registerPwaServiceWorker() {
   if (!("serviceWorker" in navigator)) return
-  void navigator.serviceWorker.register("/sw.js")
+  void navigator.serviceWorker.register("/sw.js", { scope: "/" })
+}
+
+export function getNativeInstallPrompt() {
+  return window.__pwaInstallPrompt ?? null
 }
 
 export function shouldOfferPwaInstall(pathname: string) {
@@ -34,43 +46,18 @@ export function shouldOfferPwaInstall(pathname: string) {
 
 export function markPwaChoice(choice: "dismissed" | "installed") {
   localStorage.setItem(STORAGE_KEY, choice)
-  if (choice === "dismissed") {
-    window.__pwaInstallPrompt = null
-  }
+  if (choice === "dismissed") window.__pwaInstallPrompt = null
 }
 
-function waitForNativePrompt(timeoutMs: number) {
-  const existing = window.__pwaInstallPrompt
-  if (existing) return Promise.resolve(existing)
-
-  return new Promise<BeforeInstallPromptEvent | null>((resolve) => {
-    const timer = window.setTimeout(() => {
-      const idx = waiters.indexOf(onReady)
-      if (idx >= 0) waiters.splice(idx, 1)
-      resolve(window.__pwaInstallPrompt ?? null)
-    }, timeoutMs)
-
-    const onReady = (event: BeforeInstallPromptEvent) => {
-      window.clearTimeout(timer)
-      resolve(event)
-    }
-    waiters.push(onReady)
-  })
-}
-
-/** Triggers the browser's native install sheet. No manual how-to. */
-export async function installPwaNow(): Promise<"accepted" | "dismissed" | "unavailable"> {
-  if ("serviceWorker" in navigator) {
-    try {
-      await navigator.serviceWorker.ready
-    } catch {
-      /* continue — prompt may still be available */
-    }
-  }
-  const pending = await waitForNativePrompt(10000)
-  if (!pending) return "unavailable"
-  await pending.prompt()
-  const choice = await pending.userChoice
-  window.__pwaInstallPrompt = null
-  return choice.outcome
+/** Must run directly from a click — do not await anything before prompt(). */
+export function promptNativeInstall(): Promise<"accepted" | "dismissed" | "unavailable"> {
+  const pending = getNativeInstallPrompt()
+  if (!pending) return Promise.resolve("unavailable")
+  return pending
+    .prompt()
+    .then(() => pending.userChoice)
+    .then((choice) => {
+      window.__pwaInstallPrompt = null
+      return choice.outcome
+    })
 }

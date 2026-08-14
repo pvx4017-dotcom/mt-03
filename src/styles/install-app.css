@@ -58,6 +58,31 @@
   margin-bottom: 18px !important;
 }
 
+.pwa-install-ios {
+  margin: 0 0 18px;
+  padding-left: 22px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.pwa-install-ios strong {
+  color: #111827;
+}
+
+.pwa-install-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #eef1ff;
+  color: #002fff;
+  vertical-align: middle;
+}
+
 .pwa-install-error {
   color: #b91c1c !important;
   margin-bottom: 14px !important;

@@ -2,9 +2,26 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ],
   "rewrites": [
     {
-      "source": "/((?!assets/|images/|logo/|flags/|partner/).*)",
+      "source": "/((?!assets/|images/|logo/|flags/|partner/|icons/|sw\\.js$|manifest\\.json$|manifest\\.webmanifest$).*)",
       "destination": "/index.html"
     }
   ]
