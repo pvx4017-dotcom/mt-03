@@ -21,7 +21,7 @@ body.page-privacy-policy {
     line-height: 1.8;
 }
 
-#app {
+body.page-privacy-policy #app {
     width: 100%;
     margin: 0 auto;
     background: #fff;
@@ -267,4 +267,3 @@ html {
 .privacy-section h2 {
     font-size: 12px !important;
 }
-

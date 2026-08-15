@@ -692,6 +692,7 @@ body.page-customer.page-chat-detail #app {
   height: 100dvh;
   max-height: 100dvh;
   min-height: 0 !important;
+  padding-bottom: 0 !important;
   overflow: hidden;
 }
 
@@ -713,6 +714,14 @@ body.page-customer.page-help-center .chat-input-bar,
 body.page-customer.page-chat-detail .chat-input-bar {
   position: relative;
   flex-shrink: 0;
+  width: 100%;
+  margin-top: auto;
+  padding: 10px max(12px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  align-items: flex-end;
+  background: #fff;
+  border-top: 1px solid var(--app-border);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+  z-index: 100;
 }
 
 body.page-customer.page-open-store {

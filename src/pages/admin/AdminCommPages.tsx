@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { API } from "@/lib/apiRoutes"
 import { AdminPageShell } from "@/components/admin/AdminPageShell"
 import {
@@ -392,6 +393,8 @@ function threadsSignature(rows: Record<string, unknown>[]) {
 
 export function AdminChatPage() {
   useBodyClass("admin-page admin-chat-page")
+  const [searchParams] = useSearchParams()
+  const requestedUserId = (searchParams.get("user_id") ?? "").trim()
   const { showToast, Toast } = useAdminToast()
   const [view, setView] = useState<"list" | "chat">("list")
   const [threads, setThreads] = useState<Record<string, unknown>[]>([])
@@ -418,6 +421,7 @@ export function AdminChatPage() {
   const messagesBoxRef = useRef<HTMLDivElement>(null)
   const threadsSigRef = useRef("")
   const messagesSigRef = useRef("")
+  const requestedChatOpenedRef = useRef("")
 
   const scrollMessagesToEnd = useCallback((behavior: ScrollBehavior = "auto") => {
     requestAnimationFrame(() => {
@@ -515,15 +519,22 @@ export function AdminChatPage() {
     })
   }, [threads, search])
 
-  const openChat = async (uid: string) => {
+  const openChat = useCallback(async (uid: string) => {
     setActiveUser(uid)
     setView("chat")
     const fd = new FormData()
     fd.append("mode", "reset_message_count")
     fd.append("user_id", uid)
     await adminPost(API.supportChat, fd).catch(() => {})
-    loadThreads(true)
-  }
+    void loadThreads(true)
+  }, [loadThreads])
+
+  useEffect(() => {
+    if (!/^\d+$/.test(requestedUserId) || Number(requestedUserId) <= 0) return
+    if (requestedChatOpenedRef.current === requestedUserId) return
+    requestedChatOpenedRef.current = requestedUserId
+    void openChat(requestedUserId)
+  }, [openChat, requestedUserId])
 
   const sendMessage = async () => {
     if (!activeUser || !text.trim()) return

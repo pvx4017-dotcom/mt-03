@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { logoAsset } from "@/lib/assets"
 import { useApp } from "@/context/AppContext"
@@ -172,21 +172,42 @@ export function LoanApplyPage() {
 
 export function LoanMyPage() {
   useBodyClass("page-loan")
-  const { requireLogin, sessionChecked } = useApp()
+  const { user, isLoggedIn, requireLogin, sessionChecked } = useApp()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
+
+  const loadLoans = useCallback(async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError("")
+    try {
+      setRows(await fetchMyLoans())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "โหลดข้อมูลสินเชื่อไม่สำเร็จ")
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!sessionChecked) return
-    if (!requireLogin()) return
-    setLoading(true)
-    setError("")
-    void fetchMyLoans()
-      .then(setRows)
-      .catch((err) => setError(err instanceof Error ? err.message : "โหลดข้อมูลสินเชื่อไม่สำเร็จ"))
-      .finally(() => setLoading(false))
-  }, [requireLogin, sessionChecked])
+    if (!requireLogin()) {
+      setLoading(false)
+      setRows([])
+      return
+    }
+    void loadLoans()
+    const refresh = () => void loadLoans(true)
+    window.addEventListener("focus", refresh)
+    const timer = window.setInterval(refresh, 30_000)
+    return () => {
+      window.removeEventListener("focus", refresh)
+      window.clearInterval(timer)
+    }
+  }, [isLoggedIn, loadLoans, requireLogin, sessionChecked, user?.id])
 
   const statusLabel = (status: unknown) => {
     const s = String(status ?? "pending")
@@ -205,23 +226,49 @@ export function LoanMyPage() {
         <h1>เงินกู้ของฉัน</h1>
       </header>
       <main className="ox-pad">
-        {loading ? (
-          <p className="ox-note">กำลังโหลดข้อมูลสินเชื่อ...</p>
-        ) : error ? (
-          <p className="ox-error">{error}</p>
-        ) : rows.length === 0 ? (
-          <p className="ox-note">ยังไม่มีใบสมัครสินเชื่อ</p>
+        {!isLoggedIn ? (
+          <article className="ox-info-card" style={{ textAlign: "center" }}>
+            <strong>กรุณาเข้าสู่ระบบ</strong>
+            <p className="ox-note">ประวัติสินเชื่อจะแสดงตามบัญชีผู้ใช้ที่กำลังเข้าสู่ระบบ</p>
+            <Link to="/login" className="ox-primary-btn">เข้าสู่ระบบ</Link>
+          </article>
         ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <span className="ox-note" style={{ margin: 0 }}>
+              ประวัติของบัญชี #{String(user?.id ?? "-")}
+            </span>
+            <button type="button" className="ox-ghost-btn" disabled={refreshing} onClick={() => void loadLoans(true)}>
+              {refreshing ? "กำลังรีเฟรช..." : "รีเฟรช"}
+            </button>
+          </div>
+        )}
+        {isLoggedIn && loading ? (
+          <p className="ox-note">กำลังโหลดข้อมูลสินเชื่อ...</p>
+        ) : isLoggedIn && error ? (
+          <p className="ox-error">{error}</p>
+        ) : isLoggedIn && rows.length === 0 ? (
+          <article className="ox-info-card" style={{ textAlign: "center" }}>
+            <strong>ยังไม่มีประวัติสินเชื่อสำหรับบัญชีนี้</strong>
+            <p className="ox-note">หากเคยยื่นคำขอด้วยบัญชีอื่น กรุณาเข้าสู่ระบบด้วยบัญชีนั้น</p>
+            <Link to="/loan-apply" className="ox-primary-btn">ยื่นคำขอสินเชื่อ</Link>
+          </article>
+        ) : isLoggedIn ? (
           rows.map((row) => (
             <article className="ox-info-card" key={String(row.id)}>
-              <strong>#{String(row.id)}</strong>
-              <p>ยอด ${fmtMoney(row.amount)} · {statusLabel(row.status)}</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <strong>คำขอ #{String(row.id)}</strong>
+                <span style={{ fontSize: 13, fontWeight: 700, color: String(row.status) === "approved" ? "#15803d" : String(row.status) === "rejected" ? "#b91c1c" : "#b45309" }}>
+                  {statusLabel(row.status)}
+                </span>
+              </div>
+              <p style={{ marginBottom: 6 }}>วงเงิน ${fmtMoney(row.amount)}</p>
+              {row.full_name ? <p className="ox-note" style={{ marginBottom: 4 }}>ผู้ขอ: {String(row.full_name)}</p> : null}
               <p className="ox-note">
                 ส่งคำขอเมื่อ {new Date(String(row.created_at)).toLocaleString("th-TH")}
               </p>
             </article>
           ))
-        )}
+        ) : null}
       </main>
     </div>
   )

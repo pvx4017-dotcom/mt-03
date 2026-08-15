@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { API } from "@/lib/apiRoutes"
 import { AdminPageShell } from "@/components/admin/AdminPageShell"
 import {
@@ -28,6 +29,23 @@ function statusBadgeClass(status: unknown) {
   if (s === "approved") return "admin-status-badge admin-finance-status-approved"
   if (s === "cancelled" || s === "rejected") return "admin-status-badge admin-finance-status-cancelled"
   return "admin-status-badge admin-finance-status-pending"
+}
+
+function AdminUserChatLink({ userId }: { userId: unknown }) {
+  const normalizedUserId = String(userId ?? "").trim()
+  if (!/^\d+$/.test(normalizedUserId) || Number(normalizedUserId) <= 0) return <span>-</span>
+
+  return (
+    <Link
+      to={`/admin/chat?user_id=${encodeURIComponent(normalizedUserId)}`}
+      className="admin-action-btn admin-chat-link-btn"
+      aria-label={`เปิดแชทกับผู้ใช้ ID ${normalizedUserId}`}
+      title={`เปิดแชทกับผู้ใช้ ID ${normalizedUserId}`}
+    >
+      <i className="fa-solid fa-comments" aria-hidden="true" />
+      <span>แชท</span>
+    </Link>
+  )
 }
 
 function FinanceTablePage({
@@ -127,14 +145,15 @@ function FinanceTablePage({
               <th>{isWithdraw ? "วิธีรับเงิน" : "ผู้ฝาก"}</th>
               <th>สถานะ</th>
               <th>เวลา</th>
+              <th>แชท</th>
               <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {showAdminTableLoading(loading, rows.length) ? (
-              <AdminLoadingRow cols={8} />
+              <AdminLoadingRow cols={9} />
             ) : filtered.length === 0 ? (
-              <AdminEmptyRow cols={8} message="ไม่มีรายการ" />
+              <AdminEmptyRow cols={9} message="ไม่มีรายการ" />
             ) : (
               filtered.map((row, i) => (
                 <tr key={String(row.id ?? i)}>
@@ -154,6 +173,7 @@ function FinanceTablePage({
                     <span className={statusBadgeClass(row.status)}>{String(row.status ?? "-")}</span>
                   </td>
                   <td>{formatAdminDate(String(row.created_at ?? row.requested_at ?? ""))}</td>
+                  <td><AdminUserChatLink userId={row.user_id} /></td>
                   <td>
                     {String(row.status).toLowerCase() === "pending" ? (
                       <div className="admin-manage-actions">
@@ -693,14 +713,15 @@ export function AdminLoansPage() {
               <th>ยอด</th>
               <th>สถานะ</th>
               <th>วันที่ยื่น</th>
+              <th>แชท</th>
               <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {showAdminTableLoading(loading, rows.length) ? (
-              <AdminLoadingRow cols={8} />
+              <AdminLoadingRow cols={9} />
             ) : filtered.length === 0 ? (
-              <AdminEmptyRow cols={8} message="ไม่พบคำขอสินเชื่อ" />
+              <AdminEmptyRow cols={9} message="ไม่พบคำขอสินเชื่อ" />
             ) : (
               filtered.map((row) => {
                 const status = String(row.status ?? "pending").toLowerCase()
@@ -717,6 +738,7 @@ export function AdminLoansPage() {
                   <td>${adminFmtMoney(row.amount)}</td>
                   <td><span className={statusBadgeClass(status)}>{statusLabel(status)}</span></td>
                   <td>{formatAdminDate(String(row.created_at ?? ""))}</td>
+                  <td><AdminUserChatLink userId={row.user_id} /></td>
                   <td>
                     {actionable ? (
                       <div className="admin-manage-actions">

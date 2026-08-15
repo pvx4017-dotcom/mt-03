@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { API } from "@/lib/apiRoutes"
 import { AdminPageShell } from "@/components/admin/AdminPageShell"
 import {
@@ -993,15 +994,16 @@ export function AdminCustomerTopupPage() {
                 <th>ผู้ใช้</th>
                 <th>ยอดคงเหลือ</th>
                 <th>อัปเดตล่าสุด</th>
+                <th>แชท</th>
                 <th>จัดการ</th>
               </tr>
             </thead>
             <tbody>
               {showAdminTableLoading(loading, rows.length) ? (
-                <AdminLoadingRow cols={5} />
+                <AdminLoadingRow cols={6} />
               ) : filtered.length === 0 ? (
                 <AdminEmptyRow
-                  cols={5}
+                  cols={6}
                   message={rows.length ? "ไม่พบข้อมูลตามคำค้นหา" : "ยังไม่มีข้อมูลกระเป๋าเงิน"}
                 />
               ) : (
@@ -1014,6 +1016,17 @@ export function AdminCustomerTopupPage() {
                     </td>
                     <td>${adminFmtMoney(row.balance ?? row.wallet_balance)}</td>
                     <td>{formatAdminDate(String(row.updated_at ?? row.registered_at ?? ""))}</td>
+                    <td>
+                      <Link
+                        to={`/admin/chat?user_id=${encodeURIComponent(String(row.user_id ?? row.id))}`}
+                        className="admin-action-btn admin-chat-link-btn"
+                        aria-label={`เปิดแชทกับผู้ใช้ ID ${String(row.user_id ?? row.id)}`}
+                        title={`เปิดแชทกับผู้ใช้ ID ${String(row.user_id ?? row.id)}`}
+                      >
+                        <i className="fa-solid fa-comments" aria-hidden="true" />
+                        <span>แชท</span>
+                      </Link>
+                    </td>
                     <td>
                       <button
                         type="button"
