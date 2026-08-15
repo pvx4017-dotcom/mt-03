@@ -379,6 +379,7 @@ export function ChangePasswordPage() {
 
 export function WithdrawPasswordPage() {
   const { user, refreshUser } = useApp()
+  const [current, setCurrent] = useState("")
   const [pwd, setPwd] = useState("")
   const [confirm, setConfirm] = useState("")
   const [busy, setBusy] = useState(false)
@@ -387,6 +388,10 @@ export function WithdrawPasswordPage() {
   const hasWithdrawPassword = saved || Boolean(user?.has_withdraw_password)
 
   const submit = async () => {
+    if (hasWithdrawPassword && !/^\d{6}$/.test(current)) {
+      setMsg("กรุณากรอกรหัสการถอนเดิม 6 หลัก")
+      return
+    }
     if (!pwd || pwd.length !== 6) {
       setMsg("กรุณาตั้งรหัสผ่าน 6 หลัก")
       return
@@ -398,10 +403,11 @@ export function WithdrawPasswordPage() {
     setBusy(true)
     setMsg("")
     try {
-      const res = await setWithdrawPassword(pwd, confirm)
+      const res = await setWithdrawPassword(pwd, confirm, current)
       setMsg(res.message ?? (res.success ? "บันทึกรหัสการถอนแล้ว" : "บันทึกไม่สำเร็จ"))
       if (res.success) {
         setSaved(true)
+        setCurrent("")
         setPwd("")
         setConfirm("")
         await refreshUser()
@@ -436,8 +442,22 @@ export function WithdrawPasswordPage() {
         </div>
       ) : null}
       <div style={{ display: "grid", gap: 14 }}>
+        {hasWithdrawPassword ? (
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="current-password"
+            placeholder="รหัสการถอนเดิม 6 หลัก"
+            maxLength={6}
+            style={fieldStyle}
+            value={current}
+            onChange={(e) => setCurrent(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          />
+        ) : null}
         <input
           type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
           placeholder="รหัสผ่านการถอน 6 หลัก"
           maxLength={6}
           style={fieldStyle}
@@ -446,6 +466,8 @@ export function WithdrawPasswordPage() {
         />
         <input
           type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
           placeholder="ยืนยันรหัสผ่านการถอน"
           maxLength={6}
           style={fieldStyle}
@@ -453,6 +475,17 @@ export function WithdrawPasswordPage() {
           onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))}
         />
       </div>
+      {hasWithdrawPassword ? (
+        <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
+          <Link
+            to="/help-center"
+            onClick={() => sessionStorage.setItem("pendingForgotWithdrawPassword", "1")}
+            style={{ color: "#2563eb", textDecoration: "none" }}
+          >
+            ลืมรหัสการถอน? ติดต่อผู้ดูแลผ่านแชท
+          </Link>
+        </p>
+      ) : null}
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
       <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
         {busy ? "กำลังบันทึก..." : hasWithdrawPassword ? "เปลี่ยนรหัสการถอน" : "บันทึกรหัสการถอน"}

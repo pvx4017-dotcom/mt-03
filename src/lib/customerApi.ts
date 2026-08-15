@@ -758,10 +758,11 @@ export async function updatePassword(current: string, newPassword: string, confi
   return handleAdminPost(API.userUpdatePassword, fd) as Promise<ApiResult>
 }
 
-export async function setWithdrawPassword(password: string, confirm: string) {
+export async function setWithdrawPassword(password: string, confirm: string, currentPassword = "") {
   ensureConfigured()
   const fd = new FormData()
   fd.append("withdraw_password", password)
   fd.append("confirm_password", confirm)
+  fd.append("current_withdraw_password", currentPassword)
   return handleAdminPost(API.userSetWithdrawPassword, fd) as Promise<ApiResult>
 }

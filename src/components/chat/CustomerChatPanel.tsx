@@ -216,10 +216,15 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
 
   useEffect(() => {
     if (forgotSentRef.current || !loggedIn || loading) return
-    if (sessionStorage.getItem("pendingForgotPassword") !== "1") return
-    const text = "ลืมรหัสผ่าน ต้องการให้แอดมินช่วยรีเซ็ตบัญชี"
+    const forgotLogin = sessionStorage.getItem("pendingForgotPassword") === "1"
+    const forgotWithdraw = sessionStorage.getItem("pendingForgotWithdrawPassword") === "1"
+    if (!forgotLogin && !forgotWithdraw) return
+    const storageKey = forgotWithdraw ? "pendingForgotWithdrawPassword" : "pendingForgotPassword"
+    const text = forgotWithdraw
+      ? "ลืมรหัสการถอน ต้องการให้ผู้ดูแลช่วยตั้งรหัสการถอนใหม่"
+      : "ลืมรหัสผ่าน ต้องการให้แอดมินช่วยรีเซ็ตบัญชี"
     const alreadyExists = rows.some((row) => String(row.message ?? "") === text)
-    sessionStorage.removeItem("pendingForgotPassword")
+    sessionStorage.removeItem(storageKey)
     forgotSentRef.current = true
     if (alreadyExists) return
     sendChatMessage(text).then((res) => {
@@ -229,7 +234,7 @@ export function CustomerChatPanel({ backTo, title, variant = "help-center" }: Pr
         loadMessages()
       } else {
         forgotSentRef.current = false
-        sessionStorage.setItem("pendingForgotPassword", "1")
+        sessionStorage.setItem(storageKey, "1")
       }
     })
   }, [loggedIn, loading, loadMessages, rows])

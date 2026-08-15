@@ -627,10 +627,22 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       const userId = Number(fd.get("id"))
       const staffBlocked = await assertCustomerUserId(userId)
       if (staffBlocked) return fail(staffBlocked)
-      const { data, error } = await sb.rpc("set_user_withdraw_password", {
-        p_user_id: userId,
-        p_password: String(fd.get("withdraw_password") ?? ""),
+      const password = String(fd.get("withdraw_password") ?? "")
+      const actorId = getSessionUserId()
+      if (!actorId) return fail("กรุณาเข้าสู่ระบบ")
+      let { data, error } = await sb.rpc("admin_set_user_withdraw_password", {
+        p_actor_id: actorId,
+        p_target_user_id: userId,
+        p_new_password: password,
       })
+      if (error && (error.code === "PGRST202" || error.code === "42883")) {
+        const fallback = await sb.rpc("set_user_withdraw_password", {
+          p_user_id: userId,
+          p_password: password,
+        })
+        data = fallback.data
+        error = fallback.error
+      }
       if (error) return fail(error.message)
       const row = data as { success?: boolean; message?: string } | null
       if (row?.success === false) return fail(row.message ?? "บันทึกรหัสถอนไม่สำเร็จ")
@@ -889,6 +901,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       return (await import("@/lib/dbService")).dbSetWithdrawPassword(
         String(fd.get("withdraw_password") ?? ""),
         String(fd.get("confirm_password") ?? ""),
+        String(fd.get("current_withdraw_password") ?? ""),
       )
     case API.adminReceivingAccounts: {
       if (action === "delete") {

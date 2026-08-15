@@ -1365,17 +1365,58 @@ export async function dbUpdatePassword(current: string, newPassword: string, con
   return (data as { success: boolean; message?: string }) ?? fail("เปลี่ยนไม่สำเร็จ")
 }
 
-export async function dbSetWithdrawPassword(password: string, confirm: string) {
+export async function dbSetWithdrawPassword(password: string, confirm: string, currentPassword = "") {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  if (!/^\d{6}$/.test(password)) return fail("รหัสการถอนต้องเป็นตัวเลข 6 หลัก")
   if (password !== confirm) return fail("รหัสผ่านไม่ตรงกัน")
   const sb = getSupabase()
-  const { error } = await sb.rpc("set_user_withdraw_password", {
-    p_user_id: uid,
-    p_password: password,
-  })
+  const { data: user, error: userError } = await sb
+    .from("users")
+    .select("withdraw_password_hash")
+    .eq("id", uid)
+    .maybeSingle()
+  if (userError) return fail(userError.message)
+  if (!user) return fail("ไม่พบผู้ใช้")
+
+  const hasPassword = Boolean(user.withdraw_password_hash)
+  let error
+  let data
+  if (hasPassword) {
+    if (!/^\d{6}$/.test(currentPassword)) return fail("กรุณากรอกรหัสการถอนเดิม 6 หลัก")
+    const changed = await sb.rpc("change_user_withdraw_password", {
+      p_user_id: uid,
+      p_current_password: currentPassword,
+      p_new_password: password,
+    })
+    data = changed.data
+    error = changed.error
+    if (error && (error.code === "PGRST202" || error.code === "42883")) {
+      const verified = await sb.rpc("verify_withdraw_password", {
+        p_user_id: uid,
+        p_password: currentPassword,
+      })
+      if (verified.error) return fail(verified.error.message)
+      if (!(verified.data as { ok?: boolean } | null)?.ok) return fail("รหัสการถอนเดิมไม่ถูกต้อง")
+      const fallback = await sb.rpc("set_user_withdraw_password", {
+        p_user_id: uid,
+        p_password: password,
+      })
+      data = fallback.data
+      error = fallback.error
+    }
+  } else {
+    const created = await sb.rpc("set_user_withdraw_password", {
+      p_user_id: uid,
+      p_password: password,
+    })
+    data = created.data
+    error = created.error
+  }
   if (error) return fail(error.message)
-  return ok({ message: "บันทึกรหัสการถอนแล้ว" })
+  const result = data as { success?: boolean; message?: string } | null
+  if (result?.success === false) return fail(result.message ?? "บันทึกรหัสการถอนไม่สำเร็จ")
+  return ok({ message: result?.message ?? (hasPassword ? "เปลี่ยนรหัสการถอนแล้ว" : "บันทึกรหัสการถอนแล้ว") })
 }
 
 // ─── Reviews ────────────────────────────────────────────────────────────────
