@@ -562,6 +562,49 @@
   line-height: 1.45;
 }
 
+.ox-copy-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.ox-copy-field input {
+  min-width: 0;
+}
+
+.ox-copy-field button,
+.ox-download-qr-btn,
+.ox-qr-viewer-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ox-copy-field button {
+  min-width: 92px;
+  padding: 0 13px;
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.ox-copy-field button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ox-download-qr-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  background: #002fff;
+  color: #fff;
+}
+
 .ox-qr-viewer {
   position: fixed;
   inset: 0;
@@ -579,6 +622,14 @@
   object-fit: contain;
   border-radius: 18px;
   background: #fff;
+}
+
+.ox-qr-viewer-download {
+  min-height: 46px;
+  padding: 0 20px;
+  background: #fff;
+  color: #1e3a8a;
+  font-size: 14px;
 }
 
 .ox-qr-viewer-close {

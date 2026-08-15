@@ -378,11 +378,13 @@ export function ChangePasswordPage() {
 }
 
 export function WithdrawPasswordPage() {
-  const { refreshUser } = useApp()
+  const { user, refreshUser } = useApp()
   const [pwd, setPwd] = useState("")
   const [confirm, setConfirm] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
+  const [saved, setSaved] = useState(false)
+  const hasWithdrawPassword = saved || Boolean(user?.has_withdraw_password)
 
   const submit = async () => {
     if (!pwd || pwd.length !== 6) {
@@ -398,7 +400,14 @@ export function WithdrawPasswordPage() {
     try {
       const res = await setWithdrawPassword(pwd, confirm)
       setMsg(res.message ?? (res.success ? "บันทึกรหัสการถอนแล้ว" : "บันทึกไม่สำเร็จ"))
-      if (res.success) await refreshUser()
+      if (res.success) {
+        setSaved(true)
+        setPwd("")
+        setConfirm("")
+        await refreshUser()
+      }
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "บันทึกรหัสการถอนไม่สำเร็จ")
     } finally {
       setBusy(false)
     }
@@ -409,6 +418,23 @@ export function WithdrawPasswordPage() {
       <p style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
         ตั้งรหัสผ่าน 6 หลักสำหรับยืนยันการถอนเงิน
       </p>
+      {hasWithdrawPassword ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "13px 14px",
+            marginBottom: 14,
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            background: "#f8fafc",
+          }}
+        >
+          <span style={{ fontSize: 13, color: "#475569" }}>รหัสการถอนปัจจุบัน</span>
+          <strong style={{ letterSpacing: 3, color: "#111827" }}>******</strong>
+        </div>
+      ) : null}
       <div style={{ display: "grid", gap: 14 }}>
         <input
           type="password"
@@ -429,7 +455,7 @@ export function WithdrawPasswordPage() {
       </div>
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
       <button type="button" className="settings-submit-btn" disabled={busy} onClick={submit}>
-        {busy ? "กำลังบันทึก..." : "บันทึกรหัสการถอน"}
+        {busy ? "กำลังบันทึก..." : hasWithdrawPassword ? "เปลี่ยนรหัสการถอน" : "บันทึกรหัสการถอน"}
       </button>
     </SettingsFormPage>
   )

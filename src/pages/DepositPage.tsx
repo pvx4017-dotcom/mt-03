@@ -182,6 +182,64 @@ export default function DepositPage() {
 
   const receivingQrPath = String(recv?.qr_image ?? "").trim()
   const receivingQrUrl = receivingQrPath ? asset(receivingQrPath) : ""
+  const receivingAccountNumber = String(recv?.account_number ?? "").trim()
+
+  const copyReceivingAccount = async () => {
+    if (!receivingAccountNumber) {
+      showToast("ยังไม่มีหมายเลขบัญชีให้คัดลอก", true)
+      return
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(receivingAccountNumber)
+      } else {
+        const input = document.createElement("textarea")
+        input.value = receivingAccountNumber
+        input.style.position = "fixed"
+        input.style.opacity = "0"
+        document.body.appendChild(input)
+        input.select()
+        const copied = document.execCommand("copy")
+        input.remove()
+        if (!copied) throw new Error("copy failed")
+      }
+      showToast("คัดลอกหมายเลขบัญชีแล้ว")
+    } catch {
+      showToast("คัดลอกไม่สำเร็จ กรุณากดค้างที่หมายเลขบัญชี", true)
+    }
+  }
+
+  const downloadReceivingQr = async () => {
+    if (!receivingQrUrl) {
+      showToast("ยังไม่มี QR Code ให้ดาวน์โหลด", true)
+      return
+    }
+    const ext = receivingQrPath.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]?.toLowerCase()
+    const safeExt = ext && ["png", "jpg", "jpeg", "webp"].includes(ext) ? ext : "png"
+    try {
+      const response = await fetch(receivingQrUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blobUrl = URL.createObjectURL(await response.blob())
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = `qr-${channelKey()}-${Date.now()}.${safeExt}`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(blobUrl)
+      showToast("ดาวน์โหลด QR Code แล้ว")
+    } catch {
+      const link = document.createElement("a")
+      link.href = receivingQrUrl
+      link.target = "_blank"
+      link.rel = "noopener noreferrer"
+      link.download = `qr-${channelKey()}.${safeExt}`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      showToast("เปิดรูป QR Code แล้ว กรุณาบันทึกรูปจากเบราว์เซอร์", true)
+    }
+  }
 
   return (
     <div className="ox-page">
@@ -293,7 +351,12 @@ export default function DepositPage() {
                 <label>ชื่อบัญชี</label>
                 <input readOnly value={String(recv.account_name ?? "-")} />
                 <label>เลขบัญชี / ที่อยู่</label>
-                <input readOnly value={String(recv.account_number ?? "-")} />
+                <div className="ox-copy-field">
+                  <input readOnly value={receivingAccountNumber || "-"} />
+                  <button type="button" onClick={copyReceivingAccount} disabled={!receivingAccountNumber}>
+                    <i className="fa-regular fa-copy" aria-hidden /> คัดลอก
+                  </button>
+                </div>
                 <label>เครือข่าย / ธนาคาร</label>
                 <input readOnly value={String(recv.network ?? "-")} />
                 {receivingQrUrl ? (
@@ -306,6 +369,9 @@ export default function DepositPage() {
                       aria-label="ดู QR Code ขนาดใหญ่"
                     >
                       <img src={receivingQrUrl} alt={`QR Code สำหรับ ${String(recv.channel ?? channelKey())}`} />
+                    </button>
+                    <button type="button" className="ox-download-qr-btn" onClick={downloadReceivingQr}>
+                      <i className="fa-solid fa-download" aria-hidden /> ดาวน์โหลด QR
                     </button>
                     <small>แตะที่รูปเพื่อดูขนาดใหญ่ และตรวจสอบชื่อบัญชีก่อนโอนทุกครั้ง</small>
                   </div>
@@ -328,6 +394,16 @@ export default function DepositPage() {
             <i className="fa-solid fa-xmark" aria-hidden />
           </button>
           <img src={qrViewer} alt="QR Code รับเงินขนาดใหญ่" onClick={(e) => e.stopPropagation()} />
+          <button
+            type="button"
+            className="ox-qr-viewer-download"
+            onClick={(e) => {
+              e.stopPropagation()
+              void downloadReceivingQr()
+            }}
+          >
+            <i className="fa-solid fa-download" aria-hidden /> ดาวน์โหลด QR Code
+          </button>
         </div>
       ) : null}
 

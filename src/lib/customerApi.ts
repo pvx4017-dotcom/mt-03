@@ -500,6 +500,7 @@ export async function fetchSellerLevels() {
 export async function fetchMyLoans() {
   ensureConfigured()
   const data = await handleAdminGet(API.loansMine)
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลสินเชื่อไม่สำเร็จ"))
   return (data.items ?? []) as Record<string, unknown>[]
 }
 

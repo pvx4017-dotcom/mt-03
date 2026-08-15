@@ -602,29 +602,86 @@ export function AdminLoansPage() {
   useBodyClass("admin-page")
   const { showToast, Toast } = useAdminToast()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<{ id: number; status: string; amount: number } | null>(null)
 
-  const load = useCallback(async () => {
-    const data = await adminGet<{ items?: Record<string, unknown>[] }>(API.adminLoans)
-    setRows(data.items ?? [])
-  }, [])
+  const load = useCallback(async (silent = false) => {
+    await runAdminListLoad({
+      silent,
+      hasRows: rows.length > 0,
+      setLoading,
+      fetchRows: async () => {
+        const data = await adminGet<{ success?: boolean; message?: string; items?: Record<string, unknown>[] }>(API.adminLoans)
+        if (data.success === false) throw new Error(data.message ?? "โหลดคำขอสินเชื่อไม่สำเร็จ")
+        return data.items ?? []
+      },
+      onRows: setRows,
+      onError: (message) => showToast(message, "error"),
+    })
+  }, [rows.length, showToast])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const setStatus = async (id: number, status: string) => {
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return rows.filter((row) => {
+      const matchesStatus = statusFilter === "all" || String(row.status ?? "").toLowerCase() === statusFilter
+      if (!matchesStatus) return false
+      if (!query) return true
+      return [row.id, row.user_id, row.full_name, row.phone, row.username, row.email]
+        .some((value) => String(value ?? "").toLowerCase().includes(query))
+    })
+  }, [rows, search, statusFilter])
+
+  const applyStatus = async () => {
+    if (!confirm || busy) return
+    const action = confirm
+    setConfirm(null)
+    setBusy(true)
     const fd = new FormData()
-    fd.append("id", String(id))
-    fd.append("status", status)
-    const res = await adminPost<{ success: boolean; message?: string }>(API.adminLoans, fd)
-    if (res.success) {
-      showToast("อัปเดตแล้ว")
-      await load()
-    } else showToast(res.message ?? "ไม่สำเร็จ", "error")
+    fd.append("id", String(action.id))
+    fd.append("status", action.status)
+    try {
+      const res = await adminPost<{ success: boolean; message?: string; balance_after?: number }>(API.adminLoans, fd)
+      if (res.success) {
+        showToast(res.message ?? "อัปเดตสถานะแล้ว")
+        await load(true)
+      } else {
+        showToast(res.message ?? "ดำเนินการไม่สำเร็จ", "error")
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ", "error")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const statusLabel = (value: unknown) => {
+    const status = String(value ?? "pending").toLowerCase()
+    if (status === "approved") return "อนุมัติแล้ว"
+    if (status === "rejected") return "ปฏิเสธแล้ว"
+    if (status === "reviewing") return "กำลังพิจารณา"
+    return "รอตรวจสอบ"
   }
 
   return (
     <AdminPageShell barTitle="สินเชื่อลูกค้า" pageTitle="คำขอสินเชื่อ" icon="fa-hand-holding-dollar">
+      <div className="admin-finance-toolbar">
+        <AdminSearchBar value={search} onChange={setSearch} placeholder="ค้นหา ID ผู้ใช้ ชื่อ เบอร์ หรืออีเมล..." />
+        <select className="status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="all">สถานะทั้งหมด</option>
+          <option value="pending">รอตรวจสอบ</option>
+          <option value="reviewing">กำลังพิจารณา</option>
+          <option value="approved">อนุมัติแล้ว</option>
+          <option value="rejected">ปฏิเสธแล้ว</option>
+        </select>
+        <span className="admin-finance-count">{filtered.length} รายการ</span>
+      </div>
       <AdminTableWrap>
         <table>
           <thead>
@@ -635,31 +692,64 @@ export function AdminLoansPage() {
               <th>เบอร์</th>
               <th>ยอด</th>
               <th>สถานะ</th>
+              <th>วันที่ยื่น</th>
               <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <AdminEmptyRow cols={7} message="ยังไม่มีคำขอ" />
+            {showAdminTableLoading(loading, rows.length) ? (
+              <AdminLoadingRow cols={8} />
+            ) : filtered.length === 0 ? (
+              <AdminEmptyRow cols={8} message="ไม่พบคำขอสินเชื่อ" />
             ) : (
-              rows.map((row) => (
+              filtered.map((row) => {
+                const status = String(row.status ?? "pending").toLowerCase()
+                const actionable = status === "pending" || status === "reviewing"
+                return (
                 <tr key={String(row.id)}>
                   <td>{String(row.id)}</td>
-                  <td>#{String(row.user_id)}</td>
+                  <td>
+                    <div className="admin-user-cell-main">#{String(row.user_id)}</div>
+                    <div className="admin-user-cell-sub">{String(row.username ?? row.email ?? "-")}</div>
+                  </td>
                   <td>{String(row.full_name ?? "-")}</td>
                   <td>{String(row.phone ?? "-")}</td>
                   <td>${adminFmtMoney(row.amount)}</td>
-                  <td>{String(row.status ?? "-")}</td>
+                  <td><span className={statusBadgeClass(status)}>{statusLabel(status)}</span></td>
+                  <td>{formatAdminDate(String(row.created_at ?? ""))}</td>
                   <td>
-                    <button type="button" className="admin-action-btn approve" onClick={() => setStatus(Number(row.id), "approved")}>อนุมัติ</button>
-                    <button type="button" className="admin-action-btn cancel" onClick={() => setStatus(Number(row.id), "rejected")}>ปฏิเสธ</button>
+                    {actionable ? (
+                      <div className="admin-manage-actions">
+                        {status === "pending" ? (
+                          <button type="button" className="admin-action-btn" disabled={busy} onClick={() => setConfirm({ id: Number(row.id), status: "reviewing", amount: Number(row.amount) })}>พิจารณา</button>
+                        ) : null}
+                        <button type="button" className="admin-action-btn approve" disabled={busy} onClick={() => setConfirm({ id: Number(row.id), status: "approved", amount: Number(row.amount) })}>อนุมัติ</button>
+                        <button type="button" className="admin-action-btn cancel" disabled={busy} onClick={() => setConfirm({ id: Number(row.id), status: "rejected", amount: Number(row.amount) })}>ปฏิเสธ</button>
+                      </div>
+                    ) : (
+                      <span className="admin-user-cell-sub">ดำเนินการแล้ว</span>
+                    )}
                   </td>
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>
       </AdminTableWrap>
+      <AdminConfirmModal
+        open={Boolean(confirm)}
+        title={confirm?.status === "approved" ? "ยืนยันอนุมัติสินเชื่อ" : confirm?.status === "rejected" ? "ยืนยันปฏิเสธสินเชื่อ" : "รับเรื่องพิจารณา"}
+        message={
+          confirm?.status === "approved"
+            ? `ระบบจะเพิ่มวงเงิน $${adminFmtMoney(confirm.amount)} เข้ากระเป๋าผู้ใช้ทันที และไม่สามารถย้อนสถานะได้`
+            : confirm?.status === "rejected"
+              ? "รายการจะถูกปฏิเสธและไม่สามารถย้อนสถานะได้"
+              : "เปลี่ยนสถานะรายการเป็นกำลังพิจารณา"
+        }
+        onCancel={() => setConfirm(null)}
+        onConfirm={applyStatus}
+      />
       {Toast}
     </AdminPageShell>
   )

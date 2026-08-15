@@ -299,19 +299,53 @@ export async function dbSaveSellerLevel(row: SellerLevel) {
 export async function dbSubmitLoan(fields: { amount: number; full_name: string; phone: string }) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
-  if (!fields.full_name.trim() || !fields.phone.trim() || fields.amount < 1000) {
-    return fail("กรุณากรอกชื่อ เบอร์ และยอดอย่างน้อย $1,000")
+  const amount = Math.round(Number(fields.amount) * 100) / 100
+  const fullName = fields.full_name.trim()
+  const phone = fields.phone.trim()
+  const phoneDigits = phone.replace(/\D/g, "")
+  if (!Number.isFinite(amount) || amount < 1000 || amount > 500000) {
+    return fail("วงเงินสินเชื่อต้องอยู่ระหว่าง $1,000 ถึง $500,000")
+  }
+  if (fullName.length < 2 || fullName.length > 120) {
+    return fail("กรุณากรอกชื่อ-นามสกุลให้ถูกต้อง")
+  }
+  if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+    return fail("กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้อง")
   }
   const sb = getSupabase()
-  const { error } = await sb.from("loan_applications").insert({
+  const { data: user, error: userError } = await sb
+    .from("users")
+    .select("id,role,status")
+    .eq("id", uid)
+    .maybeSingle()
+  if (userError) return fail(userError.message)
+  if (!user || user.status !== "active") return fail("บัญชีนี้ไม่สามารถสมัครสินเชื่อได้")
+  if (user.role === "admin" || user.role === "super_admin") {
+    return fail("บัญชีผู้ดูแลไม่สามารถสมัครสินเชื่อได้")
+  }
+
+  const { data: activeLoan, error: activeLoanError } = await sb
+    .from("loan_applications")
+    .select("id,status")
+    .eq("user_id", uid)
+    .in("status", ["pending", "reviewing"])
+    .limit(1)
+    .maybeSingle()
+  if (activeLoanError) return fail(activeLoanError.message)
+  if (activeLoan) return fail("คุณมีคำขอสินเชื่อที่กำลังรอตรวจสอบอยู่แล้ว")
+
+  const { data, error } = await sb.from("loan_applications").insert({
     user_id: uid,
-    amount: fields.amount,
-    full_name: fields.full_name.trim(),
-    phone: fields.phone.trim(),
+    amount,
+    full_name: fullName,
+    phone,
     status: "pending",
-  })
-  if (error) return fail(error.message)
-  return ok({ message: "ส่งใบสมัครแล้ว" })
+  }).select("id").single()
+  if (error) {
+    if (error.code === "23505") return fail("คุณมีคำขอสินเชื่อที่กำลังรอตรวจสอบอยู่แล้ว")
+    return fail(error.message)
+  }
+  return ok({ message: "ส่งใบสมัครสินเชื่อแล้ว", id: data.id })
 }
 
 export async function dbFetchMyLoans() {
@@ -331,7 +365,7 @@ export async function dbFetchAdminLoans() {
   const sb = getSupabase()
   const { data, error } = await sb
     .from("loan_applications")
-    .select("*, users(email,phone,username)")
+    .select("*, users!loan_applications_user_id_fkey(email,phone,username)")
     .order("created_at", { ascending: false })
   if (error) throw new Error(error.message)
   return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
@@ -342,13 +376,84 @@ export async function dbFetchAdminLoans() {
 export async function dbUpdateLoanStatus(id: number, status: string) {
   const allowed = ["pending", "reviewing", "approved", "rejected"]
   if (!allowed.includes(status)) return fail("สถานะไม่ถูกต้อง")
+  if (!Number.isInteger(id) || id <= 0) return fail("ไม่พบคำขอสินเชื่อ")
   const sb = getSupabase()
-  const { error } = await sb
+  const actorId = requireUserId()
+  if (!actorId) return fail("กรุณาเข้าสู่ระบบ")
+
+  const rpc = await sb.rpc("process_loan_application", {
+    p_actor_id: actorId,
+    p_loan_id: id,
+    p_status: status,
+    p_decision_note: null,
+  })
+  if (!rpc.error) {
+    const result = rpc.data as { success?: boolean; message?: string; balance_after?: number } | null
+    if (result?.success === false) return fail(result.message ?? "อัปเดตสินเชื่อไม่สำเร็จ")
+    return ok({
+      message: result?.message ?? "อัปเดตสถานะแล้ว",
+      balance_after: result?.balance_after,
+    })
+  }
+  const missingRpc = rpc.error.code === "PGRST202" || rpc.error.code === "42883"
+  if (!missingRpc) return fail(rpc.error.message)
+
+  // Compatibility path for databases that have not run patch-loan-workflow.sql yet.
+  const { data: loan, error: loanError } = await sb
     .from("loan_applications")
-    .update({ status, updated_at: new Date().toISOString() })
+    .select("id,user_id,amount,status")
     .eq("id", id)
-  if (error) return fail(error.message)
-  return ok({ message: "อัปเดตสถานะแล้ว" })
+    .maybeSingle()
+  if (loanError) return fail(loanError.message)
+  if (!loan) return fail("ไม่พบคำขอสินเชื่อ")
+
+  const previousStatus = String(loan.status ?? "pending")
+  if (previousStatus === status) return ok({ message: "รายการอยู่ในสถานะนี้แล้ว" })
+  const transitions: Record<string, string[]> = {
+    pending: ["reviewing", "approved", "rejected"],
+    reviewing: ["approved", "rejected"],
+    approved: [],
+    rejected: [],
+  }
+  if (!(transitions[previousStatus] ?? []).includes(status)) {
+    return fail("รายการนี้ดำเนินการเสร็จแล้ว ไม่สามารถเปลี่ยนสถานะย้อนหลังได้")
+  }
+
+  const { data: customer, error: customerError } = await sb
+    .from("users")
+    .select("id,role,status,wallet_balance")
+    .eq("id", loan.user_id)
+    .maybeSingle()
+  if (customerError) return fail(customerError.message)
+  if (!customer || customer.role === "admin" || customer.role === "super_admin") {
+    return fail("ไม่สามารถดำเนินการกับบัญชีผู้ดูแลได้")
+  }
+
+  const now = new Date().toISOString()
+  const { data: claimed, error: statusError } = await sb
+    .from("loan_applications")
+    .update({ status, updated_at: now })
+    .eq("id", id)
+    .eq("status", previousStatus)
+    .select("id")
+    .maybeSingle()
+  if (statusError) return fail(statusError.message)
+  if (!claimed) return fail("สถานะรายการถูกเปลี่ยนโดยผู้ดูแลคนอื่น กรุณาโหลดข้อมูลใหม่")
+
+  if (status === "approved") {
+    const balanceAfter = Number(customer.wallet_balance ?? 0) + Number(loan.amount)
+    const { error: balanceError } = await sb
+      .from("users")
+      .update({ wallet_balance: balanceAfter })
+      .eq("id", loan.user_id)
+    if (balanceError) {
+      await sb.from("loan_applications").update({ status: previousStatus, updated_at: now }).eq("id", id).eq("status", status)
+      return fail(`อนุมัติไม่สำเร็จ: ${balanceError.message}`)
+    }
+    return ok({ message: "อนุมัติสินเชื่อและเพิ่มวงเงินเข้ากระเป๋าแล้ว", balance_after: balanceAfter })
+  }
+
+  return ok({ message: status === "rejected" ? "ปฏิเสธคำขอสินเชื่อแล้ว" : "เปลี่ยนสถานะเป็นกำลังพิจารณาแล้ว" })
 }
 
 export async function dbFetchCouponsForUser(): Promise<Result<{ items: Record<string, unknown>[] }>> {

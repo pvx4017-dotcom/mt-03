@@ -15,6 +15,7 @@ DROP FUNCTION IF EXISTS set_user_withdraw_password(BIGINT, TEXT);
 DROP FUNCTION IF EXISTS update_user_password(BIGINT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS verify_withdraw_password(BIGINT, TEXT);
 DROP FUNCTION IF EXISTS get_user_profile(BIGINT);
+DROP FUNCTION IF EXISTS process_loan_application(BIGINT, BIGINT, TEXT, TEXT);
 
 DROP TABLE IF EXISTS chat_admin_read CASCADE;
 DROP TABLE IF EXISTS payment_limits_history CASCADE;
@@ -377,15 +378,23 @@ CREATE TABLE seller_levels (
 );
 
 CREATE TABLE loan_applications (
-  id          BIGSERIAL PRIMARY KEY,
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount      NUMERIC(14,2) NOT NULL,
-  full_name   TEXT NOT NULL,
-  phone       TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'pending',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id             BIGSERIAL PRIMARY KEY,
+  user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount         NUMERIC(14,2) NOT NULL CHECK (amount BETWEEN 1000 AND 500000),
+  full_name      TEXT NOT NULL CHECK (length(trim(full_name)) BETWEEN 2 AND 120),
+  phone          TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewing', 'approved', 'rejected')),
+  processed_by   BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  decision_note  TEXT,
+  decision_at    TIMESTAMPTZ,
+  disbursed_at   TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX loan_applications_one_active_per_user
+  ON loan_applications (user_id)
+  WHERE status IN ('pending', 'reviewing');
 
 CREATE TABLE coupons (
   id           BIGSERIAL PRIMARY KEY,
@@ -570,6 +579,86 @@ BEGIN
   END IF;
   UPDATE users SET password_hash = crypt(p_new_password, gen_salt('bf')) WHERE id = p_target_user_id;
   RETURN jsonb_build_object('success', true, 'message', 'เปลี่ยนรหัสผ่านแล้ว');
+END; $$;
+
+CREATE OR REPLACE FUNCTION process_loan_application(
+  p_actor_id BIGINT,
+  p_loan_id BIGINT,
+  p_status TEXT,
+  p_decision_note TEXT DEFAULT NULL
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  actor users%ROWTYPE;
+  borrower users%ROWTYPE;
+  loan loan_applications%ROWTYPE;
+  balance_after NUMERIC(14,2);
+BEGIN
+  SELECT * INTO actor FROM users WHERE id = p_actor_id;
+  IF NOT FOUND OR actor.role NOT IN ('admin', 'super_admin') OR actor.status <> 'active' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่มีสิทธิ์ดำเนินการสินเชื่อ');
+  END IF;
+
+  IF p_status NOT IN ('reviewing', 'approved', 'rejected') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'สถานะสินเชื่อไม่ถูกต้อง');
+  END IF;
+
+  SELECT * INTO loan FROM loan_applications WHERE id = p_loan_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่พบคำขอสินเชื่อ');
+  END IF;
+
+  SELECT * INTO borrower FROM users WHERE id = loan.user_id FOR UPDATE;
+  IF NOT FOUND OR borrower.role IN ('admin', 'super_admin') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'ไม่สามารถดำเนินการกับบัญชีผู้ดูแลได้');
+  END IF;
+
+  IF loan.status = p_status THEN
+    RETURN jsonb_build_object('success', true, 'message', 'รายการอยู่ในสถานะนี้แล้ว');
+  END IF;
+  IF loan.status NOT IN ('pending', 'reviewing') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'รายการนี้ดำเนินการเสร็จแล้ว ไม่สามารถเปลี่ยนสถานะย้อนหลังได้');
+  END IF;
+  IF loan.status = 'reviewing' AND p_status = 'reviewing' THEN
+    RETURN jsonb_build_object('success', true, 'message', 'รายการกำลังพิจารณาอยู่แล้ว');
+  END IF;
+
+  IF p_status = 'approved' THEN
+    UPDATE users
+    SET wallet_balance = wallet_balance + loan.amount
+    WHERE id = loan.user_id
+    RETURNING wallet_balance INTO balance_after;
+
+    UPDATE loan_applications
+    SET status = 'approved',
+        processed_by = p_actor_id,
+        decision_note = NULLIF(trim(p_decision_note), ''),
+        decision_at = NOW(),
+        disbursed_at = NOW(),
+        updated_at = NOW()
+    WHERE id = loan.id;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'message', 'อนุมัติสินเชื่อและเพิ่มวงเงินเข้ากระเป๋าแล้ว',
+      'balance_after', balance_after
+    );
+  END IF;
+
+  UPDATE loan_applications
+  SET status = p_status,
+      processed_by = p_actor_id,
+      decision_note = CASE WHEN p_status = 'rejected' THEN NULLIF(trim(p_decision_note), '') ELSE decision_note END,
+      decision_at = CASE WHEN p_status = 'rejected' THEN NOW() ELSE decision_at END,
+      updated_at = NOW()
+  WHERE id = loan.id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', CASE WHEN p_status = 'rejected'
+      THEN 'ปฏิเสธคำขอสินเชื่อแล้ว'
+      ELSE 'เปลี่ยนสถานะเป็นกำลังพิจารณาแล้ว'
+    END
+  );
 END; $$;
 
 -- ============================================================
