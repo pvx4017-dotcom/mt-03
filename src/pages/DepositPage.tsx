@@ -8,6 +8,7 @@ import {
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
+import { asset } from "@/lib/assets"
 import "@/styles/original-extra.css"
 
 type DepositChannel = "usdt" | "eth" | "btc" | "bank_card"
@@ -37,6 +38,7 @@ export default function DepositPage() {
   const [orderNo, setOrderNo] = useState("-")
   const [accounts, setAccounts] = useState<Record<string, unknown>[]>([])
   const [recv, setRecv] = useState<Record<string, unknown> | null>(null)
+  const [qrViewer, setQrViewer] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null)
 
@@ -67,6 +69,7 @@ export default function DepositPage() {
     setPayOpen(false)
     setInfoOpen(false)
     setRecvOpen(false)
+    setQrViewer(null)
   }
 
   const selectedMethod = () => {
@@ -177,6 +180,9 @@ export default function DepositPage() {
     await submit(true)
   }
 
+  const receivingQrPath = String(recv?.qr_image ?? "").trim()
+  const receivingQrUrl = receivingQrPath ? asset(receivingQrPath) : ""
+
   return (
     <div className="ox-page">
       <header className="ox-topbar">
@@ -277,7 +283,7 @@ export default function DepositPage() {
 
       {recvOpen ? (
         <div className="ox-sheet-overlay" onClick={() => setRecvOpen(false)}>
-          <div className="ox-sheet ox-form" onClick={(e) => e.stopPropagation()}>
+          <div className="ox-sheet ox-form ox-receiving-sheet" onClick={(e) => e.stopPropagation()}>
             <h2 className="ox-h2">โอนเข้าบัญชีบริษัท</h2>
             {recv ? (
               <>
@@ -290,6 +296,20 @@ export default function DepositPage() {
                 <input readOnly value={String(recv.account_number ?? "-")} />
                 <label>เครือข่าย / ธนาคาร</label>
                 <input readOnly value={String(recv.network ?? "-")} />
+                {receivingQrUrl ? (
+                  <div className="ox-receiving-qr-card">
+                    <strong><i className="fa-solid fa-qrcode" aria-hidden /> สแกน QR Code เพื่อโอนเงิน</strong>
+                    <button
+                      type="button"
+                      className="ox-receiving-qr-button"
+                      onClick={() => setQrViewer(receivingQrUrl)}
+                      aria-label="ดู QR Code ขนาดใหญ่"
+                    >
+                      <img src={receivingQrUrl} alt={`QR Code สำหรับ ${String(recv.channel ?? channelKey())}`} />
+                    </button>
+                    <small>แตะที่รูปเพื่อดูขนาดใหญ่ และตรวจสอบชื่อบัญชีก่อนโอนทุกครั้ง</small>
+                  </div>
+                ) : null}
                 {recv.note ? <p className="ox-note">{String(recv.note)}</p> : null}
               </>
             ) : (
@@ -299,6 +319,15 @@ export default function DepositPage() {
               โอนแล้ว แจ้งแชท
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {qrViewer ? (
+        <div className="ox-qr-viewer" onClick={() => setQrViewer(null)} role="presentation">
+          <button type="button" className="ox-qr-viewer-close" onClick={() => setQrViewer(null)} aria-label="ปิด QR Code">
+            <i className="fa-solid fa-xmark" aria-hidden />
+          </button>
+          <img src={qrViewer} alt="QR Code รับเงินขนาดใหญ่" onClick={(e) => e.stopPropagation()} />
         </div>
       ) : null}
 

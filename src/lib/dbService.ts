@@ -300,8 +300,11 @@ export async function dbFetchOrdersByStatus(status: string, userOnly = false) {
   let q = sb.from("admin_cart_orders").select("*").order("created_at", { ascending: false })
   if (userOnly) q = q.eq("user_id", uid)
   if (status) q = q.eq("status", status)
-  const { data } = await q
-  return data ?? []
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as Record<string, unknown>[]
+  if (userOnly) return rows
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(rows)
 }
 
 export async function dbFetchShippingHistory(toStatus: string) {
@@ -379,7 +382,7 @@ export async function dbFetchAdminShippingAddresses() {
       is_default: false,
     })
   }
-  return rows
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(rows)
 }
 
 export async function dbDeleteCustomerStore(storeId: number) {
@@ -576,12 +579,16 @@ export async function dbAdminSubmitReview(orderId: number, reviewText: string, s
 
 export async function dbAdminFetchCart(status: string) {
   const sb = getSupabase()
-  const { data, count } = await sb
+  const { data, error } = await sb
     .from("admin_cart_orders")
-    .select("*", { count: "exact" })
+    .select("*")
     .eq("status", status)
     .order("created_at", { ascending: false })
-  return { success: true, items: data ?? [], count: count ?? 0 }
+  if (error) throw new Error(error.message)
+  const items = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []) as Record<string, unknown>[],
+  )
+  return { success: true, items, count: items.length }
 }
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
@@ -848,22 +855,25 @@ export async function dbFetchChatThreads() {
   if (userIds.length) {
     const { data: users, error: userErr } = await sb
       .from("users")
-      .select("id, phone, email, username")
+      .select("id, phone, email, username, role")
       .in("id", userIds)
+      .not("role", "in", "(admin,super_admin)")
     if (userErr) throw new Error(userErr.message)
     const userMap = new Map((users ?? []).map((u) => [Number(u.id), u]))
     return sortThreads(
-      [...map.values()].map((t) => {
-        const u = userMap.get(Number(t.user_id))
-        const unread = Number(t.unread ?? 0)
-        return {
-          ...t,
-          message_count: unread,
-          phone: u?.phone,
-          email: u?.email,
-          username: u?.username,
-        }
-      }),
+      [...map.values()]
+        .filter((t) => userMap.has(Number(t.user_id)))
+        .map((t) => {
+          const u = userMap.get(Number(t.user_id))
+          const unread = Number(t.unread ?? 0)
+          return {
+            ...t,
+            message_count: unread,
+            phone: u?.phone,
+            email: u?.email,
+            username: u?.username,
+          }
+        }),
     )
   }
   return sortThreads(
@@ -889,9 +899,21 @@ export async function dbFetchCustomerStoreByShop(shopName: string) {
   const target = String(shopName ?? "").trim()
   if (!target) return null
   const sb = getSupabase()
-  const { data: exact } = await sb.from("customer_stores").select("*").eq("shop_name", target).maybeSingle()
-  if (exact) return exact
-  const { data: rows } = await sb.from("customer_stores").select("*")
+  const { data: exact, error: exactError } = await sb
+    .from("customer_stores")
+    .select("*")
+    .eq("shop_name", target)
+    .maybeSingle()
+  if (exactError) throw new Error(exactError.message)
+  if (exact) {
+    const blocked = await (await import("@/lib/adminUserFilter")).assertCustomerUserId(Number(exact.user_id))
+    return blocked ? null : exact
+  }
+  const { data: rows, error } = await sb.from("customer_stores").select("*")
+  if (error) throw new Error(error.message)
+  const customerRows = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (rows ?? []) as Record<string, unknown>[],
+  )
   const norm = target
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
@@ -899,7 +921,7 @@ export async function dbFetchCustomerStoreByShop(shopName: string) {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "")
   return (
-    (rows ?? []).find((row) => {
+    customerRows.find((row) => {
       const name = String(row.shop_name ?? "")
         .normalize("NFKD")
         .replace(/\p{M}/gu, "")
@@ -913,8 +935,10 @@ export async function dbFetchCustomerStoreByShop(shopName: string) {
 
 export async function dbFetchCustomerStoreByUserId(userId: number) {
   if (!userId) return null
+  if (await (await import("@/lib/adminUserFilter")).assertCustomerUserId(userId)) return null
   const sb = getSupabase()
-  const { data } = await sb.from("customer_stores").select("*").eq("user_id", userId).maybeSingle()
+  const { data, error } = await sb.from("customer_stores").select("*").eq("user_id", userId).maybeSingle()
+  if (error) throw new Error(error.message)
   return data
 }
 
@@ -987,22 +1011,29 @@ export async function dbFetchOtherStoreProducts() {
   const uid = getSessionUserId()
   let q = sb.from("customer_store_products_mirror").select("*").order("id", { ascending: false })
   if (uid) q = q.neq("user_id", uid)
-  const { data } = await q
-  return (data ?? []).map((r) => ({ ...r, catalog_source: "mirror" }))
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  const rows = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []) as Record<string, unknown>[],
+  )
+  return rows.map((r) => ({ ...r, catalog_source: "mirror" }))
 }
 
 export async function dbFetchCustomerShopProducts(userId?: number) {
   const uid = userId ?? getSessionUserId()
   if (!uid) return []
+  if (await (await import("@/lib/adminUserFilter")).assertCustomerUserId(uid)) return []
   const sb = getSupabase()
-  const { data } = await sb.from("customer_store_products_mirror").select("*").eq("user_id", uid)
+  const { data, error } = await sb.from("customer_store_products_mirror").select("*").eq("user_id", uid)
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
 export async function dbFetchAllCustomerShopProducts() {
   const sb = getSupabase()
-  const { data } = await sb.from("customer_store_products_mirror").select("*").order("id", { ascending: false })
-  return data ?? []
+  const { data, error } = await sb.from("customer_store_products_mirror").select("*").order("id", { ascending: false })
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners((data ?? []) as Record<string, unknown>[])
 }
 
 export async function dbFetchAllCustomerStores() {
@@ -1014,16 +1045,20 @@ export async function dbFetchAllCustomerStores() {
   if (error) throw new Error(error.message)
   if (!stores?.length) return []
 
-  const { data: products } = await sb.from("customer_store_products_mirror").select("user_id")
+  const { data: products, error: productsError } = await sb
+    .from("customer_store_products_mirror")
+    .select("user_id")
+  if (productsError) throw new Error(productsError.message)
   const counts = new Map<number, number>()
   for (const row of products ?? []) {
     const uid = Number(row.user_id)
     if (uid) counts.set(uid, (counts.get(uid) ?? 0) + 1)
   }
-  return stores.map((store) => ({
+  const mapped = stores.map((store) => ({
     ...store,
     product_count: counts.get(Number(store.user_id)) ?? 0,
   }))
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(mapped as Record<string, unknown>[])
 }
 
 /** นำสินค้าจากแคตตาล็อกแอดมินตามหมวดหมู่ที่เลือกตอนเปิดร้าน */
@@ -1391,13 +1426,15 @@ export async function dbFetchWalletHistory(type: string) {
 
 export async function dbFetchUsers() {
   const sb = getSupabase()
-  const { data } = await sb
+  const { data, error } = await sb
     .from("users")
     .select(
-      "id, username, email, phone, status, role, referral_code, referred_by, registered_at, created_at, credit, wallet_balance",
+      "id, username, email, phone, status, role, referral_code, referred_by, registered_at, credit, wallet_balance",
     )
+    .not("role", "in", "(admin,super_admin)")
     .order("id")
-  return data ?? []
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffAccounts(data ?? [])
 }
 
 export async function dbSuperAdminListAdmins() {
@@ -1437,8 +1474,9 @@ export async function dbSuperAdminResetAdminPassword(
 
 export async function dbFetchDeposits() {
   const sb = getSupabase()
-  const { data } = await sb.from("deposit_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
-  return (data ?? []).map((row) => {
+  const { data, error } = await sb.from("deposit_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []).map((row) => {
     const flat = flattenUserJoin(row as Record<string, unknown>)
     return {
       ...flat,
@@ -1446,27 +1484,37 @@ export async function dbFetchDeposits() {
       channel: flat.payment_method ?? flat.channel,
     }
   })
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(rows)
 }
 
 export async function dbFetchWithdrawals() {
   const sb = getSupabase()
-  const { data } = await sb.from("withdraw_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  const { data, error } = await sb.from("withdraw_requests").select("*, users(email,phone,username)").order("created_at", { ascending: false })
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }
 
 export async function dbFetchVerifications() {
   const sb = getSupabase()
-  const { data } = await sb
+  const { data, error } = await sb
     .from("identity_verifications")
     .select("*, users(email,phone,username)")
     .order("created_at", { ascending: false })
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }
 
 export async function dbFetchBankAccounts() {
   const sb = getSupabase()
-  const { data } = await sb.from("bank_accounts").select("*, users(email,phone,username)").order("id")
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  const { data, error } = await sb.from("bank_accounts").select("*, users(email,phone,username)").order("id")
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }
 
 export async function dbSavePaymentLimits(minDeposit: number, minWithdraw: number) {
@@ -1502,8 +1550,12 @@ export async function dbSaveCommissionSettings(percent: number) {
 
 export async function dbAdminNotifications() {
   const sb = getSupabase()
-  const { data } = await sb.from("notifications").select("*").order("created_at", { ascending: false })
-  return (data ?? []).map((row) => ({
+  const { data, error } = await sb.from("notifications").select("*").order("created_at", { ascending: false })
+  if (error) throw new Error(error.message)
+  const rows = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []) as Record<string, unknown>[],
+  )
+  return rows.map((row) => ({
     ...row,
     notification_type: row.ntype,
     target_user_id: row.user_id,

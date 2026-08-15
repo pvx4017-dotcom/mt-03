@@ -31,8 +31,31 @@ export type ReceivingAccount = {
   account_number?: string
   network?: string
   note?: string
+  qr_image?: string
   is_active?: boolean
   sort_order?: number
+}
+
+const RECEIVING_QR_MARKER = /\n?\[\[QR_IMAGE:([^\]]+)\]\]\s*$/i
+
+function normalizeReceivingAccount(row: Record<string, unknown>): ReceivingAccount {
+  const rawNote = String(row.note ?? "")
+  const marker = rawNote.match(RECEIVING_QR_MARKER)
+  return {
+    ...row,
+    note: rawNote.replace(RECEIVING_QR_MARKER, "").trim(),
+    qr_image: String(row.qr_image ?? marker?.[1] ?? "").trim(),
+  } as ReceivingAccount
+}
+
+function receivingFallbackNote(note: string, qrImage: string) {
+  const cleanNote = note.replace(RECEIVING_QR_MARKER, "").trim()
+  return qrImage ? `${cleanNote}${cleanNote ? "\n" : ""}[[QR_IMAGE:${qrImage}]]` : cleanNote
+}
+
+function isMissingQrColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false
+  return error.code === "42703" || error.code === "PGRST204" || /qr_image.*(column|schema cache)|column.*qr_image/i.test(error.message ?? "")
 }
 
 export async function dbFetchReceivingAccounts(activeOnly = false) {
@@ -41,7 +64,7 @@ export async function dbFetchReceivingAccounts(activeOnly = false) {
   if (activeOnly) q = q.eq("is_active", true)
   const { data, error } = await q
   if (error) return fail(error.message, { accounts: [] as ReceivingAccount[] })
-  return ok({ accounts: (data ?? []) as ReceivingAccount[] })
+  return ok({ accounts: (data ?? []).map((row) => normalizeReceivingAccount(row as Record<string, unknown>)) })
 }
 
 export async function dbSaveReceivingAccount(row: ReceivingAccount) {
@@ -52,15 +75,29 @@ export async function dbSaveReceivingAccount(row: ReceivingAccount) {
     account_number: String(row.account_number ?? "").trim(),
     network: String(row.network ?? "").trim(),
     note: String(row.note ?? "").trim(),
+    qr_image: String(row.qr_image ?? "").trim() || null,
     is_active: row.is_active !== false,
     sort_order: Number(row.sort_order ?? 0),
     updated_at: new Date().toISOString(),
   }
+  const fallbackPayload = {
+    ...payload,
+    note: receivingFallbackNote(payload.note, payload.qr_image ?? ""),
+  }
+  delete (fallbackPayload as Partial<typeof fallbackPayload>).qr_image
   if (row.id) {
-    const { error } = await sb.from("platform_receiving_accounts").update(payload).eq("id", row.id)
+    let { error } = await sb.from("platform_receiving_accounts").update(payload).eq("id", row.id)
+    if (isMissingQrColumn(error)) {
+      const fallback = await sb.from("platform_receiving_accounts").update(fallbackPayload).eq("id", row.id)
+      error = fallback.error
+    }
     if (error) return fail(error.message)
   } else {
-    const { error } = await sb.from("platform_receiving_accounts").insert(payload)
+    let { error } = await sb.from("platform_receiving_accounts").insert(payload)
+    if (isMissingQrColumn(error)) {
+      const fallback = await sb.from("platform_receiving_accounts").insert(fallbackPayload)
+      error = fallback.error
+    }
     if (error) return fail(error.message)
   }
   return ok({ message: "บันทึกบัญชีรับเงินแล้ว" })
@@ -169,8 +206,10 @@ export async function dbFetchUserAddressesAdmin() {
     .from("user_addresses")
     .select("*, users(username,phone,email)")
     .order("updated_at", { ascending: false })
-  if (error) return []
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }
 
 export async function dbFetchCheckinState(): Promise<
@@ -290,11 +329,14 @@ export async function dbFetchMyLoans() {
 
 export async function dbFetchAdminLoans() {
   const sb = getSupabase()
-  const { data } = await sb
+  const { data, error } = await sb
     .from("loan_applications")
     .select("*, users(email,phone,username)")
     .order("created_at", { ascending: false })
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }
 
 export async function dbUpdateLoanStatus(id: number, status: string) {
@@ -448,9 +490,12 @@ export async function dbSubmitFeedback(fields: {
 
 export async function dbFetchAdminFeedback() {
   const sb = getSupabase()
-  const { data } = await sb
+  const { data, error } = await sb
     .from("feedback_tickets")
     .select("*, users(email,phone,username)")
     .order("created_at", { ascending: false })
-  return (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>))
+  if (error) throw new Error(error.message)
+  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+    (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
+  )
 }

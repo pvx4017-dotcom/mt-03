@@ -328,6 +328,7 @@ CREATE TABLE platform_receiving_accounts (
   account_number  TEXT,
   network         TEXT,
   note            TEXT,
+  qr_image        TEXT,
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order      INT NOT NULL DEFAULT 0,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

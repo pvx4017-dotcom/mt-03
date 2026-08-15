@@ -304,6 +304,118 @@
   font-size: 12px;
 }
 
+.admin-password-reset-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-password-reset-link:hover {
+  background: #dbeafe;
+}
+
+.admin-password-input-wrap {
+  position: relative;
+}
+
+.admin-password-input-wrap .admin-form-control {
+  padding-right: 46px;
+}
+
+.admin-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.admin-password-toggle:hover {
+  background: #f1f5f9;
+  color: #1d4ed8;
+}
+
+.admin-password-help {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-receiving-qr-editor {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.admin-receiving-qr-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-receiving-qr-preview img,
+.admin-receiving-qr-thumb {
+  display: block;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-receiving-qr-preview img {
+  width: 112px;
+  height: 112px;
+}
+
+.admin-receiving-qr-thumb {
+  width: 64px;
+  height: 64px;
+}
+
+.admin-receiving-qr-empty {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.admin-receiving-qr-empty i {
+  font-size: 22px;
+}
+
+@media (max-width: 640px) {
+  .admin-receiving-qr-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-code-pill-warn {
   background: #fff9db;
   color: #e67700;

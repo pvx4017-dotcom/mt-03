@@ -59,6 +59,7 @@ export function isStorageAssetPath(path: string): boolean {
     p.startsWith("products/") ||
     p.startsWith("shops/") ||
     p.startsWith("stores/") ||
+    p.startsWith("receiving_qr/") ||
     p.startsWith("uploads/")
   )
     return true

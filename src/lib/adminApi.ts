@@ -62,7 +62,6 @@ export type AdminUser = {
   username: string
   email: string
   phone: string | null
-  password: string
   status: string
   role: string
   referral_code: string
@@ -149,8 +148,13 @@ export async function fetchAdminUsers() {
   const rows = await dbFetchUsers()
   return rows.map((u) => ({
     ...u,
-    password: "••••••",
-    registered_at: String(u.registered_at ?? u.created_at ?? ""),
+    username: String(u.username ?? `user_${u.id}`),
+    email: String(u.email ?? ""),
+    phone: u.phone == null ? null : String(u.phone),
+    status: String(u.status ?? "active"),
+    referral_code: String(u.referral_code ?? ""),
+    referred_by: String(u.referred_by ?? ""),
+    registered_at: String(u.registered_at ?? ""),
     role: String(u.role ?? "customer"),
   })) as AdminUser[]
 }
@@ -186,6 +190,7 @@ export async function fetchAdminCredits() {
   const data = await adminGet<ApiResult<{ credits?: Record<string, unknown>[] }>>(
     apiPath(API.adminCustomerTopup, { action: "credits" }),
   )
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลเครดิตไม่สำเร็จ"))
   return data.credits ?? []
 }
 
@@ -201,6 +206,7 @@ export async function fetchAdminWithdrawPasswords() {
   const data = await adminGet<ApiResult<{ passwords?: Record<string, unknown>[] }>>(
     API.adminWithdrawPasswords,
   )
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลรหัสถอนไม่สำเร็จ"))
   return (data.passwords ?? []).map((row) => ({
     ...row,
     is_active: row.has_password ? 1 : 0,
@@ -212,6 +218,7 @@ export async function fetchAdminTopupWallets() {
   const data = await adminGet<ApiResult<{ wallets?: Record<string, unknown>[] }>>(
     apiPath(API.adminCustomerTopup, { action: "wallets" }),
   )
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลกระเป๋าไม่สำเร็จ"))
   return (data.wallets ?? []).map((row) => ({
     ...row,
     user_id: row.id ?? row.user_id,
@@ -239,9 +246,10 @@ export async function fetchAdminPaymentLimits() {
 }
 
 export async function fetchAdminShippingAddresses() {
-  const data = await adminGet<{ success?: boolean; addresses?: Record<string, unknown>[] }>(
+  const data = await adminGet<{ success?: boolean; message?: string; addresses?: Record<string, unknown>[] }>(
     API.adminShippingAddresses,
   )
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลที่อยู่ไม่สำเร็จ"))
   return data.addresses ?? []
 }
 
@@ -253,6 +261,7 @@ export async function fetchTopupUsers() {
   const data = await adminGet<ApiResult<{ users?: Record<string, unknown>[] }>>(
     apiPath(API.adminCustomerTopup, { action: "users" }),
   )
+  if (data.success === false) throw new Error(String(data.message ?? "โหลดข้อมูลผู้ใช้ไม่สำเร็จ"))
   return data.users ?? []
 }
 

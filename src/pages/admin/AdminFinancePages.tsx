@@ -10,6 +10,7 @@ import {
   useAdminToast,
 } from "@/components/admin/AdminUi"
 import {
+  adminAsset,
   adminGet,
   adminPost,
   fetchAdminDeposits,
@@ -396,9 +397,36 @@ export function AdminReceivingAccountsPage() {
     account_number: "",
     network: "",
     note: "",
+    qr_image: "",
     is_active: "1",
     sort_order: "0",
   })
+  const [qrFile, setQrFile] = useState<File | null>(null)
+  const [removeQr, setRemoveQr] = useState(false)
+  const qrObjectUrl = useMemo(() => (qrFile ? URL.createObjectURL(qrFile) : ""), [qrFile])
+  const qrPreview = qrObjectUrl || (form.qr_image ? adminAsset(form.qr_image) : "")
+
+  useEffect(() => {
+    return () => {
+      if (qrObjectUrl) URL.revokeObjectURL(qrObjectUrl)
+    }
+  }, [qrObjectUrl])
+
+  const resetForm = () => {
+    setForm({
+      id: "",
+      channel: "bank",
+      account_name: "",
+      account_number: "",
+      network: "",
+      note: "",
+      qr_image: "",
+      is_active: "1",
+      sort_order: "0",
+    })
+    setQrFile(null)
+    setRemoveQr(false)
+  }
 
   const load = useCallback(async () => {
     const data = await adminGet<{ accounts?: Record<string, unknown>[] }>(API.adminReceivingAccounts)
@@ -417,6 +445,9 @@ export function AdminReceivingAccountsPage() {
     fd.append("account_number", form.account_number)
     fd.append("network", form.network)
     fd.append("note", form.note)
+    fd.append("qr_image_path", form.qr_image)
+    fd.append("remove_qr", removeQr ? "1" : "0")
+    if (qrFile) fd.append("qr_image", qrFile)
     fd.append("is_active", form.is_active)
     fd.append("sort_order", form.sort_order)
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminReceivingAccounts, fd)
@@ -425,7 +456,7 @@ export function AdminReceivingAccountsPage() {
       return
     }
     showToast("บันทึกบัญชีรับเงินแล้ว")
-    setForm({ id: "", channel: "bank", account_name: "", account_number: "", network: "", note: "", is_active: "1", sort_order: "0" })
+    resetForm()
     await load()
   }
 
@@ -458,6 +489,46 @@ export function AdminReceivingAccountsPage() {
           <input className="admin-form-control" placeholder="หมายเหตุ" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <button type="button" className="admin-submit-btn" onClick={save}>{form.id ? "อัปเดต" : "เพิ่มบัญชี"}</button>
         </div>
+        <div className="admin-receiving-qr-editor">
+          <div className="admin-form-group">
+            <label>QR Code สำหรับรับเงิน (PNG, JPG หรือ WebP ไม่เกิน 5 MB)</label>
+            <input
+              className="admin-form-control"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                if (file && file.size > 5 * 1024 * 1024) {
+                  showToast("รูป QR Code ต้องมีขนาดไม่เกิน 5 MB", "error")
+                  e.target.value = ""
+                  return
+                }
+                setQrFile(file)
+                if (file) setRemoveQr(false)
+              }}
+            />
+          </div>
+          {qrPreview ? (
+            <div className="admin-receiving-qr-preview">
+              <img src={qrPreview} alt={`QR Code ${form.channel}`} />
+              <button
+                type="button"
+                className="admin-action-btn cancel"
+                onClick={() => {
+                  setQrFile(null)
+                  setForm((current) => ({ ...current, qr_image: "" }))
+                  setRemoveQr(true)
+                }}
+              >
+                ลบ QR Code
+              </button>
+            </div>
+          ) : (
+            <div className="admin-receiving-qr-empty">
+              <i className="fa-solid fa-qrcode" aria-hidden /> ยังไม่ได้เพิ่ม QR Code
+            </div>
+          )}
+        </div>
       </div>
       <AdminTableWrap>
         <table>
@@ -467,13 +538,14 @@ export function AdminReceivingAccountsPage() {
               <th>ชื่อบัญชี</th>
               <th>เลขบัญชี</th>
               <th>เครือข่าย</th>
+              <th>QR Code</th>
               <th>สถานะ</th>
               <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <AdminEmptyRow cols={6} message="ยังไม่มีบัญชีรับเงิน" />
+              <AdminEmptyRow cols={7} message="ยังไม่มีบัญชีรับเงิน" />
             ) : (
               rows.map((row) => (
                 <tr key={String(row.id)}>
@@ -481,18 +553,38 @@ export function AdminReceivingAccountsPage() {
                   <td>{String(row.account_name ?? "-")}</td>
                   <td>{String(row.account_number ?? "-")}</td>
                   <td>{String(row.network ?? "-")}</td>
+                  <td>
+                    {row.qr_image ? (
+                      <img
+                        className="admin-receiving-qr-thumb"
+                        src={adminAsset(String(row.qr_image))}
+                        alt={`QR Code ${String(row.channel ?? "")}`}
+                      />
+                    ) : "-"}
+                  </td>
                   <td>{row.is_active ? "เปิด" : "ปิด"}</td>
                   <td>
-                    <button type="button" className="admin-action-btn edit" onClick={() => setForm({
-                      id: String(row.id ?? ""),
-                      channel: String(row.channel ?? "bank"),
-                      account_name: String(row.account_name ?? ""),
-                      account_number: String(row.account_number ?? ""),
-                      network: String(row.network ?? ""),
-                      note: String(row.note ?? ""),
-                      is_active: row.is_active ? "1" : "0",
-                      sort_order: String(row.sort_order ?? 0),
-                    })}>แก้ไข</button>
+                    <button
+                      type="button"
+                      className="admin-action-btn edit"
+                      onClick={() => {
+                        setForm({
+                          id: String(row.id ?? ""),
+                          channel: String(row.channel ?? "bank"),
+                          account_name: String(row.account_name ?? ""),
+                          account_number: String(row.account_number ?? ""),
+                          network: String(row.network ?? ""),
+                          note: String(row.note ?? ""),
+                          qr_image: String(row.qr_image ?? ""),
+                          is_active: row.is_active ? "1" : "0",
+                          sort_order: String(row.sort_order ?? 0),
+                        })
+                        setQrFile(null)
+                        setRemoveQr(false)
+                      }}
+                    >
+                      แก้ไข
+                    </button>
                     <button type="button" className="admin-action-btn cancel" onClick={() => remove(Number(row.id))}>ลบ</button>
                   </td>
                 </tr>

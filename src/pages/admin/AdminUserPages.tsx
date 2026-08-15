@@ -37,6 +37,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
   const [edit, setEdit] = useState<AdminUser | null>(null)
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState("active")
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
@@ -72,17 +74,44 @@ export default function AdminUsersPage() {
 
   const saveEdit = async () => {
     if (!edit) return
+    const nextPassword = password.trim()
+    if (nextPassword && nextPassword.length < 6) {
+      showToast("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร", "error")
+      return
+    }
+    if (nextPassword && nextPassword !== confirmPassword) {
+      showToast("รหัสผ่านใหม่และการยืนยันไม่ตรงกัน", "error")
+      return
+    }
     const fd = new FormData()
     fd.append("action", "edit")
     fd.append("id", String(edit.id))
-    fd.append("password", password)
+    fd.append("password", nextPassword)
     fd.append("status", status)
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminUsers, fd)
     if (res.success) {
-      showToast("บันทึกสำเร็จ")
+      showToast(nextPassword ? "เปลี่ยนรหัสผ่านและบันทึกข้อมูลแล้ว" : "บันทึกสำเร็จ")
       setEdit(null)
+      setPassword("")
+      setConfirmPassword("")
+      setShowPassword(false)
       load(true)
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
+  }
+
+  const openEdit = (row: AdminUser) => {
+    setEdit(row)
+    setPassword("")
+    setConfirmPassword("")
+    setShowPassword(false)
+    setStatus(row.status)
+  }
+
+  const closeEdit = () => {
+    setEdit(null)
+    setPassword("")
+    setConfirmPassword("")
+    setShowPassword(false)
   }
 
   const blockUser = async (row: AdminUser) => {
@@ -123,7 +152,7 @@ export default function AdminUsersPage() {
             <tr>
               <th>ID</th>
               <th>ชื่อผู้ใช้ / ข้อมูล</th>
-              <th>รหัสผ่าน</th>
+              <th>รหัสผ่าน / รีเซ็ต</th>
               <th>รหัสเชิญ</th>
               <th>รหัสถูกเชิญ</th>
               <th>วันที่สมัคร</th>
@@ -145,7 +174,15 @@ export default function AdminUsersPage() {
                     <div className="admin-user-cell-sub">{row.phone || row.email || "-"}</div>
                   </td>
                   <td>
-                    <div className="admin-password-cell">••••••</div>
+                    <button
+                      type="button"
+                      className="admin-password-reset-link"
+                      onClick={() => openEdit(row)}
+                      title="ตั้งรหัสผ่านใหม่"
+                    >
+                      <i className="fa-solid fa-key" aria-hidden />
+                      ตั้งรหัสใหม่
+                    </button>
                   </td>
                   <td>
                     <span className="admin-code-pill">{row.referral_code || "-"}</span>
@@ -169,11 +206,7 @@ export default function AdminUsersPage() {
                         type="button"
                         className="action-btn icon-btn btn-edit"
                         title="แก้ไข"
-                        onClick={() => {
-                          setEdit(row)
-                          setPassword("")
-                          setStatus(row.status)
-                        }}
+                        onClick={() => openEdit(row)}
                       >
                         <i className="fa-solid fa-pen" />
                       </button>
@@ -213,7 +246,7 @@ export default function AdminUsersPage() {
       <AdminEditModal
         open={!!edit}
         title="แก้ไขผู้ใช้"
-        onClose={() => setEdit(null)}
+        onClose={closeEdit}
         onSave={saveEdit}
       >
         {edit ? (
@@ -227,17 +260,44 @@ export default function AdminUsersPage() {
                 บัญชีผู้ดูแล — เปลี่ยนรหัสผ่านได้ที่เมนู <strong>ตั้งค่าระบบ</strong> (Super Admin)
               </p>
             ) : (
+              <>
               <div className="admin-form-group">
-                <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
+                <label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+                <div className="admin-password-input-wrap">
+                  <input
+                    className="admin-form-control"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="เว้นว่างถ้าไม่เปลี่ยน"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="admin-password-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                  >
+                    <i className={`fa-solid ${showPassword ? "fa-eye-slash" : "fa-eye"}`} aria-hidden />
+                  </button>
+                </div>
+              </div>
+              <div className="admin-form-group">
+                <label>ยืนยันรหัสผ่านใหม่</label>
                 <input
                   className="admin-form-control"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="รหัสใหม่ (เว้นว่างถ้าไม่เปลี่ยน)"
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
                   autoComplete="new-password"
                 />
+                <div className="admin-password-help">
+                  ระบบไม่สามารถแสดงรหัสผ่านเดิมได้ เนื่องจากจัดเก็บแบบเข้ารหัสทางเดียว
+                </div>
               </div>
+              </>
             )}
             <div className="admin-form-group">
               <label>สถานะ</label>
@@ -320,6 +380,7 @@ export function AdminCreditManagementPage() {
           <thead>
             <tr>
               <th>User ID</th>
+              <th>ผู้ใช้</th>
               <th>เบอร์โทร</th>
               <th>อีเมล</th>
               <th>เครดิต</th>
@@ -328,13 +389,14 @@ export function AdminCreditManagementPage() {
           </thead>
           <tbody>
             {showAdminTableLoading(loading, rows.length) ? (
-              <AdminLoadingRow cols={5} />
+              <AdminLoadingRow cols={6} />
             ) : filtered.length === 0 ? (
-              <AdminEmptyRow cols={5} message="ไม่พบข้อมูล" />
+              <AdminEmptyRow cols={6} message="ไม่พบข้อมูล" />
             ) : (
               filtered.map((row, i) => (
                 <tr key={String(row.user_id ?? row.id ?? i)}>
                   <td>{String(row.user_id ?? row.id ?? "-")}</td>
+                  <td>{String(row.username ?? "-")}</td>
                   <td>{String(row.phone ?? "-")}</td>
                   <td>{String(row.email ?? "-")}</td>
                   <td>{String(row.credit ?? row.balance ?? "0")}</td>
@@ -821,10 +883,11 @@ export function AdminCustomerTopupPage() {
     const q = search.trim().toLowerCase()
     if (!q) return rows
     return rows.filter((r) => {
-      const idText = String(r.user_id ?? "").toLowerCase()
+      const idText = String(r.user_id ?? r.id ?? "").toLowerCase()
+      const nameText = String(r.username ?? "").toLowerCase()
       const phoneText = String(r.phone ?? "").toLowerCase()
       const emailText = String(r.email ?? "").toLowerCase()
-      return idText.includes(q) || phoneText.includes(q) || emailText.includes(q)
+      return idText.includes(q) || nameText.includes(q) || phoneText.includes(q) || emailText.includes(q)
     })
   }, [rows, search])
 
@@ -833,9 +896,10 @@ export function AdminCustomerTopupPage() {
     if (!q) return allUsers
     return allUsers.filter((u) => {
       const idText = String(u.id ?? "").toLowerCase()
+      const nameText = String(u.username ?? "").toLowerCase()
       const phoneText = String(u.phone ?? "").toLowerCase()
       const emailText = String(u.email ?? "").toLowerCase()
-      return idText.includes(q) || phoneText.includes(q) || emailText.includes(q)
+      return idText.includes(q) || nameText.includes(q) || phoneText.includes(q) || emailText.includes(q)
     })
   }, [allUsers, userSearch])
 
@@ -926,7 +990,7 @@ export function AdminCustomerTopupPage() {
             <thead>
               <tr>
                 <th>User ID</th>
-                <th>เบอร์/อีเมล</th>
+                <th>ผู้ใช้</th>
                 <th>ยอดคงเหลือ</th>
                 <th>อัปเดตล่าสุด</th>
                 <th>จัดการ</th>
@@ -944,7 +1008,10 @@ export function AdminCustomerTopupPage() {
                 filtered.map((row, i) => (
                   <tr key={String(row.user_id ?? row.id ?? i)}>
                     <td>{String(row.user_id ?? row.id ?? "-")}</td>
-                    <td>{String(row.phone ?? row.email ?? "-")}</td>
+                    <td>
+                      <div>{String(row.username ?? "-")}</div>
+                      <div className="admin-user-cell-sub">{String(row.phone ?? row.email ?? "-")}</div>
+                    </td>
                     <td>${adminFmtMoney(row.balance ?? row.wallet_balance)}</td>
                     <td>{formatAdminDate(String(row.updated_at ?? row.registered_at ?? ""))}</td>
                     <td>
@@ -1004,7 +1071,7 @@ export function AdminCustomerTopupPage() {
                 ) : (
                   filteredTopupUsers.map((u) => (
                     <option key={String(u.id)} value={String(u.id)}>
-                      ID: {String(u.id)} | {String(u.phone ?? u.email ?? "-")}
+                      ID: {String(u.id)} | {String(u.username ?? u.phone ?? u.email ?? "-")}
                     </option>
                   ))
                 )}

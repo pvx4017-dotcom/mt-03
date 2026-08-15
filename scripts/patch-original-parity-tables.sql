@@ -16,11 +16,14 @@ CREATE TABLE IF NOT EXISTS platform_receiving_accounts (
   account_number  TEXT,
   network         TEXT,
   note            TEXT,
+  qr_image        TEXT,
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order      INT NOT NULL DEFAULT 0,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE platform_receiving_accounts ADD COLUMN IF NOT EXISTS qr_image TEXT;
 
 CREATE TABLE IF NOT EXISTS user_payout_wallets (
   user_id     BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

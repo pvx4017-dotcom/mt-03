@@ -1,5 +1,6 @@
 /** Local API dispatcher — เรียก Supabase โดยตรง ไม่มี HTTP ไป PHP server ภายนอก */
 import { getSupabase } from "@/lib/supabase"
+import { assertCustomerUserId, withoutStaffAccounts } from "@/lib/adminUserFilter"
 import { API } from "@/lib/apiRoutes"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { getSessionUserId } from "@/lib/session"
@@ -108,9 +109,9 @@ async function resolveImageUpload(fd: FormData, field: string, existingPath: str
 async function resolveValidUserId(raw: FormDataEntryValue | null) {
   const id = Number(raw)
   if (!id || Number.isNaN(id)) return null
-  const sb = getSupabase()
-  const { data } = await sb.from("users").select("id").eq("id", id).maybeSingle()
-  return data?.id ?? null
+  const blocked = await assertCustomerUserId(id)
+  if (blocked) return null
+  return id
 }
 
 export async function handleAdminGet(path: string): Promise<Json> {
@@ -207,6 +208,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
         if (userId) {
           const deniedChat = await requireDbAdminRole()
           if (deniedChat) return deniedChat
+          const staffBlocked = await assertCustomerUserId(Number(userId))
+          if (staffBlocked) return fail(staffBlocked)
           return dbFetchChatMessages(Number(userId))
         }
         return dbFetchChatMessages()
@@ -217,24 +220,40 @@ export async function handleAdminGet(path: string): Promise<Json> {
       const action = params.get("action")
       const sb = getSupabase()
       if (action === "credits") {
-        const { data } = await sb.from("users").select("id, username, email, phone, credit")
-        return ok({ credits: data ?? [] })
+        const { data, error } = await sb
+          .from("users")
+          .select("id, username, email, phone, credit, role")
+          .not("role", "in", "(admin,super_admin)")
+        if (error) return fail(error.message)
+        return ok({ credits: withoutStaffAccounts(data ?? []) })
       }
       if (action === "wallets") {
-        const { data } = await sb.from("users").select("id, username, email, phone, wallet_balance, wallet_profit")
-        return ok({ wallets: data ?? [] })
+        const { data, error } = await sb
+          .from("users")
+          .select("id, username, email, phone, wallet_balance, wallet_profit, role")
+          .not("role", "in", "(admin,super_admin)")
+        if (error) return fail(error.message)
+        return ok({ wallets: withoutStaffAccounts(data ?? []) })
       }
       if (action === "users") {
-        const { data } = await sb.from("users").select("id, username, email, phone, wallet_balance")
-        return ok({ users: data ?? [] })
+        const { data, error } = await sb
+          .from("users")
+          .select("id, username, email, phone, wallet_balance, role")
+          .not("role", "in", "(admin,super_admin)")
+        if (error) return fail(error.message)
+        return ok({ users: withoutStaffAccounts(data ?? []) })
       }
       return ok({})
     }
     case API.adminWithdrawPasswords: {
       const sb = getSupabase()
-      const { data } = await sb.from("users").select("id, username, email, phone, withdraw_password_hash")
+      const { data, error } = await sb
+        .from("users")
+        .select("id, username, email, phone, withdraw_password_hash, role")
+        .not("role", "in", "(admin,super_admin)")
+      if (error) return fail(error.message)
       return ok({
-        passwords: (data ?? []).map((u) => ({
+        passwords: withoutStaffAccounts(data ?? []).map((u) => ({
           id: u.id,
           username: u.username,
           email: u.email,
@@ -310,30 +329,39 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
   switch (path) {
     case API.adminUsers: {
       const id = Number(fd.get("id"))
+      const staffBlocked = await assertCustomerUserId(id)
+      if (staffBlocked) return fail(staffBlocked)
       if (action === "delete") {
-        await sb.from("users").delete().eq("id", id)
+        const { error } = await sb.from("users").delete().eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: "ลบแล้ว" })
       }
       if (action === "block") {
-        const { data: u } = await sb.from("users").select("status").eq("id", id).single()
+        const { data: u, error: readError } = await sb.from("users").select("status").eq("id", id).single()
+        if (readError) return fail(readError.message)
         const next = u?.status === "banned" ? "active" : "banned"
-        await sb.from("users").update({ status: next }).eq("id", id)
+        const { error } = await sb.from("users").update({ status: next }).eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: next === "banned" ? "ระงับแล้ว" : "ยกเลิกระงับแล้ว" })
       }
       if (action === "edit") {
         const status = String(fd.get("status") ?? "active")
-        const { data: target } = await sb.from("users").select("role").eq("id", id).single()
-        await sb.from("users").update({ status }).eq("id", id)
+        const { data: target, error: readError } = await sb.from("users").select("role").eq("id", id).single()
+        if (readError) return fail(readError.message)
+        const { error: updateError } = await sb.from("users").update({ status }).eq("id", id)
+        if (updateError) return fail(updateError.message)
         const pwd = fd.get("password")
         if (pwd && String(pwd).trim()) {
+          if (String(pwd).trim().length < 6) return fail("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร")
           const targetRole = String(target?.role ?? "customer")
           if (targetRole === "admin" || targetRole === "super_admin") {
             return fail("เปลี่ยนรหัสผู้ดูแลได้ที่เมนูตั้งค่าระบบ (Super Admin) เท่านั้น")
           }
-          const { data } = await sb.rpc("admin_set_user_password", {
+          const { data, error } = await sb.rpc("admin_set_user_password", {
             p_user_id: id,
             p_password: String(pwd),
           })
+          if (error) return fail(error.message)
           const row = data as { success?: boolean; message?: string }
           if (row?.success === false) return fail(row.message ?? "เปลี่ยนรหัสผ่านไม่สำเร็จ")
         }
@@ -550,17 +578,25 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     case API.adminNotifications: {
       const id = Number(fd.get("id") ?? 0)
       if (action === "delete") {
-        await sb.from("notifications").delete().eq("id", id)
+        const { error } = await sb.from("notifications").delete().eq("id", id)
+        if (error) return fail(error.message)
         return ok({ message: "ลบแล้ว" })
+      }
+      const targetUserId = fd.get("target_user_id") ? Number(fd.get("target_user_id")) : null
+      if (targetUserId) {
+        const staffBlocked = await assertCustomerUserId(targetUserId)
+        if (staffBlocked) return fail(staffBlocked)
       }
       const row = {
         ntype: normalizeNotificationType(String(fd.get("notification_type") ?? "platform")),
         title: String(fd.get("title") ?? ""),
         message: String(fd.get("message") ?? ""),
-        user_id: fd.get("target_user_id") ? Number(fd.get("target_user_id")) : null,
+        user_id: targetUserId,
       }
-      if (action === "update" && id) await sb.from("notifications").update(row).eq("id", id)
-      else await sb.from("notifications").insert(row)
+      const { error } = action === "update" && id
+        ? await sb.from("notifications").update(row).eq("id", id)
+        : await sb.from("notifications").insert(row)
+      if (error) return fail(error.message)
       return ok({ message: "บันทึกแล้ว" })
     }
     case API.adminIdentityVerifications: {
@@ -589,6 +625,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     }
     case API.adminWithdrawPasswords: {
       const userId = Number(fd.get("id"))
+      const staffBlocked = await assertCustomerUserId(userId)
+      if (staffBlocked) return fail(staffBlocked)
       const { data, error } = await sb.rpc("set_user_withdraw_password", {
         p_user_id: userId,
         p_password: String(fd.get("withdraw_password") ?? ""),
@@ -600,6 +638,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
     }
     case API.adminCustomerTopup: {
       const userId = Number(fd.get("user_id"))
+      const staffBlocked = await assertCustomerUserId(userId)
+      if (staffBlocked) return fail(staffBlocked)
       if (action === "topup") {
         const amt = Number(fd.get("amount") ?? 0)
         const { data: u } = await sb.from("users").select("wallet_balance").eq("id", userId).single()
@@ -626,6 +666,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       const table = path === API.adminDepositRequests ? "deposit_requests" : "withdraw_requests"
       const { data: req } = await sb.from(table).select("*").eq("id", id).single()
       if (!req) return fail("ไม่พบรายการ")
+      const staffBlocked = await assertCustomerUserId(Number(req.user_id))
+      if (staffBlocked) return fail(staffBlocked)
       const prevStatus = String(req.status ?? "pending")
       if (prevStatus === status) return ok({ message: "อัปเดตแล้ว" })
       if (prevStatus !== "pending" && status === "approved") {
@@ -686,6 +728,8 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       if (adminOnly) {
         const deniedChat = await requireDbAdminRole()
         if (deniedChat) return deniedChat
+        const staffBlocked = await assertCustomerUserId(userId)
+        if (staffBlocked) return fail(staffBlocked)
       }
       if (mode === "reset_message_count") {
         return dbResetChatReadState(userId)
@@ -850,6 +894,18 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       if (action === "delete") {
         return (await import("@/lib/parityDb")).dbDeleteReceivingAccount(Number(fd.get("id")))
       }
+      let qrImage = String(fd.get("qr_image_path") ?? "").trim()
+      if (String(fd.get("remove_qr") ?? "0") === "1") qrImage = ""
+      const qrFile = fd.get("qr_image")
+      if (qrFile instanceof File && qrFile.size > 0) {
+        if (!qrFile.type.startsWith("image/")) return fail("ไฟล์ QR Code ต้องเป็นรูปภาพ")
+        if (qrFile.size > 5 * 1024 * 1024) return fail("รูป QR Code ต้องมีขนาดไม่เกิน 5 MB")
+        try {
+          qrImage = await uploadRemoteImage(qrFile, "receiving_qr")
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : "อัปโหลด QR Code ไม่สำเร็จ")
+        }
+      }
       return (await import("@/lib/parityDb")).dbSaveReceivingAccount({
         id: fd.get("id") ? Number(fd.get("id")) : undefined,
         channel: String(fd.get("channel") ?? "bank"),
@@ -857,6 +913,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         account_number: String(fd.get("account_number") ?? ""),
         network: String(fd.get("network") ?? ""),
         note: String(fd.get("note") ?? ""),
+        qr_image: qrImage,
         is_active: String(fd.get("is_active") ?? "1") !== "0",
         sort_order: Number(fd.get("sort_order") ?? 0),
       })
