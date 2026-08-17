@@ -579,7 +579,7 @@ body.page-customer.page-categories .category-content-container {
 
 body.page-customer.page-categories .category-content-container .product-feed,
 body.page-customer.page-categories .category-detail-main .product-feed {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px !important;
   padding: 4px !important;
   width: 100%;
@@ -602,6 +602,7 @@ body.page-customer.page-categories .category-detail-main .product-feed {
 
   body.page-customer.page-categories .category-content-container .product-feed,
   body.page-customer.page-categories .category-detail-main .product-feed {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px !important;
     padding: 10px !important;
   }

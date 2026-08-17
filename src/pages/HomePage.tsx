@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { asset } from "@/lib/assets"
 import { HERO_BANNER_LABEL, SEARCH_PLACEHOLDER } from "@/lib/brand"
@@ -19,6 +19,68 @@ import { PartnerMarquee } from "@/components/home/PartnerMarquee"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import type { Product } from "@/data/products"
 
+/** Desktop/mouse drag-to-scroll for horizontal product rails (touch uses native overflow). */
+function useHorizontalDragScroll() {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    let dragging = false
+    let moved = false
+    let startX = 0
+    let startScroll = 0
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return
+      dragging = true
+      moved = false
+      startX = e.clientX
+      startScroll = el.scrollLeft
+      el.classList.add("is-dragging")
+      el.setPointerCapture(e.pointerId)
+    }
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return
+      const dx = e.clientX - startX
+      if (Math.abs(dx) > 4) moved = true
+      el.scrollLeft = startScroll - dx
+    }
+
+    const endDrag = () => {
+      if (!dragging) return
+      dragging = false
+      el.classList.remove("is-dragging")
+      if (moved) el.dataset.dragged = "1"
+    }
+
+    const onClickCapture = (e: MouseEvent) => {
+      if (el.dataset.dragged !== "1") return
+      e.preventDefault()
+      e.stopPropagation()
+      el.dataset.dragged = "0"
+    }
+
+    el.addEventListener("pointerdown", onPointerDown)
+    el.addEventListener("pointermove", onPointerMove)
+    el.addEventListener("pointerup", endDrag)
+    el.addEventListener("pointercancel", endDrag)
+    el.addEventListener("click", onClickCapture, true)
+
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown)
+      el.removeEventListener("pointermove", onPointerMove)
+      el.removeEventListener("pointerup", endDrag)
+      el.removeEventListener("pointercancel", endDrag)
+      el.removeEventListener("click", onClickCapture, true)
+    }
+  }, [])
+
+  return ref
+}
+
 const fallbackBanners = [
   "images/banner_hot_product_1775719595992.png",
   "images/banner_smart_home_2_1775724145981.png",
@@ -34,8 +96,8 @@ function HomeSectionTitle({ children }: { children: string }) {
 export default function HomePage() {
   useBodyClass("page-home")
   const [slide, setSlide] = useState(0)
-  const [shopSlide, setShopSlide] = useState(0)
   const [catalogVisible, setCatalogVisible] = useState(CATALOG_PAGE_SIZE)
+  const dailySliderRef = useHorizontalDragScroll()
   const {
     categories,
     shops,
@@ -60,11 +122,6 @@ export default function HomePage() {
     [catalogProducts, catalogVisible],
   )
   const hasMoreCatalog = catalogVisible < catalogProducts.length
-  const shopSlides = useMemo(() => {
-    const slides: typeof shops[] = []
-    for (let i = 0; i < shops.length; i += 2) slides.push(shops.slice(i, i + 2))
-    return slides
-  }, [shops])
 
   return (
     <div id="app" className="home-shell">
@@ -145,10 +202,14 @@ export default function HomePage() {
 
         <section className="products-section home-panel home-panel--flush">
           <HomeSectionTitle>อัพนิวส์ทุกวัน</HomeSectionTitle>
-          <div className="product-slider-container product-slider-container--modern">
+          <div
+            ref={dailySliderRef}
+            className="product-slider-container product-slider-container--modern"
+            aria-label="สินค้าอัพนิวส์ทุกวัน เลื่อนดูได้"
+          >
             <div className="product-track">
               {loading && dailyProducts.length === 0 ? (
-                <ProductSkeleton count={4} variant="slider" />
+                <ProductSkeleton count={6} variant="slider" />
               ) : (
                 dailyProducts.map((p) => (
                   <ProductCard key={p.id} product={p} variant="slider" showShop={false} />
@@ -161,65 +222,48 @@ export default function HomePage() {
         <section className="shop-section home-panel">
           <HomeSectionTitle>ร้านค้าแนะนำ</HomeSectionTitle>
           <div className="shop-slider-wrap">
-            <div className="shop-slider-container">
-              <div
-                className="shop-slider-track"
-                style={{ transform: `translateX(-${shopSlide * 100}%)` }}
-              >
-                {loading && shops.length === 0
-                  ? (
-                    <div className="shop-slide">
-                      <div className="shop-card shop-card--skeleton" aria-hidden="true" />
-                      <div className="shop-card shop-card--skeleton" aria-hidden="true" />
+            <div className="home-shop-list">
+              {loading && shops.length === 0 ? (
+                <>
+                  <div className="shop-card shop-card--skeleton" aria-hidden="true" />
+                  <div className="shop-card shop-card--skeleton" aria-hidden="true" />
+                  <div className="shop-card shop-card--skeleton" aria-hidden="true" />
+                </>
+              ) : shops.length === 0 ? (
+                <div className="home-empty-state home-empty-state--inline">
+                  <p>ยังไม่มีร้านค้าแนะนำ</p>
+                </div>
+              ) : (
+                shops.map((shop) => (
+                  <article className="shop-card" key={shop.id}>
+                    <div className="shop-header">
+                      <div className="shop-info">
+                        <div className="shop-icon">
+                          <img
+                            src={mapApiShopImage(shop.shop_image)}
+                            alt=""
+                            className="shop-logo-img"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="shop-details">
+                          <h4>{shop.shop_name}</h4>
+                          <p>ความคิดเห็นที่ดี: {formatNumberText(shop.review_count)}</p>
+                          <p>ยอดวิว: {formatNumberText(shop.view_count)}</p>
+                        </div>
+                      </div>
+                      <Link to={shopPath(shop.shop_name)} className="visit-shop-btn">
+                        เข้าชมร้านค้า &gt;
+                      </Link>
                     </div>
-                  )
-                  : shopSlides.map((group, gi) => (
-                    <div className="shop-slide" key={gi}>
-                      {group.map((shop) => (
-                        <article className="shop-card" key={shop.id}>
-                          <div className="shop-header">
-                            <div className="shop-info">
-                              <div className="shop-icon">
-                                <img
-                                  src={mapApiShopImage(shop.shop_image)}
-                                  alt=""
-                                  className="shop-logo-img"
-                                  loading="lazy"
-                                />
-                              </div>
-                              <div className="shop-details">
-                                <h4>{shop.shop_name}</h4>
-                                <p>ความคิดเห็นที่ดี: {formatNumberText(shop.review_count)}</p>
-                                <p>ยอดวิว: {formatNumberText(shop.view_count)}</p>
-                              </div>
-                            </div>
-                            <Link to={shopPath(shop.shop_name)} className="visit-shop-btn">
-                              เข้าชมร้านค้า &gt;
-                            </Link>
-                          </div>
-                          <div className="shop-stats">
-                            <div className="stat">คะแนนความน่าเชื่อถือ: {formatNumberText(shop.trust_score)}</div>
-                            <div className="stat">ปริมาณซื้อขาย: {formatNumberText(shop.sales_volume)}</div>
-                          </div>
-                        </article>
-                      ))}
+                    <div className="shop-stats">
+                      <div className="stat">คะแนนความน่าเชื่อถือ: {formatNumberText(shop.trust_score)}</div>
+                      <div className="stat">ปริมาณซื้อขาย: {formatNumberText(shop.sales_volume)}</div>
                     </div>
-                  ))}
-              </div>
+                  </article>
+                ))
+              )}
             </div>
-            {shopSlides.length > 1 ? (
-              <div className="shop-slider-dots">
-                {shopSlides.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`shop-slider-dot${shopSlide === i ? " active" : ""}`}
-                    onClick={() => setShopSlide(i)}
-                    aria-label={`ร้านค้า หน้า ${i + 1}`}
-                  />
-                ))}
-              </div>
-            ) : null}
           </div>
         </section>
 

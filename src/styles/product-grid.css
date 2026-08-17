@@ -76,10 +76,10 @@
 }
 
 .product-card-body {
-  padding: 10px 10px 12px;
+  padding: 6px 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   flex: 1;
   min-height: 0;
 }
@@ -87,16 +87,16 @@
 .product-card-body .feed-title,
 .product-card-body .recommend-title,
 .product-card-body .product-card__title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.3;
   color: #1e293b;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.4em;
+  min-height: 2.6em;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -212,8 +212,8 @@
 .product-card-body .feed-price,
 .product-card-body .recommend-price {
   margin-top: auto;
-  padding-top: 4px;
-  font-size: 15px;
+  padding-top: 2px;
+  font-size: 13px;
   font-weight: 800;
   color: #002fff;
   letter-spacing: -0.02em;
@@ -233,12 +233,12 @@
   margin-right: 1px;
 }
 
-/* Grid spacing — คอลัมน์เท่ากันด้วย minmax(0, 1fr) */
+/* Grid spacing — 3 คอลัมน์บนมือถือ, เพิ่มตามความกว้างจอ */
 .product-feed,
 .home-catalog-section .home-product-feed,
 .recommend-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px !important;
   padding: 4px !important;
   align-items: stretch;
@@ -250,8 +250,26 @@
   .product-feed,
   .home-catalog-section .home-product-feed,
   .recommend-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px !important;
     padding: 10px !important;
+  }
+
+  .product-card-body {
+    padding: 10px 10px 12px;
+    gap: 4px;
+  }
+
+  .product-card-body .feed-title,
+  .product-card-body .recommend-title,
+  .product-card-body .product-card__title {
+    font-size: 12px;
+  }
+
+  .product-card-body .feed-price,
+  .product-card-body .recommend-price {
+    font-size: 15px;
+    padding-top: 4px;
   }
 }
 

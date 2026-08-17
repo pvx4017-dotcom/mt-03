@@ -626,8 +626,8 @@ section {
 
 .recommend-grid {
  display: grid;
- grid-template-columns: repeat(2, minmax(0, 1fr));
- gap: 8px;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 6px;
  margin-top: 8px;
  align-items: stretch;
  width: 100%;
@@ -681,8 +681,8 @@ section {
 }
 
 /* Responsive product cards:
- - keep 2 columns on small screens
- - show more, smaller cards on wider screens */
+ - 3 columns on small screens
+ - show more cards on wider screens */
 @media (min-width: 768px) {
  .recommend-grid {
  grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1109,8 +1109,8 @@ section:nth-child(6) { animation-delay: 0.5s; }
 
 .home-catalog-section .home-product-feed {
  display: grid;
- grid-template-columns: repeat(2, minmax(0, 1fr));
- gap: 8px;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 6px;
  padding: 8px 0;
  align-items: stretch;
  width: 100%;
