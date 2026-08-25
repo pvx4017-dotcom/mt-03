@@ -23,7 +23,7 @@ END; $$;
 CREATE OR REPLACE FUNCTION register_user(
   p_email TEXT, p_phone TEXT, p_password TEXT, p_confirm TEXT, p_invitation TEXT
 ) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
-DECLARE v_code TEXT; v_ref TEXT; v_uid BIGINT;
+DECLARE v_code TEXT; v_ref TEXT; v_uid BIGINT; v_username TEXT; v_tries INT := 0;
 BEGIN
   IF p_password IS NULL OR p_password <> p_confirm THEN
     RETURN jsonb_build_object('success', false, 'message', 'รหัสผ่านไม่ตรงกัน');
@@ -32,8 +32,15 @@ BEGIN
   IF length(v_code) <> 5 THEN
     RETURN jsonb_build_object('success', false, 'message', 'รหัสเชิญไม่ถูกต้อง');
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM invitation_codes WHERE code = v_code AND is_active) THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM invitation_codes WHERE code = v_code AND is_active IS TRUE
+  ) AND NOT EXISTS (
+    SELECT 1 FROM users WHERE referral_code = v_code AND status = 'active'
+  ) THEN
     RETURN jsonb_build_object('success', false, 'message', 'รหัสเชิญไม่ถูกต้องหรือหมดอายุ');
+  END IF;
+  IF COALESCE(p_email, '') = '' AND COALESCE(p_phone, '') = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'กรุณากรอกอีเมลหรือเบอร์โทร');
   END IF;
   IF p_email IS NOT NULL AND p_email <> '' AND EXISTS (SELECT 1 FROM users WHERE email = p_email) THEN
     RETURN jsonb_build_object('success', false, 'message', 'อีเมลนี้ถูกใช้แล้ว');
@@ -41,11 +48,20 @@ BEGIN
   IF p_phone IS NOT NULL AND p_phone <> '' AND EXISTS (SELECT 1 FROM users WHERE phone = p_phone) THEN
     RETURN jsonb_build_object('success', false, 'message', 'เบอร์โทรนี้ถูกใช้แล้ว');
   END IF;
-  v_ref := lpad((floor(random()*99999))::int::text, 5, '0');
-  INSERT INTO users (email, phone, password_hash, referral_code, wallet_balance)
+  LOOP
+    v_tries := v_tries + 1;
+    v_ref := lpad((floor(random() * 90000) + 10000)::int::text, 5, '0');
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM users WHERE referral_code = v_ref);
+    IF v_tries > 20 THEN
+      RETURN jsonb_build_object('success', false, 'message', 'ไม่สามารถสร้างรหัสเชิญได้ กรุณาลองใหม่');
+    END IF;
+  END LOOP;
+  v_username := COALESCE(NULLIF(p_email, ''), NULLIF(p_phone, ''), 'user');
+  INSERT INTO users (username, email, phone, password_hash, referral_code, referred_by, wallet_balance)
   VALUES (
+    v_username,
     NULLIF(p_email, ''), NULLIF(p_phone, ''),
-    crypt(p_password, gen_salt('bf')), v_ref, 0
+    crypt(p_password, gen_salt('bf')), v_ref, v_code, 0
   ) RETURNING id INTO v_uid;
   RETURN jsonb_build_object('success', true, 'message', 'สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ', 'user_id', v_uid);
 END; $$;

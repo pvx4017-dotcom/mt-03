@@ -205,6 +205,13 @@ body.page-login {
   color: #374151;
 }
 
+.login-page .field-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
 .login-page .input-wrap {
   position: relative;
 }

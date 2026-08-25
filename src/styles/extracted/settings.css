@@ -100,6 +100,51 @@
             transition: transform 0.3s ease;
         }
 
+        .invite-card {
+            padding: 16px 20px;
+        }
+
+        .invite-card-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .invite-card-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .invite-card-code {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: #0f172a;
+            margin: 4px 0;
+        }
+
+        .invite-card-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .invite-copy-btn {
+            flex-shrink: 0;
+            border: 0;
+            border-radius: 12px;
+            background: var(--brand-blue);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 10px 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
         .settings-item {
             display: flex;
             align-items: center;

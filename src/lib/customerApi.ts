@@ -10,6 +10,7 @@ export type CustomerUser = {
   phone?: string
   email?: string
   role?: string
+  referral_code?: string
   credit?: number | string
   wallet_balance?: number
   points?: number

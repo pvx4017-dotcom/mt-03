@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
@@ -7,6 +7,28 @@ import "@/styles/extracted/settings.css"
 export default function SettingsPage() {
   useBodyClass("page-settings")
   const { logout, user, refreshUser, isLoggedIn } = useApp()
+  const [copiedInvite, setCopiedInvite] = useState(false)
+
+  const copyInviteCode = async () => {
+    const code = String(user?.referral_code ?? "").trim()
+    if (!code) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code)
+      } else {
+        const input = document.createElement("input")
+        input.value = code
+        document.body.appendChild(input)
+        input.select()
+        document.execCommand("copy")
+        input.remove()
+      }
+      setCopiedInvite(true)
+      window.setTimeout(() => setCopiedInvite(false), 1800)
+    } catch {
+      setCopiedInvite(false)
+    }
+  }
 
   useEffect(() => {
     if (isLoggedIn) refreshUser()
@@ -39,6 +61,21 @@ export default function SettingsPage() {
         </Link>
         <div className="page-title">การตั้งค่า</div>
       </nav>
+      {user?.referral_code ? (
+        <div className="settings-group invite-card">
+          <div className="invite-card-row">
+            <div className="invite-card-text">
+              <div className="invite-card-label">รหัสเชิญของคุณ</div>
+              <div className="invite-card-code">{user.referral_code}</div>
+              <div className="invite-card-hint">แชร์รหัสนี้ให้เพื่อนเพื่อลงทะเบียน</div>
+            </div>
+            <button type="button" className="invite-copy-btn" onClick={() => void copyInviteCode()}>
+              <i className={`fa-solid ${copiedInvite ? "fa-check" : "fa-copy"}`} aria-hidden />
+              {copiedInvite ? "คัดลอกแล้ว" : "คัดลอก"}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="settings-group">
         {[
           {

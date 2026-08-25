@@ -65,6 +65,14 @@ export default function LoginPage() {
       fd.append("action", "register")
       if (method === "email") fd.append("email", accountValue)
       else fd.append("phone", accountValue)
+      if (password.length < 6) {
+        showNotice("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร", "error")
+        return
+      }
+      if (password !== confirmPassword) {
+        showNotice("รหัสผ่านไม่ตรงกัน", "error")
+        return
+      }
       fd.append("password", password)
       fd.append("confirm_password", confirmPassword)
       fd.append("invitation_code", code)
@@ -251,9 +259,10 @@ export default function LoginPage() {
                       placeholder="กรอกรหัส 5 ตัวเลข"
                       maxLength={5}
                       value={invitationCode}
-                      onChange={(e) => setInvitationCode(e.target.value)}
+                      onChange={(e) => setInvitationCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
                     />
                   </div>
+                  <p className="field-hint">ใช้รหัสเชิญ 5 หลักที่ได้รับจากผู้ใช้หรือผู้ดูแล</p>
                 </div>
               </>
             )}

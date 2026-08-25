@@ -147,6 +147,9 @@ export default function AdminUsersPage() {
       icon="fa-users"
       headerExtra={<AdminSearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อผู้ใช้, เบอร์โทร..." />}
     >
+      <p className="admin-settings-intro">
+        คอลัมน์รหัสเชิญคือรหัสที่ผู้ใช้นี้แชร์ให้คนอื่นสมัครได้ — ใช้ลงทะเบียนได้เมื่อบัญชีสถานะปกติ
+      </p>
       <AdminTableWrap>
         <table>
           <thead>
@@ -154,8 +157,8 @@ export default function AdminUsersPage() {
               <th>ID</th>
               <th>ชื่อผู้ใช้ / ข้อมูล</th>
               <th>รหัสผ่าน / รีเซ็ต</th>
-              <th>รหัสเชิญ</th>
-              <th>รหัสถูกเชิญ</th>
+              <th title="รหัสที่ผู้ใช้นี้แชร์ให้คนอื่นสมัครได้">รหัสเชิญ</th>
+              <th title="รหัสที่ใช้ตอนสมัคร">รหัสถูกเชิญ</th>
               <th>วันที่สมัคร</th>
               <th>สถานะ</th>
               <th>จัดการ</th>
@@ -186,7 +189,9 @@ export default function AdminUsersPage() {
                     </button>
                   </td>
                   <td>
-                    <span className="admin-code-pill">{row.referral_code || "-"}</span>
+                    <span className="admin-code-pill" title="ใช้ลงทะเบียนได้">
+                      {row.referral_code || "-"}
+                    </span>
                   </td>
                   <td>
                     <span className="admin-code-pill admin-code-pill-warn">{row.referred_by || "-"}</span>
