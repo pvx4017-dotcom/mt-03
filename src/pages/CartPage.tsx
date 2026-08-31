@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { asset, formatPrice } from "@/lib/assets"
 import {
+  calcOrderDue,
   confirmProductOrders,
   deleteProductOrder,
   fetchCartOrders,
+  fetchCommissionPercent,
   fmtMoney,
   parseCustomerImage,
   resolveCheckoutAddress,
@@ -23,7 +25,7 @@ import "@/styles/cart-style.css"
 export default function CartPage() {
   useBodyClass("page-cart")
   const navigate = useNavigate()
-  const { refreshCartCount, refreshOrderHubCounts, requireLogin, user } = useApp()
+  const { refreshCartCount, refreshOrderHubCounts, refreshUser, requireLogin, user } = useApp()
   const [rows, setRows] = useState<ProductOrderRow[]>([])
   const [loading, setLoading] = useState(true)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -32,6 +34,8 @@ export default function CartPage() {
   const [contactName, setContactName] = useState("")
   const [contactAddress, setContactAddress] = useState("")
   const [contactPhone, setContactPhone] = useState("")
+  const [commissionPct, setCommissionPct] = useState(20)
+  const [payWithWallet, setPayWithWallet] = useState(true)
 
   const showNotice = (msg: string) => {
     setNotice(msg)
@@ -57,6 +61,12 @@ export default function CartPage() {
   }, [load, requireLogin])
 
   useEffect(() => {
+    void fetchCommissionPercent()
+      .then((pct) => setCommissionPct(pct))
+      .catch(() => setCommissionPct(20))
+  }, [])
+
+  useEffect(() => {
     if (!user?.id) return
     void resolveCheckoutAddress(user.id).then((addr) => {
       if (!addr) return
@@ -69,11 +79,12 @@ export default function CartPage() {
   const totalCount = rows.reduce((s, r) => s + Math.max(1, Number(r.quantity ?? 1)), 0)
   const totalPrice = rows.reduce((s, r) => {
     const qty = Math.max(1, Number(r.quantity ?? 1))
-    const line = Number(r.total_price ?? 0)
-    if (Number.isFinite(line) && line > 0) return s + line
     return s + Number(r.unit_price ?? 0) * qty
   }, 0)
   const hasItems = rows.length > 0
+  const walletBalance = Number(user?.wallet_balance ?? 0)
+  const due = calcOrderDue(totalPrice, commissionPct)
+  const canPayWithWallet = walletBalance + 1e-9 >= due.totalDue
 
   const removeItem = async (orderId: number) => {
     const res = await deleteProductOrder(orderId)
@@ -107,26 +118,26 @@ export default function CartPage() {
       fd.append("contact_name", contactName.trim())
       fd.append("contact_address", contactAddress.trim())
       fd.append("contact_phone", contactPhone.trim())
+      if (payWithWallet && canPayWithWallet) fd.append("pay_now", "1")
       const res = await confirmProductOrders(fd)
       if (!res.success) {
         showNotice(res.message ?? "ยืนยันคำสั่งซื้อไม่สำเร็จ")
         return
       }
-      showNotice("ส่งคำสั่งซื้อแล้ว — รอแอดมินดำเนินการ")
+      showNotice(res.message ?? (res.paid === true ? "ชำระเงินด้วยยอดในระบบแล้ว" : "ส่งคำสั่งซื้อแล้ว — รอชำระเงิน"))
       writeSavedShippingAddress(user?.id, {
         receiver_name: contactName.trim(),
         receiver_phone: contactPhone.trim(),
         receiver_address: contactAddress.trim(),
       })
+      await Promise.all([refreshCartCount(), refreshOrderHubCounts(), refreshUser(), load()])
       await saveShippingAddress({
         receiver_name: contactName.trim(),
         receiver_phone: contactPhone.trim(),
         receiver_address: contactAddress.trim(),
       }).catch(() => {})
       setCheckoutOpen(false)
-      await refreshCartCount()
-      await refreshOrderHubCounts()
-      window.setTimeout(() => navigate("/pending-payment"), 1200)
+      window.setTimeout(() => navigate(res.paid === true ? "/to-ship" : "/pending-payment"), 1200)
     } catch {
       showNotice("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ")
     } finally {
@@ -292,12 +303,44 @@ export default function CartPage() {
             <strong>ส่งฟรี</strong>
           </div>
           <div className="checkout-total-row">
-            <span>ยอดเงินที่ต้องชำระ</span>
-            <strong>${fmtMoney(totalPrice)}</strong>
+            <span>ราคาสินค้า</span>
+            <strong>${fmtMoney(due.productTotal)}</strong>
           </div>
-          <p className="checkout-flow-note">
-            ยืนยันแล้วรายการจะเข้า &quot;รอชำระเงิน&quot; — แอดมินจะหักจากกระเป๋าเมื่ออนุมัติ (ฝากเงินก่อนหากยอดไม่พอ)
-          </p>
+          <div className="checkout-total-row">
+            <span>ค่าคอมมิชชัน ({due.percent}%)</span>
+            <strong>${fmtMoney(due.commission)}</strong>
+          </div>
+          <div className="checkout-total-row">
+            <span>ยอดที่ต้องชำระ</span>
+            <strong>${fmtMoney(due.totalDue)}</strong>
+          </div>
+          <div className="checkout-total-row">
+            <span>ยอดเงินในระบบ</span>
+            <strong>${fmtMoney(walletBalance)}</strong>
+          </div>
+          {canPayWithWallet ? (
+            <label className="checkout-pay-wallet">
+              <input
+                type="checkbox"
+                checked={payWithWallet}
+                onChange={(e) => setPayWithWallet(e.target.checked)}
+              />
+              <span>ชำระด้วยยอดเงินในระบบทันที</span>
+            </label>
+          ) : (
+            <p className="checkout-flow-note checkout-flow-note--warn">
+              ยอดในระบบไม่พอ (ต้องการ ${fmtMoney(due.totalDue)}) — ยืนยันแล้วจะเข้าหน้ารอชำระเงิน กรุณาเติมเงินก่อน
+            </p>
+          )}
+          {canPayWithWallet && payWithWallet ? (
+            <p className="checkout-flow-note">
+              ระบบจะหักจากกระเป๋าตามยอดที่มี และย้ายคำสั่งซื้อไปรอจัดส่งทันที
+            </p>
+          ) : canPayWithWallet ? (
+            <p className="checkout-flow-note">
+              หากไม่ชำระตอนนี้ รายการจะเข้า &quot;รอชำระเงิน&quot; และชำระด้วยยอดในระบบได้ภายหลัง
+            </p>
+          ) : null}
         </div>
         <div className="checkout-sheet-foot">
           <button
@@ -306,7 +349,11 @@ export default function CartPage() {
             disabled={processing}
             onClick={confirmCheckout}
           >
-            {processing ? "กำลังยืนยัน..." : "ยืนยัน"}
+            {processing
+              ? "กำลังยืนยัน..."
+              : canPayWithWallet && payWithWallet
+                ? "ยืนยันและชำระด้วยยอดในระบบ"
+                : "ยืนยัน"}
           </button>
         </div>
       </div>

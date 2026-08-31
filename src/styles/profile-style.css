@@ -627,6 +627,21 @@ body.page-profile .balance-amount .currency {
     color: #0284c7;
 }
 
+.menu-list-item.line-menu-item {
+    width: 100%;
+    background: #fff;
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.line-menu-icon,
+.menu-list-item.line-menu-item .menu-icon-wrap {
+    background: #e8fff3 !important;
+    color: #06c755 !important;
+}
+
 .item-inner span {
     font-size: 13px;
     font-weight: 400;

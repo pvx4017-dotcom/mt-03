@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabase"
 import { uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 import { CHAT_DELETED_MARKER, chatMessagePreview } from "@/lib/chatMessages"
+import { normalizeLineContactUrl } from "@/lib/lineContact"
 
 type Result<T> = { success: boolean; message?: string } & T
 
@@ -285,10 +286,95 @@ export async function dbConfirmProductOrders(fd: FormData) {
     shipping_method: "free",
     status: "pending",
   }))
-  const { error: insErr } = await sb.from("admin_cart_orders").insert(inserts)
+  const { data: inserted, error: insErr } = await sb.from("admin_cart_orders").insert(inserts).select("id")
   if (insErr) return fail(insErr.message)
   await sb.from("product_orders").delete().eq("user_id", uid).eq("status", "pending")
-  return ok({ message: "ยืนยันคำสั่งซื้อแล้ว" })
+
+  const payNow = String(fd.get("pay_now") ?? "") === "1"
+  let newIds = (inserted ?? []).map((row) => Number(row.id)).filter((id) => id > 0)
+  if (payNow && !newIds.length) {
+    const { data: justCreated } = await sb
+      .from("admin_cart_orders")
+      .select("id")
+      .eq("user_id", uid)
+      .eq("order_no", billNo)
+      .eq("status", "pending")
+    newIds = (justCreated ?? []).map((row) => Number(row.id)).filter((id) => id > 0)
+  }
+  if (payNow && newIds.length) {
+    const paid = await dbCustomerPayPendingOrders(newIds)
+    if (!paid.success) {
+      return ok({
+        message: paid.message
+          ? `ยืนยันคำสั่งซื้อแล้ว แต่ยังชำระไม่สำเร็จ: ${paid.message}`
+          : "ยืนยันคำสั่งซื้อแล้ว — ยอดในระบบไม่พอ กรุณาเติมเงินแล้วชำระที่หน้ารอชำระเงิน",
+        paid: false,
+        pending: true,
+      })
+    }
+    return ok({
+      message: paid.message || "ชำระเงินด้วยยอดในระบบเรียบร้อยแล้ว",
+      paid: true,
+      paid_count: paid.paid_count,
+    })
+  }
+
+  return ok({ message: "ยืนยันคำสั่งซื้อแล้ว", paid: false, pending: true })
+}
+
+function orderProductTotal(order: { quantity?: unknown; unit_price?: unknown; total_price?: unknown }) {
+  const qty = Math.max(1, Number(order.quantity ?? 1) || 1)
+  return Number(order.unit_price ?? 0) * qty
+}
+
+/** ลูกค้าชำระรายการรอชำระด้วยยอดกระเป๋าในระบบ (หักราคา + ค่าคอม แล้วเข้าสถานะรอจัดส่ง) */
+export async function dbCustomerPayPendingOrders(
+  orderIds: number[],
+): Promise<{ success: boolean; message?: string; paid_count?: number }> {
+  const uid = requireUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const ids = [...new Set(orderIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))]
+  if (!ids.length) return fail("ไม่พบรายการที่ต้องชำระ")
+
+  const sb = getSupabase()
+  const { data: orders, error } = await sb
+    .from("admin_cart_orders")
+    .select("*")
+    .in("id", ids)
+    .eq("user_id", uid)
+    .eq("status", "pending")
+  if (error) return fail(error.message)
+  if (!orders?.length) return fail("ไม่พบรายการรอชำระเงิน")
+
+  const { data: cs } = await sb.from("commission_settings").select("percent").eq("id", 1).maybeSingle()
+  const pct = Number(cs?.percent ?? 20)
+  let totalDue = 0
+  for (const order of orders) {
+    const productTotal = orderProductTotal(order)
+    totalDue += productTotal + productTotal * (pct / 100)
+  }
+
+  const { data: user } = await sb.from("users").select("wallet_balance").eq("id", uid).single()
+  const balance = Number(user?.wallet_balance ?? 0)
+  if (balance < totalDue) {
+    return fail(
+      `ยอดเงินในระบบไม่เพียงพอ (ต้องชำระ $${totalDue.toFixed(2)}, มียอด $${balance.toFixed(2)})`,
+    )
+  }
+
+  let paidCount = 0
+  for (const order of orders) {
+    const res = await dbAdminUpdateOrder(Number(order.id), { status: "shipping" })
+    if (!res.success) {
+      if (paidCount === 0) return res
+      return ok({
+        message: `ชำระสำเร็จ ${paidCount} รายการ แต่บางรายการไม่สำเร็จ: ${res.message ?? ""}`,
+        paid_count: paidCount,
+      })
+    }
+    paidCount += 1
+  }
+  return ok({ message: `ชำระเงินสำเร็จ ${paidCount} รายการ`, paid_count: paidCount })
 }
 
 // ─── Orders pipeline ────────────────────────────────────────────────────────
@@ -471,9 +557,10 @@ export async function dbAdminUpdateOrder(
   if (patch.receiver_address) updates.receiver_address = patch.receiver_address
   if (patch.receiver_phone) updates.receiver_phone = patch.receiver_phone
 
-  // Admin ยืนยันจากตะกร้า → หัก wallet + ค่าคอม (ราคาสินค้า + ค่าคอมมิชชัน)
+  let walletDeducted = 0
+  // ยืนยันจากตะกร้า / ลูกค้าชำระด้วยยอดในระบบ → หัก wallet + ค่าคอม
   if (nextStatus === "shipping" && prevStatus === "pending") {
-    const { data: cs } = await sb.from("commission_settings").select("percent").eq("id", 1).single()
+    const { data: cs } = await sb.from("commission_settings").select("percent").eq("id", 1).maybeSingle()
     const pct = Number(cs?.percent ?? 20)
     const computed = totalPrice * (pct / 100)
     const commission =
@@ -494,6 +581,7 @@ export async function dbAdminUpdateOrder(
       .update({ wallet_balance: balance - totalDue })
       .eq("id", order.user_id)
     if (walletErr) return fail(walletErr.message)
+    walletDeducted = totalDue
   }
 
   let balanceAdded = 0
@@ -545,8 +633,20 @@ export async function dbAdminUpdateOrder(
     }
   }
 
-  const { error } = await sb.from("admin_cart_orders").update(updates).eq("id", orderId)
-  if (error) return fail(error.message)
+  let statusQuery = sb.from("admin_cart_orders").update(updates).eq("id", orderId)
+  if (nextStatus !== prevStatus) statusQuery = statusQuery.eq("status", prevStatus)
+  const { data: updatedRows, error } = await statusQuery.select("id")
+  if (error || (nextStatus !== prevStatus && !updatedRows?.length)) {
+    if (walletDeducted > 0) {
+      const { data: u } = await sb.from("users").select("wallet_balance").eq("id", order.user_id).single()
+      await sb
+        .from("users")
+        .update({ wallet_balance: Number(u?.wallet_balance ?? 0) + walletDeducted })
+        .eq("id", order.user_id)
+    }
+    if (error) return fail(error.message)
+    return fail("รายการนี้ถูกดำเนินการแล้ว")
+  }
   if (nextStatus !== prevStatus) {
     await sb.from("shipping_history").insert({
       order_id: orderId,
@@ -682,6 +782,7 @@ export async function dbSubmitWithdraw(
 // ─── Notifications ──────────────────────────────────────────────────────────
 
 export async function dbFetchNotifications(type: string) {
+  if (type === "line_oa") return []
   const uid = getSessionUserId()
   const sb = getSupabase()
   let q = sb.from("notifications").select("*").eq("ntype", type).order("created_at", { ascending: false })
@@ -1061,23 +1162,26 @@ export async function dbFetchAllCustomerStores() {
   return (await import("@/lib/adminUserFilter")).withoutStaffOwners(mapped as Record<string, unknown>[])
 }
 
-/** นำสินค้าจากแคตตาล็อกแอดมินตามหมวดหมู่ที่เลือกตอนเปิดร้าน */
-async function dbSeedStoreProductsByCategory(
+const STORE_OPEN_PRODUCT_LIMIT = 100
+
+/** นำเฉพาะสินค้าที่ลูกค้าเลือกจากแคตตาล็อกแอดมินเข้าร้าน */
+async function dbSeedStoreProductsByIds(
   uid: number,
   shopName: string,
-  mainCategory: string,
+  productIds: number[],
 ): Promise<number> {
-  const category = String(mainCategory ?? "").trim()
-  if (!category) return 0
+  const ids = [...new Set(productIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))]
+  if (!ids.length) return 0
+  if (ids.length > STORE_OPEN_PRODUCT_LIMIT) {
+    throw new Error(`เลือกได้สูงสุด ${STORE_OPEN_PRODUCT_LIMIT} รายการต่อครั้ง`)
+  }
 
   const sb = getSupabase()
-  const { data: catalogProducts } = await sb
+  const { data: catalogProducts, error: catalogError } = await sb
     .from("store_products")
     .select("*")
-    .eq("product_category", category)
-    .order("id", { ascending: false })
-    .limit(50)
-
+    .in("id", ids)
+  if (catalogError) throw new Error(catalogError.message)
   if (!catalogProducts?.length) return 0
 
   const { data: existing } = await sb
@@ -1089,9 +1193,11 @@ async function dbSeedStoreProductsByCategory(
   const existingIds = new Set(
     (existing ?? []).map((row) => Number(row.source_product_id)).filter((id) => id > 0),
   )
+  const byId = new Map(catalogProducts.map((p) => [Number(p.id), p]))
 
-  const rows = catalogProducts
-    .filter((p) => !existingIds.has(Number(p.id)))
+  const rows = ids
+    .map((id) => byId.get(id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p) && !existingIds.has(Number(p.id)))
     .map((p) => ({
       user_id: uid,
       source_product_id: p.id,
@@ -1213,9 +1319,29 @@ export async function dbFetchStoreStatus() {
   }
 }
 
+function parseIdList(raw: unknown): number[] {
+  if (Array.isArray(raw)) {
+    return raw.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  }
+  const text = String(raw ?? "").trim()
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (Array.isArray(parsed)) {
+      return parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+    }
+  } catch {
+    /* fall through */
+  }
+  return text
+    .split(/[,\s]+/)
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+}
+
 export async function dbSubmitStore(
   action: "save" | "update",
-  fields: { shop_name: string; main_category: string; shop_image?: File | null },
+  fields: { shop_name: string; main_category: string; shop_image?: File | null; product_ids?: number[] | string },
 ) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
@@ -1231,17 +1357,12 @@ export async function dbSubmitStore(
   } else if (action === "save") {
     return fail("กรุณาเลือกรูปร้าน")
   }
-  const sb = getSupabase()
-
-  let prevCategory: string | null = null
-  if (action === "update") {
-    const { data: prev } = await sb
-      .from("customer_stores")
-      .select("main_category")
-      .eq("user_id", uid)
-      .maybeSingle()
-    prevCategory = prev?.main_category ? String(prev.main_category) : null
+  const productIds = parseIdList(fields.product_ids)
+  if (action === "save" && productIds.length === 0) {
+    return fail("กรุณาเลือกสินค้าที่ต้องการเข้าร้านอย่างน้อย 1 รายการ")
   }
+
+  const sb = getSupabase()
 
   const row = {
     user_id: uid,
@@ -1258,33 +1379,21 @@ export async function dbSubmitStore(
     if (error) return fail(error.message)
   }
 
-  const { count: mirrorCount } = await sb
-    .from("customer_store_products_mirror")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", uid)
-
-  const categoryChanged =
-    action === "update" &&
-    prevCategory !== null &&
-    prevCategory.trim() !== String(fields.main_category ?? "").trim()
-  const shouldSeed =
-    action === "save" || categoryChanged || (mirrorCount ?? 0) === 0
-
   let productsAdded = 0
-  if (shouldSeed) {
+  if (productIds.length) {
     try {
-      productsAdded = await dbSeedStoreProductsByCategory(uid, fields.shop_name, fields.main_category)
+      productsAdded = await dbSeedStoreProductsByIds(uid, fields.shop_name, productIds)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      return fail(`เปิดร้านแล้ว แต่เพิ่มสินค้าอัตโนมัติไม่สำเร็จ: ${msg}`)
+      return fail(`บันทึกร้านแล้ว แต่เพิ่มสินค้าไม่สำเร็จ: ${msg}`)
     }
   }
 
   let message = action === "update" ? "บันทึกข้อมูลร้านแล้ว" : "ลงทะเบียนเปิดร้านเรียบร้อยแล้ว"
   if (productsAdded > 0) {
-    message += ` — เพิ่มสินค้า ${productsAdded} รายการจากหมวด "${fields.main_category}"`
-  } else if (shouldSeed) {
-    message += ` — ไม่พบสินค้าในหมวด "${fields.main_category}" (เพิ่มเองได้ที่คอลเลกชันสินค้า)`
+    message += ` — เพิ่มสินค้าที่เลือก ${productsAdded} รายการ`
+  } else if (action === "save") {
+    message += " — ไม่พบสินค้าที่เลือกในแคตตาล็อก"
   }
 
   return ok({ message, products_added: productsAdded })
@@ -1577,14 +1686,98 @@ export async function dbFetchCommissionSettings() {
   const sb = getSupabase()
   const { data } = await sb.from("commission_settings").select("*").eq("id", 1).single()
   const pct = Number(data?.percent ?? 20)
-  return { success: true, percent: pct, commission_percent: pct }
+  return {
+    success: true,
+    percent: pct,
+    commission_percent: pct,
+    line_url: String((data as { line_url?: string } | null)?.line_url ?? "").trim(),
+  }
+}
+
+export async function dbFetchPlatformContact() {
+  const sb = getSupabase()
+  const { data, error } = await sb.from("commission_settings").select("line_url").eq("id", 1).maybeSingle()
+  if (!error) {
+    const fromCol = String(data?.line_url ?? "").trim()
+    if (fromCol) return { success: true, line_url: fromCol }
+    return { success: true, line_url: await readLineUrlFallback(sb) }
+  }
+  const msg = error.message.toLowerCase()
+  if (msg.includes("line_url") || msg.includes("column")) {
+    return { success: true, line_url: await readLineUrlFallback(sb) }
+  }
+  return fail(error.message)
+}
+
+const LINE_NTYPE = "line_oa"
+
+async function readLineUrlFallback(sb: ReturnType<typeof getSupabase>) {
+  const { data } = await sb
+    .from("notifications")
+    .select("message")
+    .eq("ntype", LINE_NTYPE)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return String(data?.message ?? "").trim()
+}
+
+async function writeLineUrlFallback(sb: ReturnType<typeof getSupabase>, url: string) {
+  const { error: delErr } = await sb.from("notifications").delete().eq("ntype", LINE_NTYPE)
+  if (delErr) throw new Error(delErr.message)
+  if (!url) return
+  const { error } = await sb.from("notifications").insert({
+    ntype: LINE_NTYPE,
+    title: "LINE",
+    message: url,
+    user_id: null,
+    is_read: true,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function dbSavePlatformContact(lineUrl: string) {
+  if (!isAdminPanelRole()) return fail("ไม่มีสิทธิ์")
+  const normalized = normalizeLineContactUrl(lineUrl)
+  const sb = getSupabase()
+  const { data: cur } = await sb.from("commission_settings").select("percent").eq("id", 1).maybeSingle()
+  const { error } = await sb.from("commission_settings").upsert({
+    id: 1,
+    percent: Number(cur?.percent ?? 20),
+    line_url: normalized,
+    updated_at: new Date().toISOString(),
+  })
+  try {
+    if (error) {
+      const msg = error.message.toLowerCase()
+      if (msg.includes("line_url") || msg.includes("column")) {
+        await writeLineUrlFallback(sb, normalized)
+        return ok({ message: normalized ? "บันทึกลิงก์ LINE แล้ว" : "ล้างลิงก์ LINE แล้ว", line_url: normalized })
+      }
+      return fail(error.message)
+    }
+    await writeLineUrlFallback(sb, normalized)
+    return ok({ message: normalized ? "บันทึกลิงก์ LINE แล้ว" : "ล้างลิงก์ LINE แล้ว", line_url: normalized })
+  } catch (err) {
+    if (!error) {
+      return ok({ message: normalized ? "บันทึกลิงก์ LINE แล้ว" : "ล้างลิงก์ LINE แล้ว", line_url: normalized })
+    }
+    return fail(err instanceof Error ? err.message : "บันทึกลิงก์ LINE ไม่สำเร็จ")
+  }
 }
 
 export async function dbSaveCommissionSettings(percent: number) {
   const sb = getSupabase()
-  const { error } = await sb
-    .from("commission_settings")
-    .upsert({ id: 1, percent, updated_at: new Date().toISOString() })
+  const withLine = await sb.from("commission_settings").select("percent,line_url").eq("id", 1).maybeSingle()
+  const payload: Record<string, unknown> = {
+    id: 1,
+    percent,
+    updated_at: new Date().toISOString(),
+  }
+  if (!withLine.error && withLine.data && "line_url" in withLine.data) {
+    payload.line_url = withLine.data.line_url ?? ""
+  }
+  const { error } = await sb.from("commission_settings").upsert(payload)
   if (error) return fail(error.message)
   return ok()
 }
@@ -1596,7 +1789,9 @@ export async function dbAdminNotifications() {
   const rows = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
     (data ?? []) as Record<string, unknown>[],
   )
-  return rows.map((row) => ({
+  return rows
+    .filter((row) => String(row.ntype ?? "") !== "line_oa")
+    .map((row) => ({
     ...row,
     notification_type: row.ntype,
     target_user_id: row.user_id,

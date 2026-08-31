@@ -238,6 +238,37 @@ export async function confirmProductOrders(fd: FormData) {
   return handleAdminPost(API.ordersConfirm, fd) as Promise<ApiResult>
 }
 
+export async function payPendingOrdersWithWallet(orderIds: number[]) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("order_ids", JSON.stringify(orderIds))
+  return handleAdminPost(API.ordersPay, fd) as Promise<ApiResult & { paid_count?: number }>
+}
+
+export function calcOrderDue(productTotal: number, commissionPercent = 20) {
+  const price = Math.max(0, Number(productTotal) || 0)
+  const pct = Math.max(0, Number(commissionPercent) || 0)
+  const commission = price * (pct / 100)
+  return {
+    productTotal: price,
+    commission,
+    totalDue: price + commission,
+    percent: pct,
+  }
+}
+
+export async function fetchCommissionPercent() {
+  ensureConfigured()
+  const data = await db.dbFetchCommissionSettings()
+  return Number(data.percent ?? 20)
+}
+
+export async function fetchPlatformContactUrl() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.platformContact)
+  return String(data.line_url ?? "").trim()
+}
+
 export async function deleteProductOrder(orderId: number) {
   ensureConfigured()
   const fd = new FormData()
@@ -705,9 +736,14 @@ export async function fetchProductCategoryNames() {
   return names
 }
 
+export async function fetchCatalogProducts(): Promise<StoreProductRow[]> {
+  ensureConfigured()
+  return db.dbFetchProducts() as Promise<StoreProductRow[]>
+}
+
 export async function submitStoreCustomer(
   action: "save" | "update",
-  fields: { shop_name: string; main_category: string; shop_image?: File | null },
+  fields: { shop_name: string; main_category: string; shop_image?: File | null; product_ids?: number[] },
 ) {
   ensureConfigured()
   const fd = new FormData()
@@ -715,7 +751,8 @@ export async function submitStoreCustomer(
   fd.append("shop_name", fields.shop_name)
   fd.append("main_category", fields.main_category)
   if (fields.shop_image) fd.append("shop_image", fields.shop_image)
-  return handleAdminPost(API.storeSubmit, fd) as Promise<ApiResult>
+  if (fields.product_ids?.length) fd.append("product_ids", JSON.stringify(fields.product_ids))
+  return handleAdminPost(API.storeSubmit, fd) as Promise<ApiResult & { products_added?: number }>
 }
 
 export async function submitBankAccount(fields: {

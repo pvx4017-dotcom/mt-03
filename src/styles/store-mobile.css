@@ -705,7 +705,7 @@ body.page-open-store .top-navbar {
     font-size: 13px;
   }
 
-  body.page-open-store .input-group input,
+  body.page-open-store .input-group input:not([type="checkbox"]):not([type="file"]),
   body.page-open-store .input-group select {
     font-size: 15px;
     min-height: 48px;

@@ -13,7 +13,7 @@ import {
   submitVerification,
   updatePassword,
 } from "@/lib/customerApi"
-import "@/styles/extracted/settings.css"
+import { THAI_BANK_GROUPS } from "@/data/thaiBanks"
 
 function SettingsFormPage({
   title,
@@ -194,6 +194,9 @@ export function LinkAccountPage() {
       .catch(() => {})
     const fromUser = user?.bank_account
     if (fromUser) {
+      setBankName((cur) => cur || String(fromUser.bank_name ?? ""))
+      setAccountNumber((cur) => cur || String(fromUser.account_number ?? ""))
+      setAccountName((cur) => cur || String(fromUser.account_name ?? ""))
       setUsdtTrc20((cur) => cur || String(fromUser.usdt_trc20 ?? ""))
       setUsdtErc20((cur) => cur || String(fromUser.usdt_erc20 ?? ""))
       setEth((cur) => cur || String(fromUser.eth ?? ""))
@@ -237,11 +240,18 @@ export function LinkAccountPage() {
             onChange={(e) => setBankName(e.target.value)}
           >
             <option value="">กรุณาเลือกธนาคาร</option>
-            <option value="กสิกรไทย">กสิกรไทย</option>
-            <option value="ไทยพาณิชย์">ไทยพาณิชย์</option>
-            <option value="กรุงเทพ">กรุงเทพ</option>
-            <option value="กรุงไทย">กรุงไทย</option>
-            <option value="ทหารไทยธนชาต">ทหารไทยธนชาต</option>
+            {bankName && !THAI_BANK_GROUPS.some((g) => g.banks.some((b) => b.value === bankName)) ? (
+              <option value={bankName}>{bankName}</option>
+            ) : null}
+            {THAI_BANK_GROUPS.map((group) => (
+              <optgroup key={group.id} label={group.label}>
+                {group.banks.map((bank) => (
+                  <option key={bank.value} value={bank.value}>
+                    {bank.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </label>
         <label style={{ fontSize: 13, color: "#444" }}>

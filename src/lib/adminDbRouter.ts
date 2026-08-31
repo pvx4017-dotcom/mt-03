@@ -292,6 +292,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
       return ok({ products: await (await import("@/lib/dbService")).dbFetchOtherStoreProducts() })
     case API.storeStatus:
       return (await import("@/lib/dbService")).dbFetchStoreStatus()
+    case API.platformContact:
+      return (await import("@/lib/dbService")).dbFetchPlatformContact()
     case API.receivingAccounts:
       return (await import("@/lib/parityDb")).dbFetchReceivingAccounts(true)
     case API.adminReceivingAccounts:
@@ -800,6 +802,19 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
       return (await import("@/lib/dbService")).dbProcessAuth(fd)
     case API.ordersConfirm:
       return (await import("@/lib/dbService")).dbConfirmProductOrders(fd)
+    case API.ordersPay: {
+      const idsRaw = String(fd.get("order_ids") ?? fd.get("order_id") ?? "").trim()
+      let ids: number[] = []
+      try {
+        const parsed = JSON.parse(idsRaw) as unknown
+        ids = Array.isArray(parsed) ? parsed.map(Number) : [Number(idsRaw)]
+      } catch {
+        ids = idsRaw.split(/[,\s]+/).map(Number)
+      }
+      return (await import("@/lib/dbService")).dbCustomerPayPendingOrders(
+        ids.filter((id) => Number.isFinite(id) && id > 0),
+      )
+    }
     case API.ordersCreate:
       return (await import("@/lib/dbService")).dbCreateProductOrder(fd)
     case API.ordersDelete:
@@ -869,6 +884,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
           shop_name: String(fd.get("shop_name") ?? ""),
           main_category: String(fd.get("main_category") ?? ""),
           shop_image: shopImage,
+          product_ids: String(fd.get("product_ids") ?? ""),
         },
       )
     }
@@ -1002,6 +1018,11 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         )
       }
       return fail("action ไม่ถูกต้อง")
+    case API.platformContact: {
+      const deniedContact = await requireDbAdminRole()
+      if (deniedContact) return deniedContact
+      return (await import("@/lib/dbService")).dbSavePlatformContact(String(fd.get("line_url") ?? ""))
+    }
     default:
       if (path === API.supportChat) {
         return dbSendChatMessage(String(fd.get("message") ?? ""))

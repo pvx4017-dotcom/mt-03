@@ -22,6 +22,7 @@ import {
 import { adminFmtMoney } from "@/lib/adminUtils"
 import { runAdminListLoad, showAdminTableLoading } from "@/lib/adminLoadHelper"
 import { DEFAULT_SELLER_LEVELS, type SellerLevel } from "@/lib/engagement"
+import { THAI_BANK_GROUPS } from "@/data/thaiBanks"
 import { useBodyClass } from "@/hooks/useBodyClass"
 
 function statusBadgeClass(status: unknown) {
@@ -505,7 +506,34 @@ export function AdminReceivingAccountsPage() {
           <input className="admin-form-control" placeholder="เลขบัญชี / ที่อยู่" value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
         </div>
         <div className="admin-form-row">
-          <input className="admin-form-control" placeholder="เครือข่าย / ธนาคาร" value={form.network} onChange={(e) => setForm({ ...form, network: e.target.value })} />
+          {form.channel === "bank" ? (
+            <select
+              className="admin-form-control"
+              value={form.network}
+              onChange={(e) => setForm({ ...form, network: e.target.value })}
+            >
+              <option value="">เลือกธนาคาร</option>
+              {form.network && !THAI_BANK_GROUPS.some((g) => g.banks.some((b) => b.value === form.network)) ? (
+                <option value={form.network}>{form.network}</option>
+              ) : null}
+              {THAI_BANK_GROUPS.map((group) => (
+                <optgroup key={group.id} label={group.label}>
+                  {group.banks.map((bank) => (
+                    <option key={bank.value} value={bank.value}>
+                      {bank.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="admin-form-control"
+              placeholder="เครือข่าย / ธนาคาร"
+              value={form.network}
+              onChange={(e) => setForm({ ...form, network: e.target.value })}
+            />
+          )}
           <input className="admin-form-control" placeholder="หมายเหตุ" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <button type="button" className="admin-submit-btn" onClick={save}>{form.id ? "อัปเดต" : "เพิ่มบัญชี"}</button>
         </div>

@@ -357,6 +357,21 @@ body.page-cart #app {
     color: #1e40af;
 }
 
+.checkout-flow-note--warn {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+
+.checkout-pay-wallet {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
 .checkout-field {
     display: grid;
     gap: 4px;

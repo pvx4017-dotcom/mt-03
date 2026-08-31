@@ -186,6 +186,19 @@ export async function superAdminResetAdminPassword(userId: number, newPassword: 
   return adminPost<ApiResult<Record<string, never>>>(API.adminSettings, fd)
 }
 
+export async function fetchAdminLineContact() {
+  ensureConfigured()
+  const data = await adminGet<ApiResult<{ line_url?: string }>>(API.platformContact)
+  return String(data.line_url ?? "").trim()
+}
+
+export async function saveAdminLineContact(lineUrl: string) {
+  ensureConfigured()
+  const fd = new FormData()
+  fd.append("line_url", lineUrl)
+  return adminPost<ApiResult<{ line_url?: string }>>(API.platformContact, fd)
+}
+
 export async function fetchAdminCredits() {
   const data = await adminGet<ApiResult<{ credits?: Record<string, unknown>[] }>>(
     apiPath(API.adminCustomerTopup, { action: "credits" }),

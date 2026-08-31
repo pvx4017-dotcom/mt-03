@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
+  calcOrderDue,
   fetchAllCustomerOrders,
+  fetchCommissionPercent,
   fetchCompletedOrders,
   fetchPendingPaymentOrders,
   fetchToReceiveOrders,
@@ -10,6 +12,7 @@ import {
   fmtMoney,
   maskPhone,
   parseCustomerImage,
+  payPendingOrdersWithWallet,
 } from "@/lib/customerApi"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
@@ -56,8 +59,6 @@ const hubStatusLabel: Record<HubVariant, string> = {
 type OrderLoader = () => Promise<Record<string, unknown>[]>
 
 function orderTotal(row: Record<string, unknown>) {
-  const total = Number(row.total_price ?? 0)
-  if (Number.isFinite(total) && total > 0) return total
   const unit = Number(row.unit_price ?? 0)
   const qty = Math.max(1, Number(row.quantity ?? 1))
   return unit * qty
@@ -89,11 +90,19 @@ function OrderCardList({
   rows,
   statusLabel,
   variant,
+  commissionPercent = 20,
+  payingId,
+  onPay,
+  walletBalance = 0,
 }: {
   rows: Record<string, unknown>[]
   statusLabel: string
   statusColor?: string
   variant: HubVariant | "mixed"
+  commissionPercent?: number
+  payingId?: number | "all" | null
+  onPay?: (orderIds: number[]) => void
+  walletBalance?: number
 }) {
   return (
     <div className="order-list">
@@ -207,9 +216,30 @@ function OrderCardList({
 
             {rowVariant === "pending" ? (
               <div className="order-footer order-footer--action">
-                <Link to="/help-center" className="btn-order-pay">
-                  ชำระสินค้า
-                </Link>
+                {onPay ? (
+                  walletBalance + 1e-9 >= calcOrderDue(total, commissionPercent).totalDue ? (
+                    <button
+                      type="button"
+                      className="btn-order-pay"
+                      disabled={payingId != null}
+                      onClick={() => onPay([Number(row.id)])}
+                    >
+                      {payingId === Number(row.id) ? "กำลังชำระ..." : "ชำระด้วยยอดในระบบ"}
+                    </button>
+                  ) : (
+                    <Link to="/deposit" className="btn-order-pay">
+                      ยอดไม่พอ — ไปเติมเงิน
+                    </Link>
+                  )
+                ) : (
+                  <Link to="/pending-payment" className="btn-order-pay">
+                    ชำระสินค้า
+                  </Link>
+                )}
+                <div className="order-pay-due">
+                  รวมค่าคอม {commissionPercent}%: $
+                  {fmtMoney(calcOrderDue(total, commissionPercent).totalDue)}
+                </div>
               </div>
             ) : null}
           </div>
@@ -241,10 +271,13 @@ export function OrderHubPage({
   emptyAction?: { label: string; to: string }
 }) {
   useBodyClass("page-orders")
-  const { requireLogin, refreshOrderHubCounts } = useApp()
+  const { requireLogin, refreshOrderHubCounts, refreshUser, user } = useApp()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
   const [needLogin, setNeedLogin] = useState(false)
+  const [commissionPct, setCommissionPct] = useState(20)
+  const [payingId, setPayingId] = useState<number | "all" | null>(null)
+  const [payNotice, setPayNotice] = useState("")
 
   const load = useCallback(async () => {
     if (!requireLogin()) {
@@ -269,6 +302,45 @@ export function OrderHubPage({
     load()
   }, [load])
 
+  useEffect(() => {
+    void fetchCommissionPercent()
+      .then(setCommissionPct)
+      .catch(() => setCommissionPct(20))
+  }, [])
+
+  const pendingRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        if (variant === "pending") return true
+        return String(row._hub ?? row.status ?? "") === "pending"
+      }),
+    [rows, variant],
+  )
+  const pendingIds = pendingRows.map((row) => Number(row.id)).filter((id) => id > 0)
+  const pendingProductTotal = pendingRows.reduce((sum, row) => sum + orderTotal(row), 0)
+  const pendingDue = calcOrderDue(pendingProductTotal, commissionPct)
+  const walletBalance = Number(user?.wallet_balance ?? 0)
+  const canPayAll = pendingIds.length > 0 && walletBalance + 1e-9 >= pendingDue.totalDue
+
+  const payOrders = async (orderIds: number[], asAll = false) => {
+    const ids = orderIds.filter((id) => Number.isFinite(id) && id > 0)
+    if (!ids.length) return
+    setPayingId(asAll ? "all" : ids[0])
+    setPayNotice("")
+    try {
+      const res = await payPendingOrdersWithWallet(ids)
+      setPayNotice(res.message ?? (res.success ? "ชำระเงินแล้ว" : "ชำระไม่สำเร็จ"))
+      if (res.success) {
+        await Promise.all([load(), refreshUser(), refreshOrderHubCounts()])
+      }
+    } catch {
+      setPayNotice("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ")
+    } finally {
+      setPayingId(null)
+      window.setTimeout(() => setPayNotice(""), 2200)
+    }
+  }
+
   return (
     <div id="app" className="order-hub-shell">
       <nav className="top-navbar order-hub-navbar">
@@ -292,6 +364,30 @@ export function OrderHubPage({
             </Link>
           ))}
         </div>
+        {pendingIds.length > 0 ? (
+          <section className="order-wallet-pay-bar">
+            <div>
+              <p>ยอดเงินในระบบ ${fmtMoney(walletBalance)}</p>
+              <p>
+                ต้องชำระ {pendingIds.length} รายการ ${fmtMoney(pendingDue.totalDue)} (รวมค่าคอม {commissionPct}%)
+              </p>
+            </div>
+            {canPayAll ? (
+              <button
+                type="button"
+                className="btn-order-pay"
+                disabled={payingId != null}
+                onClick={() => payOrders(pendingIds, true)}
+              >
+                {payingId === "all" ? "กำลังชำระ..." : "ชำระทั้งหมดด้วยยอดในระบบ"}
+              </button>
+            ) : (
+              <Link to="/deposit" className="btn-order-pay">
+                ยอดไม่พอ — ไปเติมเงิน
+              </Link>
+            )}
+          </section>
+        ) : null}
         {needLogin ? (
           <div className="empty-state order-empty-state">
             <div className="empty-icon-wrap">
@@ -329,9 +425,14 @@ export function OrderHubPage({
             statusLabel={statusLabel}
             statusColor={statusColor}
             variant={variant}
+            commissionPercent={commissionPct}
+            payingId={payingId}
+            walletBalance={walletBalance}
+            onPay={(ids) => payOrders(ids)}
           />
         )}
       </main>
+      {payNotice ? <div className="order-pay-toast">{payNotice}</div> : null}
     </div>
   )
 }
@@ -345,7 +446,7 @@ export function PendingPaymentPage() {
       statusLabel="รอชำระเงิน"
       variant="pending"
       emptyTitle="ยังไม่มีรายการรอชำระเงิน"
-      emptyDesc="เมื่อคุณสั่งซื้อและยืนยันคำสั่งซื้อแล้ว รายการจะปรากฏที่นี่"
+      emptyDesc="เมื่อคุณสั่งซื้อแล้ว ถ้ายอดในระบบไม่พอ รายการจะปรากฏที่นี่เพื่อชำระด้วยยอดกระเป๋า"
     />
   )
 }

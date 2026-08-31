@@ -14,6 +14,8 @@ import {
   fetchMyCoupons,
   fetchMyReviews,
   fetchPendingReviewOrders,
+  fetchCatalogProducts,
+  fetchCustomerShopProducts,
   fetchOtherStoreProducts,
   fetchProductCategoryNames,
   fetchStoreCustomerStatus,
@@ -30,6 +32,17 @@ import {
   type StoreProductRow,
 } from "@/lib/customerApi"
 import { shopPath } from "@/lib/marketplaceApi"
+
+function normalizeCategoryName(value: string) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\u200B/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .replace(/\s+/g, "")
+}
 
 export function CheckinPage() {
   useBodyClass("page-checkin")
@@ -485,6 +498,11 @@ export function OpenStorePage() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState("")
   const [toastError, setToastError] = useState(false)
+  const [catalog, setCatalog] = useState<StoreProductRow[]>([])
+  const [ownedSourceIds, setOwnedSourceIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [pickerQuery, setPickerQuery] = useState("")
+  const [catalogLoading, setCatalogLoading] = useState(false)
 
   const showToast = (msg: string, error = false) => {
     setToast(msg)
@@ -493,16 +511,36 @@ export function OpenStorePage() {
   }
 
   const loadStatus = useCallback(async () => {
-    const [cats, status] = await Promise.all([fetchProductCategoryNames(), fetchStoreCustomerStatus()])
-    setCategories(cats)
-    if (status.success && status.has_store && status.store) {
-      setHasStore(true)
-      setCurrentStoreName(String(status.store.shop_name ?? ""))
-      setStoreThumb(parseProductRowImage({ product_image: String(status.store.shop_image ?? "") }))
-    } else {
-      setHasStore(false)
-      setCurrentStoreName("")
-      setStoreThumb("")
+    setCatalogLoading(true)
+    try {
+      const [cats, status, products, mine] = await Promise.all([
+        fetchProductCategoryNames(),
+        fetchStoreCustomerStatus(),
+        fetchCatalogProducts(),
+        fetchCustomerShopProducts().catch(() => [] as StoreProductRow[]),
+      ])
+      setCategories(cats)
+      setCatalog(products)
+      setOwnedSourceIds(
+        new Set(
+          mine
+            .map((row) => Number(row.source_product_id ?? 0))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      )
+      if (status.success && status.has_store && status.store) {
+        setHasStore(true)
+        setCurrentStoreName(String(status.store.shop_name ?? ""))
+        setStoreThumb(parseProductRowImage({ product_image: String(status.store.shop_image ?? "") }))
+        const existingCategory = String(status.store.main_category ?? "").trim()
+        if (existingCategory) setCategory((cur) => cur || existingCategory)
+      } else {
+        setHasStore(false)
+        setCurrentStoreName("")
+        setStoreThumb("")
+      }
+    } finally {
+      setCatalogLoading(false)
     }
   }, [])
 
@@ -519,6 +557,55 @@ export function OpenStorePage() {
     setShopImagePreview(url)
     return () => URL.revokeObjectURL(url)
   }, [shopImage])
+
+  const pickerProducts = useMemo(() => {
+    const activeCategory = normalizeCategoryName(category)
+    const q = pickerQuery.trim().toLowerCase()
+    return catalog.filter((row) => {
+      const rowCategory = normalizeCategoryName(String(row.product_category ?? ""))
+      const typeOk =
+        !activeCategory ||
+        rowCategory === activeCategory ||
+        rowCategory.includes(activeCategory) ||
+        activeCategory.includes(rowCategory)
+      const qOk = !q || String(row.product_name ?? "").toLowerCase().includes(q)
+      return typeOk && qOk
+    })
+  }, [catalog, category, pickerQuery])
+
+  const selectableIds = useMemo(
+    () =>
+      pickerProducts
+        .map((row) => Number(row.id ?? 0))
+        .filter((id) => id > 0 && !ownedSourceIds.has(id)),
+    [ownedSourceIds, pickerProducts],
+  )
+
+  const toggleProduct = (id: number, alreadyInStore: boolean) => {
+    if (!id || alreadyInStore) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of selectableIds) next.add(id)
+      return next
+    })
+  }
+
+  const clearVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of selectableIds) next.delete(id)
+      return next
+    })
+  }
 
   const fillEdit = () => {
     if (!hasStore) {
@@ -542,12 +629,18 @@ export function OpenStorePage() {
       showToast("กรุณาเลือกรูปร้าน", true)
       return
     }
+    const productIds = [...selectedIds]
+    if (!hasStore && productIds.length === 0) {
+      showToast("กรุณาเลือกสินค้าที่ต้องการเข้าร้านอย่างน้อย 1 รายการ", true)
+      return
+    }
     setBusy(true)
     try {
       const res = await submitStoreCustomer(hasStore ? "update" : "save", {
         shop_name: shopName.trim(),
         main_category: category,
         shop_image: shopImage,
+        product_ids: productIds,
       })
       if (!res.success) {
         showToast(res.message || "บันทึกข้อมูลไม่สำเร็จ", true)
@@ -557,10 +650,10 @@ export function OpenStorePage() {
       setShopName("")
       setShopImage(null)
       setShopImagePreview("")
-      setCategory("")
+      setSelectedIds(new Set())
       await loadStatus()
       await refreshStoreStatus()
-      if (Number((res as { products_added?: number }).products_added ?? 0) > 0) {
+      if (Number(res.products_added ?? 0) > 0) {
         window.setTimeout(() => {
           showToast("ดูสินค้าในร้านได้ที่ จัดการร้านค้า")
         }, 2000)
@@ -639,7 +732,13 @@ export function OpenStorePage() {
           </div>
           <div className="input-group">
             <label>หมวดหมู่สินค้าหลัก</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value)
+                setPickerQuery("")
+              }}
+            >
               <option value="" disabled>
                 เลือกหมวดหมู่
               </option>
@@ -649,12 +748,84 @@ export function OpenStorePage() {
                 </option>
               ))}
             </select>
+            <p className="input-hint">ใช้กรองรายการสินค้าด้านล่าง เลือกได้เฉพาะสินค้าที่ต้องการ</p>
+          </div>
+          <div className="input-group">
+            <label>เลือกสินค้าเข้าร้าน</label>
             <p className="input-hint">
-              ระบบจะนำสินค้าจากหมวดนี้เข้าร้านของคุณอัตโนมัติเมื่อเปิดร้าน (สูงสุด 50 รายการ)
+              {hasStore
+                ? "เลือกสินค้าเพิ่มเติมได้ตามจำนวนที่ต้องการ (ข้ามได้ถ้าไม่ต้องการเพิ่ม)"
+                : "เลือกเฉพาะสินค้าที่ต้องการ ไม่ดึงทั้งหมวดอัตโนมัติ"}
             </p>
+            {!category ? (
+              <p className="os-picker-empty">กรุณาเลือกหมวดหมู่หลักก่อน เพื่อแสดงสินค้า</p>
+            ) : (
+              <>
+                <input
+                  type="search"
+                  placeholder="ค้นหาชื่อสินค้าในหมวดนี้"
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                />
+                <div className="os-picker-toolbar">
+                  <span>
+                    เลือกแล้ว {selectedIds.size} รายการ
+                    {ownedSourceIds.size > 0 ? ` · ในร้านแล้ว ${ownedSourceIds.size}` : ""}
+                  </span>
+                  <div className="os-picker-toolbar-actions">
+                    <button type="button" onClick={selectVisible} disabled={!selectableIds.length}>
+                      เลือกทั้งหมดที่เห็น
+                    </button>
+                    <button type="button" onClick={clearVisible} disabled={!selectedIds.size}>
+                      ยกเลิกที่เลือก
+                    </button>
+                  </div>
+                </div>
+                <div className="os-product-picker">
+                  {catalogLoading ? (
+                    <p className="os-picker-empty">กำลังโหลดสินค้า...</p>
+                  ) : pickerProducts.length === 0 ? (
+                    <p className="os-picker-empty">ไม่พบสินค้าในหมวดนี้</p>
+                  ) : (
+                    pickerProducts.map((row) => {
+                      const id = Number(row.id ?? 0)
+                      const already = ownedSourceIds.has(id)
+                      const checked = selectedIds.has(id)
+                      return (
+                        <label
+                          key={id}
+                          className={`os-pick-card${checked ? " selected" : ""}${already ? " in-store" : ""}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked || already}
+                            disabled={already || !id}
+                            onChange={() => toggleProduct(id, already)}
+                          />
+                          <img src={parseProductRowImage(row)} alt="" />
+                          <span className="os-pick-meta">
+                            <span className="os-pick-name">{String(row.product_name ?? "-")}</span>
+                            <span className="os-pick-price">${fmtMoney(row.product_price)}</span>
+                            {already ? <span className="os-pick-tag">อยู่ในร้านแล้ว</span> : null}
+                          </span>
+                        </label>
+                      )
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </div>
           <button className="submit-btn" type="button" disabled={busy} onClick={submit}>
-            {busy ? "กำลังบันทึก..." : hasStore ? "บันทึกการแก้ไขร้าน" : "ลงทะเบียนเปิดร้านเลย"}
+            {busy
+              ? "กำลังบันทึก..."
+              : hasStore
+                ? selectedIds.size
+                  ? `บันทึกและเพิ่มสินค้า ${selectedIds.size} รายการ`
+                  : "บันทึกการแก้ไขร้าน"
+                : selectedIds.size
+                  ? `เปิดร้านพร้อมสินค้า ${selectedIds.size} รายการ`
+                  : "ลงทะเบียนเปิดร้านเลย"}
           </button>
         </section>
       </div>
@@ -845,17 +1016,6 @@ export function FollowingShopsPage() {
       </div>
     </>
   )
-}
-
-function normalizeCategoryName(value: string) {
-  return String(value ?? "")
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\u200B/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, "")
-    .replace(/\s+/g, "")
 }
 
 export function CollectionsPage() {

@@ -655,3 +655,22 @@ body.admin-chat-page[data-view="chat"] .admin-chat-panel {
   background: #fef3c7;
   color: #92400e;
 }
+
+.admin-line-settings {
+  margin-bottom: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-line-settings-title {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-line-settings-title i {
+  color: #06c755;
+}

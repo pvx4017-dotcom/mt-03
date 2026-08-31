@@ -38,6 +38,8 @@ export const API = {
   customerStoreMirror: "customer/store-products-mirror",
   authProcess: "auth/process",
   ordersConfirm: "orders/confirm",
+  ordersPay: "orders/pay",
+  platformContact: "platform/contact",
   ordersCreate: "orders/create",
   ordersDelete: "orders/delete",
   ordersUpdateQty: "orders/update-qty",

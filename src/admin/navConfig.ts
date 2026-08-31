@@ -62,13 +62,7 @@ export const adminMainNav: (AdminNavItem | AdminNavGroup)[] = [
   { path: "/admin/feedback", label: "ข้อเสนอแนะ", icon: "fa-inbox", section: "อื่นๆ" },
   { path: "/admin/notifications", label: "การแจ้งเตือน", icon: "fa-bell", section: "อื่นๆ" },
   { path: "/admin/chat", label: "แชท์", icon: "fa-headset", badgeKey: "chat", section: "อื่นๆ" },
-  {
-    path: "/admin/settings",
-    label: "ตั้งค่าระบบ",
-    icon: "fa-gear",
-    superAdminOnly: true,
-    section: "อื่นๆ",
-  },
+  { path: "/admin/settings", label: "ตั้งค่าระบบ", icon: "fa-gear", section: "อื่นๆ" },
 ]
 
 export function isNavGroup(item: AdminNavItem | AdminNavGroup): item is AdminNavGroup {

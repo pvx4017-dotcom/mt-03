@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { logoAsset } from "@/lib/assets"
-import { fmtMoney, resetAfterSalesBadge } from "@/lib/customerApi"
+import { fmtMoney, fetchPlatformContactUrl, resetAfterSalesBadge } from "@/lib/customerApi"
 import { BottomNav } from "@/components/layout/BottomNav"
 import { Footer } from "@/components/layout/Footer"
 import { useApp } from "@/context/AppContext"
@@ -26,6 +26,8 @@ export default function ProfilePage() {
   const { user, isLoggedIn, hasStore, storeInfo, orderHubCounts, refreshUser, refreshOrderHubCounts } = useApp()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [storeToast, setStoreToast] = useState(false)
+  const [lineUrl, setLineUrl] = useState("")
+  const [lineToast, setLineToast] = useState("")
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -33,6 +35,12 @@ export default function ProfilePage() {
     void refreshOrderHubCounts()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh once when opening profile
   }, [isLoggedIn])
+
+  useEffect(() => {
+    void fetchPlatformContactUrl()
+      .then((url) => setLineUrl(url))
+      .catch(() => setLineUrl(""))
+  }, [])
 
   const balance = Number(user?.wallet_balance ?? 0)
   const credit = user?.credit ?? 0
@@ -210,6 +218,39 @@ export default function ProfilePage() {
         </Link>
 
         <section className="menu-list-card">
+          {lineUrl ? (
+            <a
+              href={lineUrl}
+              className="menu-list-item line-menu-item"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div className="item-inner">
+                <div className="menu-icon-wrap line-menu-icon">
+                  <i className="fa-brands fa-line" />
+                </div>
+                <span>LINE</span>
+              </div>
+              <i className="fa-solid fa-chevron-right menu-arrow" />
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="menu-list-item line-menu-item"
+              onClick={() => {
+                setLineToast("ยังไม่ได้ตั้งค่าช่องทาง LINE")
+                window.setTimeout(() => setLineToast(""), 2200)
+              }}
+            >
+              <div className="item-inner">
+                <div className="menu-icon-wrap line-menu-icon">
+                  <i className="fa-brands fa-line" />
+                </div>
+                <span>LINE</span>
+              </div>
+              <i className="fa-solid fa-chevron-right menu-arrow" />
+            </button>
+          )}
           {[
             { to: "/help-center", icon: "fa-headset", label: "ฝ่ายบริการลูกค้า" },
             { to: "/help-manual", icon: "fa-circle-question", label: "คู่มือช่วยเหลือ", regular: true },
@@ -279,6 +320,7 @@ export default function ProfilePage() {
           ⚠ กรุณาเปิดร้านก่อน
         </div>
       ) : null}
+      {lineToast ? <div className="profile-store-toast">{lineToast}</div> : null}
     </div>
   )
 }

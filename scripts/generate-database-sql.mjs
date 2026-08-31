@@ -297,6 +297,7 @@ CREATE TABLE payment_limits_history (
 CREATE TABLE commission_settings (
   id          INT PRIMARY KEY DEFAULT 1,
   percent     NUMERIC(6,2) NOT NULL DEFAULT 20,
+  line_url    TEXT NOT NULL DEFAULT '',
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT commission_settings_singleton CHECK (id = 1)
 );
