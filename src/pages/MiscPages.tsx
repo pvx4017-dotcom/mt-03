@@ -33,6 +33,8 @@ import {
 } from "@/lib/customerApi"
 import { shopPath } from "@/lib/marketplaceApi"
 
+const PICKER_ALL = "all"
+
 function normalizeCategoryName(value: string) {
   return String(value ?? "")
     .normalize("NFKD")
@@ -489,10 +491,11 @@ export function OpenStorePage() {
   }, [alreadyHasStore, navigate])
   const [shopName, setShopName] = useState("")
   const [category, setCategory] = useState("")
+  const [pickerFilter, setPickerFilter] = useState(alreadyHasStore ? PICKER_ALL : "")
   const [categories, setCategories] = useState<string[]>([])
   const [shopImage, setShopImage] = useState<File | null>(null)
   const [shopImagePreview, setShopImagePreview] = useState("")
-  const [hasStore, setHasStore] = useState(false)
+  const [hasStore, setHasStore] = useState(alreadyHasStore)
   const [currentStoreName, setCurrentStoreName] = useState("")
   const [storeThumb, setStoreThumb] = useState("")
   const [busy, setBusy] = useState(false)
@@ -503,6 +506,12 @@ export function OpenStorePage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [pickerQuery, setPickerQuery] = useState("")
   const [catalogLoading, setCatalogLoading] = useState(false)
+
+  useEffect(() => {
+    if (!alreadyHasStore) return
+    setHasStore(true)
+    setPickerFilter((cur) => cur || PICKER_ALL)
+  }, [alreadyHasStore])
 
   const showToast = (msg: string, error = false) => {
     setToast(msg)
@@ -534,6 +543,7 @@ export function OpenStorePage() {
         setStoreThumb(parseProductRowImage({ product_image: String(status.store.shop_image ?? "") }))
         const existingCategory = String(status.store.main_category ?? "").trim()
         if (existingCategory) setCategory((cur) => cur || existingCategory)
+        setPickerFilter((cur) => cur || PICKER_ALL)
       } else {
         setHasStore(false)
         setCurrentStoreName("")
@@ -558,12 +568,16 @@ export function OpenStorePage() {
     return () => URL.revokeObjectURL(url)
   }, [shopImage])
 
+  const activePickerFilter = pickerFilter || (hasStore ? PICKER_ALL : category)
+  const showAllProducts = activePickerFilter === PICKER_ALL
   const pickerProducts = useMemo(() => {
-    const activeCategory = normalizeCategoryName(category)
+    const filterValue = showAllProducts ? "" : activePickerFilter
+    const activeCategory = normalizeCategoryName(filterValue)
     const q = pickerQuery.trim().toLowerCase()
     return catalog.filter((row) => {
       const rowCategory = normalizeCategoryName(String(row.product_category ?? ""))
       const typeOk =
+        showAllProducts ||
         !activeCategory ||
         rowCategory === activeCategory ||
         rowCategory.includes(activeCategory) ||
@@ -571,7 +585,7 @@ export function OpenStorePage() {
       const qOk = !q || String(row.product_name ?? "").toLowerCase().includes(q)
       return typeOk && qOk
     })
-  }, [catalog, category, pickerQuery])
+  }, [activePickerFilter, catalog, pickerQuery, showAllProducts])
 
   const selectableIds = useMemo(
     () =>
@@ -607,21 +621,13 @@ export function OpenStorePage() {
     })
   }
 
-  const fillEdit = () => {
-    if (!hasStore) {
-      showToast("ไม่พบข้อมูลร้านสำหรับแก้ไข", true)
-      return
-    }
-    setShopName(currentStoreName)
-    showToast("ดึงข้อมูลร้านลงฟอร์มแล้ว สามารถแก้ไขได้")
-  }
-
   const submit = async () => {
-    if (!shopName.trim()) {
-      showToast("กรุณากรอกชื่อร้าน", true)
+    const nameToSave = hasStore ? currentStoreName.trim() : shopName.trim()
+    if (!nameToSave) {
+      showToast(hasStore ? "ไม่พบข้อมูลร้าน" : "กรุณากรอกชื่อร้าน", true)
       return
     }
-    if (!category) {
+    if (!hasStore && !category) {
       showToast("กรุณาเลือกหมวดหมู่หลัก", true)
       return
     }
@@ -637,7 +643,7 @@ export function OpenStorePage() {
     setBusy(true)
     try {
       const res = await submitStoreCustomer(hasStore ? "update" : "save", {
-        shop_name: shopName.trim(),
+        shop_name: nameToSave,
         main_category: category,
         shop_image: shopImage,
         product_ids: productIds,
@@ -665,21 +671,19 @@ export function OpenStorePage() {
     }
   }
 
+  const pickerReady = hasStore || Boolean(category)
+
   return (
     <div id="app" className="open-store-container">
       <nav className="top-navbar">
         <Link to="/profile" className="back-link">
           <i className="fa-solid fa-chevron-left" />
         </Link>
-        <div className="page-title">เปิดร้านค้าใหม่</div>
+        <div className="page-title">{hasStore ? "จัดการร้านค้า" : "เปิดร้านค้าใหม่"}</div>
       </nav>
       <section className="os-hero">
-        <h1>เริ่มต้นธุรกิจของคุณวันนี้</h1>
-        <div
-          className={`hero-store-status${hasStore ? " has-store" : ""}`}
-          role="button"
-          onClick={fillEdit}
-        >
+        <h1>{hasStore ? "จัดการสินค้าในร้านของคุณ" : "เริ่มต้นธุรกิจของคุณวันนี้"}</h1>
+        <div className={`hero-store-status${hasStore ? " has-store" : ""}`}>
           {hasStore && storeThumb ? (
             <img src={storeThumb} alt="" className="hero-store-thumb" />
           ) : (
@@ -689,81 +693,106 @@ export function OpenStorePage() {
         </div>
         {hasStore && (
           <Link to="/my-store-products" className="hero-manage-btn show" style={{ textDecoration: "none" }}>
-            <i className="fa-solid fa-gear" />
-            <span>จัดการร้านค้า</span>
+            <i className="fa-solid fa-boxes-stacked" />
+            <span>สินค้าในร้าน</span>
           </Link>
         )}
       </section>
       <div className="form-wrapper">
         <section className="registration-form">
-          <div className="form-section-title">
-            <i className="fa-solid fa-id-card" />
-            ข้อมูลเบื้องต้นของร้านค้า
-          </div>
-          <div className="input-group">
-            <label>ชื่อร้านค้าของคุณ</label>
-            <input
-              type="text"
-              placeholder="ระบุชื่อร้านตามที่คุณต้องการ"
-              value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
-            />
-          </div>
-          <div className="input-group">
-            <label>รูปร้านค้า</label>
-            <label className="shop-image-upload">
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp,.gif,image/*"
-                onChange={(e) => setShopImage(e.target.files?.[0] ?? null)}
-              />
-              <div className={`shop-image-upload-box${shopImagePreview ? " has-preview" : ""}`}>
-                {shopImagePreview ? (
-                  <img src={shopImagePreview} alt="ตัวอย่างรูปร้าน" className="shop-image-preview" />
-                ) : (
-                  <>
-                    <i className="fa-solid fa-camera shop-image-upload-icon" />
-                    <span className="shop-image-upload-text">แตะเพื่อเลือกรูปร้าน</span>
-                    <span className="shop-image-upload-hint">JPG, PNG, WEBP สูงสุด 5MB</span>
-                  </>
-                )}
+          {!hasStore ? (
+            <>
+              <div className="form-section-title">
+                <i className="fa-solid fa-id-card" />
+                ข้อมูลเบื้องต้นของร้านค้า
               </div>
-            </label>
-          </div>
+              <div className="input-group">
+                <label>ชื่อร้านค้าของคุณ</label>
+                <input
+                  type="text"
+                  placeholder="ระบุชื่อร้านตามที่คุณต้องการ"
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                />
+              </div>
+              <div className="input-group">
+                <label>รูปร้านค้า</label>
+                <label className="shop-image-upload">
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.gif,image/*"
+                    onChange={(e) => setShopImage(e.target.files?.[0] ?? null)}
+                  />
+                  <div className={`shop-image-upload-box${shopImagePreview ? " has-preview" : ""}`}>
+                    {shopImagePreview ? (
+                      <img src={shopImagePreview} alt="ตัวอย่างรูปร้าน" className="shop-image-preview" />
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-camera shop-image-upload-icon" />
+                        <span className="shop-image-upload-text">แตะเพื่อเลือกรูปร้าน</span>
+                        <span className="shop-image-upload-hint">JPG, PNG, WEBP สูงสุด 5MB</span>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+              <div className="input-group">
+                <label>หมวดหมู่สินค้าหลัก</label>
+                <select
+                  value={category}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setCategory(next)
+                    setPickerFilter(next)
+                    setPickerQuery("")
+                  }}
+                >
+                  <option value="" disabled>
+                    เลือกหมวดหมู่
+                  </option>
+                  {categories.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <p className="input-hint">ใช้เป็นหมวดหลักของร้าน และกรองรายการสินค้าด้านล่างได้</p>
+              </div>
+            </>
+          ) : (
+            <div className="form-section-title">
+              <i className="fa-solid fa-boxes-stacked" />
+              เลือกสินค้าเข้าร้าน
+            </div>
+          )}
           <div className="input-group">
-            <label>หมวดหมู่สินค้าหลัก</label>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value)
-                setPickerQuery("")
-              }}
-            >
-              <option value="" disabled>
-                เลือกหมวดหมู่
-              </option>
-              {categories.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <p className="input-hint">ใช้กรองรายการสินค้าด้านล่าง เลือกได้เฉพาะสินค้าที่ต้องการ</p>
-          </div>
-          <div className="input-group">
-            <label>เลือกสินค้าเข้าร้าน</label>
+            {!hasStore ? <label>เลือกสินค้าเข้าร้าน</label> : null}
             <p className="input-hint">
               {hasStore
-                ? "เลือกสินค้าเพิ่มเติมได้ตามจำนวนที่ต้องการ (ข้ามได้ถ้าไม่ต้องการเพิ่ม)"
+                ? "เลือกตามหมวดหมู่ หรือดูสินค้าทั้งหมด แล้วติ๊กเฉพาะรายการที่ต้องการเพิ่ม"
                 : "เลือกเฉพาะสินค้าที่ต้องการ ไม่ดึงทั้งหมวดอัตโนมัติ"}
             </p>
-            {!category ? (
+            {!pickerReady ? (
               <p className="os-picker-empty">กรุณาเลือกหมวดหมู่หลักก่อน เพื่อแสดงสินค้า</p>
             ) : (
               <>
+                <select
+                  value={activePickerFilter}
+                  onChange={(e) => {
+                    setPickerFilter(e.target.value)
+                    setPickerQuery("")
+                  }}
+                >
+                  <option value={PICKER_ALL}>สินค้าทั้งหมด</option>
+                  {categories.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="search"
-                  placeholder="ค้นหาชื่อสินค้าในหมวดนี้"
+                  placeholder={showAllProducts ? "ค้นหาชื่อสินค้าทั้งหมด" : "ค้นหาชื่อสินค้าในหมวดนี้"}
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
                 />
@@ -781,11 +810,13 @@ export function OpenStorePage() {
                     </button>
                   </div>
                 </div>
-                <div className="os-product-picker">
+                <div className="os-product-picker os-product-picker--cols">
                   {catalogLoading ? (
                     <p className="os-picker-empty">กำลังโหลดสินค้า...</p>
                   ) : pickerProducts.length === 0 ? (
-                    <p className="os-picker-empty">ไม่พบสินค้าในหมวดนี้</p>
+                    <p className="os-picker-empty">
+                      {showAllProducts ? "ไม่พบสินค้า" : "ไม่พบสินค้าในหมวดนี้"}
+                    </p>
                   ) : (
                     pickerProducts.map((row) => {
                       const id = Number(row.id ?? 0)
@@ -822,7 +853,7 @@ export function OpenStorePage() {
               : hasStore
                 ? selectedIds.size
                   ? `บันทึกและเพิ่มสินค้า ${selectedIds.size} รายการ`
-                  : "บันทึกการแก้ไขร้าน"
+                  : "บันทึกสินค้าที่เลือก"
                 : selectedIds.size
                   ? `เปิดร้านพร้อมสินค้า ${selectedIds.size} รายการ`
                   : "ลงทะเบียนเปิดร้านเลย"}

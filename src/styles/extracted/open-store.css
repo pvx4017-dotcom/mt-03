@@ -97,7 +97,7 @@
             border: none;
             font-weight: 600;
             font-size: 18px;
-            cursor: pointer;
+            cursor: default;
         }
 
         #heroStoreStatusText {
@@ -198,6 +198,10 @@
             font-size: 12px;
             line-height: 1.5;
             color: #64748b;
+        }
+
+        .input-group select + input[type="search"] {
+            margin-top: 8px;
         }
 
         .input-group input:not([type="checkbox"]):not([type="file"]), 
@@ -465,4 +469,51 @@
         .os-pick-tag {
             font-size: 10px;
             color: #64748b;
+        }
+
+        .os-product-picker--cols {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            max-height: 520px;
+        }
+
+        .os-product-picker--cols .os-picker-empty {
+            grid-column: 1 / -1;
+        }
+
+        .os-product-picker--cols .os-pick-card {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 6px;
+            align-items: stretch;
+            position: relative;
+        }
+
+        .os-product-picker--cols .os-pick-card input {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 1;
+            width: 16px;
+            height: 16px;
+        }
+
+        .os-product-picker--cols .os-pick-card img {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1;
+            border-radius: 8px;
+        }
+
+        .os-product-picker--cols .os-pick-name {
+            font-size: 11px;
+            -webkit-line-clamp: 2;
+        }
+
+        .os-product-picker--cols .os-pick-price {
+            font-size: 11px;
+        }
+
+        .os-product-picker--cols .os-pick-tag {
+            font-size: 9px;
         }
