@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useBodyClass } from "@/hooks/useBodyClass"
 import { useApp } from "@/context/AppContext"
+import { StorageImage } from "@/components/media/StorageImage"
 import {
+  fetchMyVerification,
   fetchPayoutWallets,
   fetchWithdrawHistory,
   fmtDateTime,
@@ -49,15 +51,37 @@ const fieldStyle: React.CSSProperties = {
 }
 
 
+const KYC_SLOTS = [
+  { key: "front", label: "บัตรประชาชน (ด้านหน้า)" },
+  { key: "back", label: "บัตรประชาชน (ด้านหลัง)" },
+  { key: "selfie", label: "รูปถ่ายคู่บัตร" },
+] as const
+
+type KycSlotKey = (typeof KYC_SLOTS)[number]["key"]
+
 export function VerificationPage() {
-  const { refreshUser, user } = useApp()
+  const { refreshUser, user, requireLogin, sessionChecked } = useApp()
   const [fullName, setFullName] = useState("")
   const [idCard, setIdCard] = useState("")
-  const [front, setFront] = useState<File | null>(null)
-  const [back, setBack] = useState<File | null>(null)
-  const [selfie, setSelfie] = useState<File | null>(null)
+  const [files, setFiles] = useState<Record<KycSlotKey, File | null>>({
+    front: null,
+    back: null,
+    selfie: null,
+  })
+  const [previews, setPreviews] = useState<Record<KycSlotKey, string>>({
+    front: "",
+    back: "",
+    selfie: "",
+  })
+  const [saved, setSaved] = useState<Record<KycSlotKey, string>>({
+    front: "",
+    back: "",
+    selfie: "",
+  })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
+  const previewRef = useRef(previews)
+  previewRef.current = previews
 
   const kycStatus = user?.kyc_status ?? "none"
   const kycLabel =
@@ -71,6 +95,57 @@ export function VerificationPage() {
 
   const canSubmit = kycStatus === "none" || kycStatus === "rejected"
 
+  useEffect(() => {
+    if (!sessionChecked) return
+    requireLogin()
+  }, [requireLogin, sessionChecked])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchMyVerification()
+      .then((res) => {
+        if (cancelled || !res.success || !res.verification) return
+        const row = res.verification
+        setFullName((cur) => cur || String(row.full_name ?? ""))
+        setIdCard((cur) => cur || String(row.id_card_number ?? ""))
+        setSaved({
+          front: String(row.id_card_image_url || row.id_card_image || ""),
+          back: String(row.id_card_back_url || row.id_card_back || ""),
+          selfie: String(row.selfie_image_url || row.selfie_image || ""),
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [user?.kyc_status])
+
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(previewRef.current)) {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url)
+      }
+    }
+  }, [])
+
+  const setSlotFile = (key: KycSlotKey, file: File | null) => {
+    if (file && file.size > 8 * 1024 * 1024) {
+      setMsg("ไฟล์รูปต้องไม่เกิน 8MB")
+      return
+    }
+    if (file && file.type && !file.type.startsWith("image/")) {
+      setMsg("กรุณาเลือกไฟล์รูปภาพเท่านั้น")
+      return
+    }
+    setFiles((cur) => ({ ...cur, [key]: file }))
+    setPreviews((cur) => {
+      const prev = cur[key]
+      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev)
+      return { ...cur, [key]: file ? URL.createObjectURL(file) : "" }
+    })
+    setMsg("")
+  }
+
   const submit = async () => {
     if (!canSubmit) {
       setMsg(kycStatus === "pending" ? "คำขอกำลังรอตรวจสอบ" : "ยืนยันตัวตนแล้ว")
@@ -80,7 +155,11 @@ export function VerificationPage() {
       setMsg("กรุณากรอกชื่อ-นามสกุลและเลขบัตรประชาชน")
       return
     }
-    if (!front || !back || !selfie) {
+    if (!/^\d{13}$/.test(idCard.replace(/[\s-]/g, ""))) {
+      setMsg("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก")
+      return
+    }
+    if (!files.front || !files.back || !files.selfie) {
       setMsg("กรุณาอัปโหลดเอกสารครบทั้ง 3 รูป")
       return
     }
@@ -90,12 +169,19 @@ export function VerificationPage() {
       const res = await submitVerification({
         full_name: fullName.trim(),
         id_card_number: idCard.trim(),
-        id_card_image: front,
-        id_card_back: back,
-        selfie_image: selfie,
+        id_card_image: files.front,
+        id_card_back: files.back,
+        selfie_image: files.selfie,
       })
       setMsg(res.message ?? (res.success ? "ส่งคำขอยืนยันตัวตนแล้ว" : "ส่งไม่สำเร็จ"))
-      if (res.success) await refreshUser()
+      if (res.success) {
+        setSaved({
+          front: previews.front,
+          back: previews.back,
+          selfie: previews.selfie,
+        })
+        await refreshUser()
+      }
     } finally {
       setBusy(false)
     }
@@ -106,7 +192,14 @@ export function VerificationPage() {
       <p style={{ fontSize: 13, color: "#666", marginBottom: 8, lineHeight: 1.6 }}>
         อัปโหลดเอกสารเพื่อยืนยันตัวตนและเพิ่มวงเงินถอน
       </p>
-      <p style={{ fontSize: 13, fontWeight: 600, color: kycStatus === "approved" ? "#15803d" : "#2563eb", marginBottom: 16 }}>
+      <p
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: kycStatus === "approved" ? "#15803d" : kycStatus === "rejected" ? "#b45309" : "#2563eb",
+          marginBottom: 16,
+        }}
+      >
         {kycLabel}
       </p>
       <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
@@ -116,53 +209,53 @@ export function VerificationPage() {
           style={fieldStyle}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+          disabled={!canSubmit}
         />
         <input
           type="text"
+          inputMode="numeric"
           placeholder="เลขบัตรประชาชน 13 หลัก"
           style={fieldStyle}
           value={idCard}
           onChange={(e) => setIdCard(e.target.value)}
+          disabled={!canSubmit}
         />
       </div>
-      <div style={{ display: "grid", gap: 12 }}>
-        {(
-          [
-            ["บัตรประชาชน (ด้านหน้า)", (f: File | null) => setFront(f)] as const,
-            ["บัตรประชาชน (ด้านหลัง)", (f: File | null) => setBack(f)] as const,
-            ["รูปถ่ายคู่บัตร", (f: File | null) => setSelfie(f)] as const,
-          ] as const
-        ).map(([label, setter]) => (
-          <label
-            key={String(label)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 100,
-              border: "2px dashed #ddd",
-              borderRadius: 12,
-              background: "#fff",
-              fontSize: 13,
-              color: "#666",
-              cursor: "pointer",
-            }}
-          >
-            <span>
-              <i className="fa-solid fa-cloud-arrow-up" style={{ marginRight: 8 }} />
-              {label}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => setter(e.target.files?.[0] ?? null)}
-            />
-          </label>
-        ))}
+      <div className="kyc-upload-grid">
+        {KYC_SLOTS.map(({ key, label }) => {
+          const localSrc = previews[key]
+          const savedSrc = saved[key]
+          const showSrc = localSrc || savedSrc
+          const fileName = files[key]?.name
+          return (
+            <label key={key} className={`kyc-upload-slot${showSrc ? " has-preview" : ""}${canSubmit ? "" : " is-locked"}`}>
+              {showSrc ? (
+                localSrc ? (
+                  <img src={localSrc} alt={label} className="kyc-upload-preview" />
+                ) : (
+                  <StorageImage path={savedSrc} alt={label} className="kyc-upload-preview" />
+                )
+              ) : (
+                <span className="kyc-upload-placeholder">
+                  <i className="fa-solid fa-cloud-arrow-up" />
+                  {label}
+                </span>
+              )}
+              {showSrc ? <span className="kyc-upload-caption">{fileName || label}</span> : null}
+              {canSubmit ? (
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => setSlotFile(key, e.target.files?.[0] ?? null)}
+                />
+              ) : null}
+            </label>
+          )
+        })}
       </div>
       {kycStatus === "rejected" ? (
-        <p style={{ fontSize: 13, color: "#b45309", marginBottom: 12 }}>ส่งเอกสารใหม่ได้หลังจากถูกปฏิเสธ</p>
+        <p style={{ fontSize: 13, color: "#b45309", margin: "12px 0 0" }}>ส่งเอกสารใหม่ได้หลังจากถูกปฏิเสธ</p>
       ) : null}
       {msg && <p style={{ marginTop: 12, fontSize: 13, color: "#444" }}>{msg}</p>}
       <button type="button" className="settings-submit-btn" disabled={busy || !canSubmit} onClick={submit}>

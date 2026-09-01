@@ -442,14 +442,35 @@
 
 .admin-doc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
 }
 
-.admin-doc-grid img {
+.admin-doc-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-doc-grid img,
+.admin-doc-card img,
+.admin-doc-card > div {
   width: 100%;
+  min-height: 140px;
+  max-height: 280px;
+  object-fit: contain;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  cursor: zoom-in;
+}
+
+.admin-doc-card figcaption {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
 }
 
 .admin-code-pill {

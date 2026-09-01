@@ -372,6 +372,71 @@
             cursor: not-allowed;
         }
 
+        .kyc-upload-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .kyc-upload-slot {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 160px;
+            border: 2px dashed #dbe3ee;
+            border-radius: 14px;
+            background: #f8fafc;
+            color: #64748b;
+            cursor: pointer;
+            overflow: hidden;
+            padding: 8px;
+        }
+
+        .kyc-upload-slot.has-preview {
+            border-style: solid;
+            border-color: #93c5fd;
+            background: #fff;
+            min-height: 180px;
+        }
+
+        .kyc-upload-slot.is-locked {
+            cursor: default;
+        }
+
+        .kyc-upload-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            padding: 12px;
+        }
+
+        .kyc-upload-placeholder i {
+            font-size: 22px;
+            color: #94a3b8;
+        }
+
+        .kyc-upload-preview {
+            width: 100%;
+            max-height: 220px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #f1f5f9;
+        }
+
+        .kyc-upload-caption {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            text-align: center;
+            word-break: break-word;
+        }
+
         /* Language Drawer (Standard Style) */
         .lang-overlay {
             position: fixed;

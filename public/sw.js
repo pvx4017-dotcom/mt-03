@@ -1,12 +1,46 @@
-const CACHE = "meta-pwa-v4"
+const CACHE = "meta-pwa-v5"
 const SKIP_CACHE = new Set(["/sw.js", "/manifest.json", "/manifest.webmanifest"])
+
+function isViteDevRequest(url) {
+  return (
+    url.pathname.startsWith("/@") ||
+    url.pathname.startsWith("/src/") ||
+    url.pathname.includes("node_modules") ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.includes(".vite") ||
+    SKIP_CACHE.has(url.pathname)
+  )
+}
+
+function offlineResponse() {
+  return new Response("Offline", {
+    status: 503,
+    statusText: "Service Unavailable",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  })
+}
+
+async function cachedOrOffline(request) {
+  const cached = await caches.match(request)
+  if (cached) return cached
+  const index = (await caches.match("/index.html")) || (await caches.match("/"))
+  if (index) return index
+  return offlineResponse()
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(["/icons/icon-192.png", "/icons/icon-512.png"]).catch(() => undefined))
-      .then(() => self.skipWaiting()),
+    (async () => {
+      const cache = await caches.open(CACHE)
+      for (const path of ["/", "/index.html"]) {
+        try {
+          await cache.add(path)
+        } catch {
+          /* ignore missing precache entries */
+        }
+      }
+      await self.skipWaiting()
+    })(),
   )
 })
 
@@ -24,30 +58,24 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url)
   if (url.origin !== self.location.origin) return
-  if (
-    url.pathname.startsWith("/@") ||
-    url.pathname.startsWith("/src/") ||
-    url.pathname.includes("node_modules") ||
-    url.pathname.startsWith("/api/") ||
-    SKIP_CACHE.has(url.pathname)
-  ) {
-    return
-  }
+  if (isViteDevRequest(url)) return
 
-  if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request))
-    return
-  }
+  const isNavigate = event.request.mode === "navigate" || event.request.destination === "document"
 
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response.ok && response.type === "basic") {
+    (async () => {
+      try {
+        const response = await fetch(event.request)
+        if (response && response.ok && response.type === "basic" && !isNavigate) {
           const copy = response.clone()
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy))
+          const cache = await caches.open(CACHE)
+          await cache.put(event.request, copy)
         }
         return response
-      })
-      .catch(() => caches.match(event.request)),
+      } catch {
+        if (isNavigate) return cachedOrOffline("/")
+        return cachedOrOffline(event.request)
+      }
+    })(),
   )
 })

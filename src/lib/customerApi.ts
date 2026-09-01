@@ -787,6 +787,27 @@ export async function submitVerification(fields: {
   return handleAdminPost(API.verificationSubmit, fd) as Promise<ApiResult>
 }
 
+export type MyVerification = {
+  id?: number
+  full_name?: string
+  id_card_number?: string
+  id_card_image?: string
+  id_card_image_url?: string
+  id_card_back?: string
+  id_card_back_url?: string
+  selfie_image?: string
+  selfie_image_url?: string
+  status?: string
+  rejection_reason?: string | null
+  created_at?: string
+}
+
+export async function fetchMyVerification() {
+  ensureConfigured()
+  const data = await handleAdminGet(API.verificationMine)
+  return data as ApiResult & { has_verification?: boolean; verification?: MyVerification | null }
+}
+
 export async function updatePassword(current: string, newPassword: string, confirm: string) {
   ensureConfigured()
   const fd = new FormData()

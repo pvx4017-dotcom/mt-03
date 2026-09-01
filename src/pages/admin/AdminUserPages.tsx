@@ -12,8 +12,8 @@ import {
   AdminTableWrap,
   useAdminToast,
 } from "@/components/admin/AdminUi"
+import { StorageImage } from "@/components/media/StorageImage"
 import {
-  adminAsset,
   adminPost,
   fetchAdminBankAccounts,
   fetchAdminCredits,
@@ -447,6 +447,7 @@ export function AdminVerificationPage() {
   const { showToast, Toast } = useAdminToast()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
   const [docRow, setDocRow] = useState<Record<string, unknown> | null>(null)
 
   const load = useCallback(
@@ -456,8 +457,14 @@ export function AdminVerificationPage() {
         hasRows: rows.length > 0,
         setLoading,
         fetchRows: fetchAdminVerifications,
-        onRows: setRows,
-        onError: (msg) => showToast(msg, "error"),
+        onRows: (next) => {
+          setRows(next)
+          setLoadError("")
+        },
+        onError: (msg) => {
+          setLoadError(msg)
+          showToast(msg, "error")
+        },
       })
     },
     [rows.length, showToast],
@@ -491,6 +498,7 @@ export function AdminVerificationPage() {
 
   return (
     <AdminPageShell barTitle="การยืนยันตัวตน" pageTitle="การยืนยันตัวตน" icon="fa-id-card">
+      {loadError ? <p className="admin-empty-row">{loadError}</p> : null}
       <AdminTableWrap>
         <table>
           <thead>
@@ -568,17 +576,23 @@ export function AdminVerificationPage() {
 
       <AdminDetailModal open={!!docRow} title="เอกสารยืนยันตัวตน" onClose={() => setDocRow(null)} wide>
         {docRow ? (() => {
-          const docImages = [
-            docRow.id_card_image,
-            docRow.selfie_image,
-            docRow.document_image,
-            docRow.id_card_front,
-            docRow.id_card_back,
-          ].filter(Boolean)
-          return docImages.length ? (
+          const docs = [
+            { label: "บัตรประชาชน (ด้านหน้า)", src: String(docRow.id_card_image_url || docRow.id_card_image || docRow.id_card_front || "") },
+            { label: "บัตรประชาชน (ด้านหลัง)", src: String(docRow.id_card_back_url || docRow.id_card_back || "") },
+            { label: "รูปถ่ายคู่บัตร", src: String(docRow.selfie_image_url || docRow.selfie_image || "") },
+            { label: "เอกสารอื่น", src: String(docRow.document_image_url || docRow.document_image || "") },
+          ].filter((d) => d.src.trim())
+          return docs.length ? (
             <div className="admin-doc-grid">
-              {docImages.map((src, i) => (
-                <img key={i} src={adminAsset(String(src))} alt="" />
+              {docs.map((doc) => (
+                <figure key={doc.label} className="admin-doc-card">
+                  <StorageImage
+                    path={doc.src}
+                    alt={doc.label}
+                    openOnClick
+                  />
+                  <figcaption>{doc.label}</figcaption>
+                </figure>
               ))}
             </div>
           ) : (

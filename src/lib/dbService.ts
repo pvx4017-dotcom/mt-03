@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase"
-import { uploadToSupabaseStorage } from "@/lib/storageUpload"
+import { attachSignedUploadUrls, uploadToSupabaseStorage } from "@/lib/storageUpload"
 import { clearSession, getSessionUserId, isAdminPanelRole, requireUserId, setSession } from "@/lib/session"
 import { CHAT_DELETED_MARKER, chatMessagePreview } from "@/lib/chatMessages"
 import { normalizeLineContactUrl } from "@/lib/lineContact"
@@ -1425,6 +1425,18 @@ export async function dbSubmitVerification(fields: {
 }) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const fullName = String(fields.full_name ?? "").trim()
+  const idNumber = String(fields.id_card_number ?? "").replace(/[\s-]/g, "")
+  if (!fullName) return fail("กรุณากรอกชื่อ-นามสกุลตามบัตรประชาชน")
+  if (!/^\d{13}$/.test(idNumber)) return fail("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก")
+
+  const frontCheck = assertKycImage(fields.id_card_image, "บัตรประชาชนด้านหน้า")
+  if (typeof frontCheck === "string") return fail(frontCheck)
+  const backCheck = assertKycImage(fields.id_card_back, "บัตรประชาชนด้านหลัง")
+  if (typeof backCheck === "string") return fail(backCheck)
+  const selfieCheck = assertKycImage(fields.selfie_image, "รูปถ่ายคู่บัตร")
+  if (typeof selfieCheck === "string") return fail(selfieCheck)
+
   const sbCheck = getSupabase()
   const { data: latest } = await sbCheck
     .from("identity_verifications")
@@ -1440,17 +1452,17 @@ export async function dbSubmitVerification(fields: {
   let back: string
   let selfie: string
   try {
-    front = await uploadToSupabaseStorage(fields.id_card_image, "kyc")
-    back = await uploadToSupabaseStorage(fields.id_card_back, "kyc")
-    selfie = await uploadToSupabaseStorage(fields.selfie_image, "kyc")
+    front = await uploadToSupabaseStorage(frontCheck, "kyc")
+    back = await uploadToSupabaseStorage(backCheck, "kyc")
+    selfie = await uploadToSupabaseStorage(selfieCheck, "kyc")
   } catch (err) {
     return fail(err instanceof Error ? err.message : "อัปโหลดเอกสารไม่สำเร็จ")
   }
   const sb = getSupabase()
   const { error } = await sb.from("identity_verifications").insert({
     user_id: uid,
-    full_name: fields.full_name,
-    id_card_number: fields.id_card_number,
+    full_name: fullName,
+    id_card_number: idNumber,
     id_card_image: front,
     id_card_back: back,
     selfie_image: selfie,
@@ -1653,9 +1665,55 @@ export async function dbFetchVerifications() {
     .select("*, users(email,phone,username)")
     .order("created_at", { ascending: false })
   if (error) throw new Error(error.message)
-  return (await import("@/lib/adminUserFilter")).withoutStaffOwners(
+  const flattened = await (await import("@/lib/adminUserFilter")).withoutStaffOwners(
     (data ?? []).map((row) => flattenUserJoin(row as Record<string, unknown>)),
   )
+  return Promise.all(
+    flattened.map(async (row) => {
+      try {
+        return await attachSignedUploadUrls(row as Record<string, unknown>, [
+          "id_card_image",
+          "id_card_back",
+          "selfie_image",
+          "id_card_front",
+          "document_image",
+        ])
+      } catch {
+        return row as Record<string, unknown>
+      }
+    }),
+  )
+}
+
+const KYC_MAX_BYTES = 8 * 1024 * 1024
+
+function assertKycImage(file: File | null | undefined, label: string): File | string {
+  if (!(file instanceof File) || file.size <= 0) return `กรุณาอัปโหลด${label}`
+  if (file.size > KYC_MAX_BYTES) return `${label} ต้องไม่เกิน 8MB`
+  const type = String(file.type ?? "").toLowerCase()
+  if (type && !type.startsWith("image/")) return `${label} ต้องเป็นไฟล์รูปภาพ`
+  return file
+}
+
+export async function dbFetchMyVerification() {
+  const uid = requireUserId()
+  if (!uid) return fail("กรุณาเข้าสู่ระบบ")
+  const sb = getSupabase()
+  const { data, error } = await sb
+    .from("identity_verifications")
+    .select("id, full_name, id_card_number, id_card_image, id_card_back, selfie_image, status, rejection_reason, created_at")
+    .eq("user_id", uid)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return fail(error.message)
+  if (!data) return ok({ has_verification: false, verification: null })
+  const signed = await attachSignedUploadUrls(data as Record<string, unknown>, [
+    "id_card_image",
+    "id_card_back",
+    "selfie_image",
+  ])
+  return ok({ has_verification: true, verification: signed })
 }
 
 export async function dbFetchBankAccounts() {

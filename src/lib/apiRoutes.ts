@@ -51,6 +51,7 @@ export const API = {
   storeSubmit: "store/submit",
   bankSubmit: "bank/submit",
   verificationSubmit: "verification/submit",
+  verificationMine: "verification/mine",
   userUpdatePassword: "user/update-password",
   userSetWithdrawPassword: "user/set-withdraw-password",
   receivingAccounts: "wallet/receiving-accounts",

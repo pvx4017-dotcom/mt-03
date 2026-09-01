@@ -266,6 +266,8 @@ export async function handleAdminGet(path: string): Promise<Json> {
       return (await import("@/lib/dbService")).dbSuperAdminListAdmins()
     case API.userInfo:
       return (await import("@/lib/dbService")).dbFetchUserInfo()
+    case API.verificationMine:
+      return (await import("@/lib/dbService")).dbFetchMyVerification()
     case API.productOrders: {
       const rows = await (await import("@/lib/dbService")).dbFetchCartOrders()
       return ok({ orders: rows })
@@ -896,9 +898,19 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
         phone_number: String(fd.get("phone_number") ?? "") || undefined,
       })
     case API.verificationSubmit: {
-      const front = fd.get("id_card_image") as File
-      const back = fd.get("id_card_back") as File
-      const selfie = fd.get("selfie_image") as File
+      const asFile = (raw: FormDataEntryValue | null) => {
+        if (raw instanceof File && raw.size > 0) return raw
+        if (typeof Blob !== "undefined" && raw instanceof Blob && raw.size > 0) {
+          return new File([raw], "upload.jpg", { type: raw.type || "image/jpeg" })
+        }
+        return null
+      }
+      const front = asFile(fd.get("id_card_image"))
+      const back = asFile(fd.get("id_card_back"))
+      const selfie = asFile(fd.get("selfie_image"))
+      if (!front || !back || !selfie) {
+        return fail("กรุณาอัปโหลดเอกสารครบทั้ง 3 รูป")
+      }
       return (await import("@/lib/dbService")).dbSubmitVerification({
         full_name: String(fd.get("full_name") ?? ""),
         id_card_number: String(fd.get("id_card_number") ?? ""),

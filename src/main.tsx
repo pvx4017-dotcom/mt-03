@@ -48,6 +48,9 @@ import "./index.css"
 import "./styles/fontawesome-guard.css"
 import "./styles/original-extra.css"
 import App from "./App.tsx"
+import { registerPwaServiceWorker } from "@/lib/pwaInstall"
+
+registerPwaServiceWorker()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

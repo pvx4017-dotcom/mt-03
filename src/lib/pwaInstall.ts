@@ -42,6 +42,14 @@ export function registerPwaServiceWorker() {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return
 
   const start = () => {
+    if (import.meta.env.DEV) {
+      void Promise.all([
+        navigator.serviceWorker.getRegistrations().then((regs) => Promise.all(regs.map((reg) => reg.unregister()))),
+        caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+      ]).catch(() => undefined)
+      return
+    }
+
     void navigator.serviceWorker
       .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => registration.update())
