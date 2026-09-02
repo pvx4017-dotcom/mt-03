@@ -625,10 +625,6 @@ export function AdminCartPage() {
       showToast("กรุณากรอกข้อมูลผู้รับให้ครบ", "error")
       return
     }
-    if (walletInsufficient) {
-      showToast("ยอดในกระเป๋าไม่เพียงพอ — ลูกค้าต้องฝากเงินก่อน", "error")
-      return
-    }
     const unit = Number(orderModal.unit_price ?? 0)
     const comm = unit * qty * (Number(commPct) / 100)
     const fd = new FormData()
@@ -642,7 +638,11 @@ export function AdminCartPage() {
     fd.append("commission_amount", String(comm))
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminCart, fd)
     if (res.success) {
-      showToast("หักกระเป๋าแล้ว — ย้ายไปรอจัดส่ง")
+      showToast(
+        walletInsufficient
+          ? "บันทึกชำระแล้ว — ร้านมียอดไม่พอจึงหักได้เท่าที่มี (กระเป๋าไม่ติดลบ)"
+          : "หักกระเป๋าแล้ว — ย้ายไปรอจัดส่ง",
+      )
       setOrderModal(null)
       navigate("/admin/shipping-orders")
     } else showToast(res.message ?? "บันทึกไม่สำเร็จ", "error")
@@ -776,9 +776,8 @@ export function AdminCartPage() {
               type="button"
               className="admin-edit-btn save"
               onClick={saveOrder}
-              disabled={walletInsufficient}
             >
-              บันทึก
+              บันทึกชำระ
             </button>
           </>
         }
@@ -866,7 +865,7 @@ export function AdminCartPage() {
             </p>
             {walletInsufficient ? (
               <p className="admin-order-wallet-warn">
-                ยอดในกระเป๋าไม่เพียงพอ — ลูกค้าต้องฝากเงินก่อน (เมนู ลูกค้าฝากเงิน / เติมเงินลูกค้า)
+                ร้านมียอดในกระเป๋าไม่เพียงพอ — ผู้ดูแลกดบันทึกชำระได้ แต่กระเป๋าลูกค้าจะไม่ติดลบ
               </p>
             ) : null}
           </div>

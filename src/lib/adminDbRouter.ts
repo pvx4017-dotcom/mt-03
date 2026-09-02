@@ -401,6 +401,7 @@ export async function handleAdminPost(path: string, fd: FormData): Promise<Json>
           receiver_address: fd.get("receiver_address") ? String(fd.get("receiver_address")) : undefined,
           receiver_phone: fd.get("receiver_phone") ? String(fd.get("receiver_phone")) : undefined,
           commission_amount: fd.has("commission_amount") ? Number(fd.get("commission_amount")) : undefined,
+          skipWalletRequirement: true,
         })
       }
       if (action === "update_status") {

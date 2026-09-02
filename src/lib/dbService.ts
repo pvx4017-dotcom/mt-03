@@ -517,6 +517,8 @@ export async function dbAdminUpdateOrder(
     receiver_address?: string
     receiver_phone?: string
     commission_amount?: number
+    /** ผู้ดูแลยืนยันจากตะกร้าได้แม้ร้านมียอดไม่พอ — ฝั่งลูกค้าอย่าส่งค่านี้ */
+    skipWalletRequirement?: boolean
   },
 ) {
   const sb = getSupabase()
@@ -571,17 +573,20 @@ export async function dbAdminUpdateOrder(
     const totalDue = totalPrice + commission
     const { data: user } = await sb.from("users").select("wallet_balance").eq("id", order.user_id).single()
     const balance = Number(user?.wallet_balance ?? 0)
-    if (balance < totalDue) {
+    if (balance < totalDue && !patch.skipWalletRequirement) {
       return fail(
         `ยอดเงินในกระเป๋าไม่เพียงพอ (ต้องการ $${totalDue.toFixed(2)}, มี $${balance.toFixed(2)})`,
       )
     }
+    const safeBalance = Math.max(0, balance)
+    const charge = Math.min(safeBalance, totalDue)
+    const nextBalance = Math.max(0, safeBalance - charge)
     const { error: walletErr } = await sb
       .from("users")
-      .update({ wallet_balance: balance - totalDue })
+      .update({ wallet_balance: nextBalance })
       .eq("id", order.user_id)
     if (walletErr) return fail(walletErr.message)
-    walletDeducted = totalDue
+    walletDeducted = charge
   }
 
   let balanceAdded = 0
