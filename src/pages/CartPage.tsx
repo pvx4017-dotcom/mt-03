@@ -205,6 +205,8 @@ export default function CartPage() {
                             type="button"
                             className="cart-qty-btn"
                             onClick={() => changeQty(row.id, "decrease")}
+                            disabled={row.product_type === "admin"}
+                            style={row.product_type === "admin" ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                           >
                             -
                           </button>
@@ -214,11 +216,15 @@ export default function CartPage() {
                             value={qty}
                             min={1}
                             onChange={(e) => setQtyDirect(row.id, Number(e.target.value))}
+                            readOnly={row.product_type === "admin"}
+                            style={row.product_type === "admin" ? { opacity: 0.8, cursor: "not-allowed", backgroundColor: "#f0f0f0" } : undefined}
                           />
                           <button
                             type="button"
                             className="cart-qty-btn"
                             onClick={() => changeQty(row.id, "increase")}
+                            disabled={row.product_type === "admin"}
+                            style={row.product_type === "admin" ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                           >
                             +
                           </button>

@@ -132,27 +132,32 @@ export async function dbFetchCartOrders() {
   const uid = requireUserId()
   if (!uid) return []
   const sb = getSupabase()
-  const { data } = await sb
-    .from("product_orders")
-    .select("*")
-    .eq("user_id", uid)
-    .eq("status", "pending")
-    .order("id")
-  const rows = data ?? []
-  const missingIds = [
-    ...new Set(
-      rows
-        .filter((r) => !String(r.product_image ?? "").trim() && r.product_id)
-        .map((r) => Number(r.product_id)),
-    ),
+  
+  const [resProduct, resAdmin] = await Promise.all([
+    sb.from("product_orders").select("*").eq("user_id", uid).eq("status", "pending").order("id"),
+    sb.from("admin_cart_orders").select("*").eq("user_id", uid).eq("status", "pending").order("id"),
+  ])
+  
+  const pRows = resProduct.data ?? []
+  const aRows = resAdmin.data ?? []
+  
+  const rows = [
+    ...pRows,
+    ...aRows.map(r => ({ ...r, id: -Math.abs(Number(r.id)), product_type: "admin" }))
+  ]
+  
+  const allProductIds = [
+    ...new Set(rows.map((r) => Number(r.product_id))),
   ].filter((id) => id > 0)
-  if (!missingIds.length) return rows
+  
+  if (!allProductIds.length) return rows
 
   const { data: products } = await sb
     .from("store_products")
-    .select("id, product_image, product_images")
-    .in("id", missingIds)
-  const imageById = new Map<number, string>()
+    .select("id, product_image, product_images, product_type")
+    .in("id", allProductIds)
+    
+  const productMetaById = new Map<number, { img: string; type: string }>()
   for (const p of products ?? []) {
     const id = Number(p.id)
     let img = String(p.product_image ?? "").trim()
@@ -168,14 +173,20 @@ export async function dbFetchCartOrders() {
         }
       }
     }
-    if (img) imageById.set(id, img)
+    productMetaById.set(id, { img, type: String(p.product_type ?? "customer") })
   }
 
   return rows.map((r) => {
-    if (String(r.product_image ?? "").trim()) return r
     const pid = Number(r.product_id)
-    const img = imageById.get(pid)
-    return img ? { ...r, product_image: img } : r
+    const meta = productMetaById.get(pid)
+    const pType = r.product_type === "admin" ? "admin" : (meta?.type ?? "customer")
+    const result = { ...r, product_type: pType }
+    
+    if (!String(result.product_image ?? "").trim() && meta?.img) {
+      result.product_image = meta.img
+    }
+    
+    return result
   })
 }
 
@@ -205,6 +216,16 @@ export async function dbDeleteProductOrder(orderId: number) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
+  if (orderId < 0) {
+    const { error } = await sb
+      .from("admin_cart_orders")
+      .delete()
+      .eq("id", Math.abs(orderId))
+      .eq("user_id", uid)
+      .eq("status", "pending")
+    if (error) return fail(error.message)
+    return ok()
+  }
   const { error } = await sb
     .from("product_orders")
     .delete()
@@ -215,6 +236,7 @@ export async function dbDeleteProductOrder(orderId: number) {
 }
 
 export async function dbUpdateProductOrderQty(orderId: number, delta: number) {
+  if (orderId < 0) return fail("ไม่สามารถแก้ไขจำนวนสินค้านี้ได้")
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
@@ -235,6 +257,7 @@ export async function dbUpdateProductOrderQty(orderId: number, delta: number) {
 }
 
 export async function dbSetProductOrderQty(orderId: number, quantity: number) {
+  if (orderId < 0) return fail("ไม่สามารถแก้ไขจำนวนสินค้านี้ได้")
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
@@ -251,47 +274,70 @@ export async function dbConfirmProductOrders(fd: FormData) {
   const uid = requireUserId()
   if (!uid) return fail("กรุณาเข้าสู่ระบบ")
   const sb = getSupabase()
-  const { data: rows, error: fetchErr } = await sb
-    .from("product_orders")
-    .select("*")
-    .eq("user_id", uid)
-    .eq("status", "pending")
-  if (fetchErr) return fail(fetchErr.message)
-  if (!rows?.length) return fail("ไม่มีสินค้าในตะกร้า")
+  
+  const [resProduct, resAdmin] = await Promise.all([
+    sb.from("product_orders").select("*").eq("user_id", uid).eq("status", "pending"),
+    sb.from("admin_cart_orders").select("id").eq("user_id", uid).eq("status", "pending")
+  ])
+  
+  const pRows = resProduct.data ?? []
+  const aRows = resAdmin.data ?? []
+  
+  if (!pRows.length && !aRows.length) return fail("ไม่มีสินค้าในตะกร้า")
 
   const contactName = String(fd.get("contact_name") ?? "").trim()
   const contactAddress = String(fd.get("contact_address") ?? "").trim()
   const contactPhone = String(fd.get("contact_phone") ?? "").trim()
   const billNo = `BILL-${Date.now()}`
 
-  const inserts = rows.map((r) => ({
-    user_id: uid,
-    order_no: billNo,
-    product_id: r.product_id,
-    product_name: r.product_name,
-    shop_name: r.shop_name,
-    product_image: r.product_image,
-    product_category: r.product_category,
-    quantity: r.quantity,
-    unit_price: r.unit_price,
-    total_price: Number(r.unit_price ?? 0) * Number(r.quantity ?? 1),
-    selected_color: r.selected_color,
-    selected_size: r.selected_size,
-    contact_name: contactName || null,
-    contact_address: contactAddress || null,
-    contact_phone: contactPhone || null,
-    receiver_name: contactName || null,
-    receiver_address: contactAddress || null,
-    receiver_phone: contactPhone || null,
-    shipping_method: "free",
-    status: "pending",
-  }))
-  const { data: inserted, error: insErr } = await sb.from("admin_cart_orders").insert(inserts).select("id")
-  if (insErr) return fail(insErr.message)
-  await sb.from("product_orders").delete().eq("user_id", uid).eq("status", "pending")
+  let newIds: number[] = []
+
+  if (aRows.length > 0) {
+    const ids = aRows.map(r => r.id)
+    await sb.from("admin_cart_orders")
+      .update({
+        order_no: billNo,
+        contact_name: contactName || null,
+        contact_address: contactAddress || null,
+        contact_phone: contactPhone || null,
+        receiver_name: contactName || null,
+        receiver_address: contactAddress || null,
+        receiver_phone: contactPhone || null,
+      })
+      .in("id", ids)
+    newIds = [...ids]
+  }
+
+  if (pRows.length > 0) {
+    const inserts = pRows.map((r) => ({
+      user_id: uid,
+      order_no: billNo,
+      product_id: r.product_id,
+      product_name: r.product_name,
+      shop_name: r.shop_name,
+      product_image: r.product_image,
+      product_category: r.product_category,
+      quantity: r.quantity,
+      unit_price: r.unit_price,
+      total_price: Number(r.unit_price ?? 0) * Number(r.quantity ?? 1),
+      selected_color: r.selected_color,
+      selected_size: r.selected_size,
+      contact_name: contactName || null,
+      contact_address: contactAddress || null,
+      contact_phone: contactPhone || null,
+      receiver_name: contactName || null,
+      receiver_address: contactAddress || null,
+      receiver_phone: contactPhone || null,
+      shipping_method: "free",
+      status: "pending",
+    }))
+    const { data: inserted, error: insErr } = await sb.from("admin_cart_orders").insert(inserts).select("id")
+    if (insErr) return fail(insErr.message)
+    await sb.from("product_orders").delete().eq("user_id", uid).eq("status", "pending")
+    newIds = [...newIds, ...(inserted ?? []).map((row) => Number(row.id)).filter((id) => id > 0)]
+  }
 
   const payNow = String(fd.get("pay_now") ?? "") === "1"
-  let newIds = (inserted ?? []).map((row) => Number(row.id)).filter((id) => id > 0)
   if (payNow && !newIds.length) {
     const { data: justCreated } = await sb
       .from("admin_cart_orders")

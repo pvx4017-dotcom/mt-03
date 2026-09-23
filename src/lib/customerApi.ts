@@ -78,6 +78,7 @@ export type ProductOrderRow = {
   total_price?: number | string
   selected_color?: string
   selected_size?: string
+  product_type?: string
 }
 
 export type OrderHubCounts = {
