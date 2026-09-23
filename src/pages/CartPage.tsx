@@ -179,14 +179,16 @@ export default function CartPage() {
                 if (size) variantParts.push(`ไซซ์: ${size}`)
                 return (
                   <article className="cart-item-card" key={row.id}>
-                    <button
-                      type="button"
-                      className="cart-item-remove-btn"
-                      aria-label="ลบรายการ"
-                      onClick={() => removeItem(row.id)}
-                    >
-                      <i className="fa-solid fa-circle-minus" />
-                    </button>
+                    {row.product_type !== "admin" && (
+                      <button
+                        type="button"
+                        className="cart-item-remove-btn"
+                        aria-label="ลบรายการ"
+                        onClick={() => removeItem(row.id)}
+                      >
+                        <i className="fa-solid fa-circle-minus" />
+                      </button>
+                    )}
                     <img
                       src={parseCustomerImage(row.product_image)}
                       alt={String(row.product_name ?? "")}
@@ -201,15 +203,15 @@ export default function CartPage() {
                       <div className="cart-item-meta">
                         <span>ราคา {formatPrice(Number(row.unit_price ?? 0))}</span>
                         <div className="cart-qty-price-box">
-                          <button
-                            type="button"
-                            className="cart-qty-btn"
-                            onClick={() => changeQty(row.id, "decrease")}
-                            disabled={row.product_type === "admin"}
-                            style={row.product_type === "admin" ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                          >
-                            -
-                          </button>
+                          {row.product_type !== "admin" && (
+                            <button
+                              type="button"
+                              className="cart-qty-btn"
+                              onClick={() => changeQty(row.id, "decrease")}
+                            >
+                              -
+                            </button>
+                          )}
                           <input
                             type="number"
                             className="cart-qty-input"
@@ -217,17 +219,17 @@ export default function CartPage() {
                             min={1}
                             onChange={(e) => setQtyDirect(row.id, Number(e.target.value))}
                             readOnly={row.product_type === "admin"}
-                            style={row.product_type === "admin" ? { opacity: 0.8, cursor: "not-allowed", backgroundColor: "#f0f0f0" } : undefined}
+                            style={row.product_type === "admin" ? { border: "none", background: "transparent", pointerEvents: "none", width: "40px", textAlign: "center", color: "#888" } : undefined}
                           />
-                          <button
-                            type="button"
-                            className="cart-qty-btn"
-                            onClick={() => changeQty(row.id, "increase")}
-                            disabled={row.product_type === "admin"}
-                            style={row.product_type === "admin" ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                          >
-                            +
-                          </button>
+                          {row.product_type !== "admin" && (
+                            <button
+                              type="button"
+                              className="cart-qty-btn"
+                              onClick={() => changeQty(row.id, "increase")}
+                            >
+                              +
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

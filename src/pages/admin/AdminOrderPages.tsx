@@ -146,6 +146,7 @@ export function AdminCustomerStoreProductsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [cartCount, setCartCount] = useState(0)
   const [detailRow, setDetailRow] = useState<CartItem | null>(null)
+  const [addQtys, setAddQtys] = useState<Record<number, number>>({})
   const [editForm, setEditForm] = useState({
     product_stock: "",
     view_count: "",
@@ -201,7 +202,7 @@ export function AdminCustomerStoreProductsPage() {
     })
   }, [storeSearch, stores])
 
-  const addToCart = async (row: CartItem) => {
+  const addToCart = async (row: CartItem, bulkQty?: number) => {
     const fd = new FormData()
     fd.append("action", "add")
     fd.append("product_id", String(row.source_product_id ?? row.id))
@@ -211,7 +212,7 @@ export function AdminCustomerStoreProductsPage() {
     fd.append("product_category", String(row.product_category ?? ""))
     fd.append("product_image", String(row.product_image ?? ""))
     fd.append("unit_price", String(row.product_price ?? 0))
-    fd.append("quantity", "1")
+    fd.append("quantity", String(bulkQty ?? addQtys[Number(row.id)] ?? 1))
     const res = await adminPost<{ success: boolean; message?: string }>(API.adminCart, fd)
     if (res.success) {
       showToast("เพิ่มลงตะกร้าแล้ว")
@@ -445,6 +446,11 @@ export function AdminCustomerStoreProductsPage() {
                       <td>{adminFmtNum(row.sales_volume)}</td>
                       <td>#{String(row.user_id ?? "-")}</td>
                       <td>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', verticalAlign: 'middle', background: '#fff', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                          <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderRight: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, (prev[Number(row.id)] ?? 1) - 1) }))}>-</button>
+                          <input type="number" min={1} style={{ width: '40px', textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }} value={addQtys[Number(row.id)] ?? 1} onChange={(e) => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, Number(e.target.value) || 1) }))} />
+                          <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderLeft: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: (prev[Number(row.id)] ?? 1) + 1 }))}>+</button>
+                        </div>
                         <button type="button" className="admin-order-act ok" title="เพิ่มลงตะกร้า" onClick={() => addToCart(row)}>
                           <i className="fa-solid fa-cart-plus" />
                         </button>
