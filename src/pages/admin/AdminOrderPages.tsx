@@ -138,6 +138,7 @@ function AdminOrderDetailPanel({ row }: { row: CartItem }) {
 export function AdminCustomerStoreProductsPage() {
   useBodyClass("admin-page")
   const { showToast, Toast } = useAdminToast()
+  const [activeTab, setActiveTab] = useState<"products" | "stores">("products")
   const [stores, setStores] = useState<Record<string, unknown>[]>([])
   const [rows, setRows] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -258,6 +259,7 @@ export function AdminCustomerStoreProductsPage() {
     <>
       <AdminTopBar title="สินค้าของลูกค้า" backTo="/admin" />
       <div className="admin-order-wrap admin-customer-products-page">
+        {/* Page header */}
         <div className="admin-page-header">
           <h1 className="admin-page-title">
             <i className="fa-solid fa-store" /> ร้านและสินค้าลูกค้า
@@ -274,203 +276,220 @@ export function AdminCustomerStoreProductsPage() {
           </div>
         </div>
 
-        <section className="admin-customer-stores-section">
-          <div className="admin-section-head">
-            <h2 className="admin-section-title">
-              <i className="fa-solid fa-shop" /> ร้านที่ลูกค้าเปิด ({stores.length})
-            </h2>
-          </div>
-          <div className="admin-order-search">
-            <i className="fa-solid fa-magnifying-glass" />
-            <input
-              value={storeSearch}
-              onChange={(e) => setStoreSearch(e.target.value)}
-              placeholder="ค้นหาชื่อร้าน / รหัสผู้ใช้ / หมวดหมู่…"
-            />
-          </div>
-          <AdminOrderTableWrap className="admin-product-table admin-stores-table">
-            {showAdminTableLoading(loading, stores.length) ? (
-              <div className="admin-order-empty">กำลังโหลดร้านค้า…</div>
-            ) : filteredStores.length === 0 ? (
-              <div className="admin-order-empty">
-                {stores.length === 0 ? (
-                  <>
-                    ยังไม่มีลูกค้าเปิดร้าน
-                    <br />
-                    <small style={{ opacity: 0.75, fontWeight: 400 }}>
-                      ลูกค้าเปิดร้านได้จากเมนู &quot;ฉันจะเปิดร้าน&quot; ในหน้าโปรไฟล์
-                    </small>
-                  </>
-                ) : (
-                  "ไม่พบร้านตามคำค้นหา"
-                )}
-              </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>รูป</th>
-                    <th>ชื่อร้าน</th>
-                    <th>หมวดหมู่</th>
-                    <th>สินค้าในร้าน</th>
-                    <th>ขายแล้ว</th>
-                    <th>สถานะ</th>
-                    <th>รหัสผู้ใช้</th>
-                    <th>เปิดเมื่อ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStores.map((store) => (
-                    <tr key={String(store.id)}>
-                      <td>
-                        <img
-                          className="admin-order-thumb"
-                          src={adminParseImage(String(store.shop_image ?? ""))}
-                          alt=""
-                        />
-                      </td>
-                      <td>{String(store.shop_name ?? "-")}</td>
-                      <td>{String(store.main_category ?? "-")}</td>
-                      <td>{adminFmtNum(store.product_count ?? 0)}</td>
-                      <td>{adminFmtNum(store.sold_count ?? 0)}</td>
-                      <td>{String(store.status ?? "active")}</td>
-                      <td>#{String(store.user_id ?? "-")}</td>
-                      <td>{formatAdminDate(String(store.created_at ?? ""))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </AdminOrderTableWrap>
-        </section>
-
-        <section className="admin-customer-products-section">
-          <div className="admin-section-head">
-            <h2 className="admin-section-title">
-              <i className="fa-solid fa-box" /> สินค้าในร้านลูกค้า ({rows.length})
-            </h2>
-          </div>
-
-        <div className="admin-order-search">
-          <i className="fa-solid fa-magnifying-glass" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาชื่อสินค้าหรือร้านค้า…"
-          />
-        </div>
-
-        <div className={`admin-selection-bar${selected.size ? " show" : ""}`}>
-          <span>เลือกแล้ว {selected.size} รายการ</span>
-          <button type="button" onClick={bulkAdd}>
-            <i className="fa-solid fa-cart-plus" /> เพิ่มลงตะกร้า
+        {/* Tab bar */}
+        <div className="admin-tabs-bar">
+          <button
+            type="button"
+            className={`admin-tab-btn${activeTab === "products" ? " active" : ""}`}
+            onClick={() => setActiveTab("products")}
+          >
+            <i className="fa-solid fa-box" />
+            สินค้าในร้านลูกค้า
+            <span className="admin-tab-count">{rows.length}</span>
           </button>
-          <button type="button" onClick={() => setSelected(new Set())}>
-            ล้างการเลือก
+          <button
+            type="button"
+            className={`admin-tab-btn${activeTab === "stores" ? " active" : ""}`}
+            onClick={() => setActiveTab("stores")}
+          >
+            <i className="fa-solid fa-shop" />
+            ร้านที่ลูกค้าเปิด
+            <span className="admin-tab-count">{stores.length}</span>
           </button>
         </div>
 
-        <AdminOrderTableWrap className="admin-product-table">
-          {showAdminTableLoading(loading, rows.length) ? (
-            <div className="admin-order-empty">กำลังโหลด…</div>
-          ) : filtered.length === 0 ? (
-            <div className="admin-order-empty">
-              {rows.length === 0 ? (
-                <>
-                  ยังไม่มีสินค้าในร้านลูกค้า
-                  <br />
-                  <small style={{ opacity: 0.75, fontWeight: 400 }}>
-                    หลังเปิดร้าน ลูกค้าเลือกสินค้าที่ต้องการเข้าร้านได้เอง
-                    — ถ้ายังไม่มี ลองบันทึกร้านอีกครั้งหรือเพิ่มจากคอลเลกชันสินค้า
-                  </small>
-                </>
-              ) : (
-                "ไม่พบข้อมูลสินค้าตามคำค้นหา"
-              )}
+        {/* ── Tab: สินค้าในร้านลูกค้า ── */}
+        {activeTab === "products" && (
+          <section className="admin-customer-products-section">
+            <div className="admin-order-search">
+              <i className="fa-solid fa-magnifying-glass" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ค้นหาชื่อสินค้าหรือร้านค้า…"
+              />
             </div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={filtered.length > 0 && filtered.every((r) => selected.has(Number(r.id)))}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelected(new Set(filtered.map((r) => Number(r.id))))
-                        else setSelected(new Set())
-                      }}
-                    />
-                  </th>
-                  <th>รูป</th>
-                  <th>ชื่อสินค้า</th>
-                  <th>ร้านค้า</th>
-                  <th>ราคา</th>
-                  <th>สต็อก</th>
-                  <th>ยอดวิว</th>
-                  <th>คะแนน</th>
-                  <th>ยอดขาย</th>
-                  <th>รหัสผู้ใช้</th>
-                  <th>จัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row) => {
-                  const id = Number(row.id)
-                  const isSel = selected.has(id)
-                  return (
-                    <tr key={id} className={isSel ? "row-selected" : ""}>
-                      <td>
+
+            <div className={`admin-selection-bar${selected.size ? " show" : ""}`}>
+              <span>เลือกแล้ว {selected.size} รายการ</span>
+              <button type="button" onClick={bulkAdd}>
+                <i className="fa-solid fa-cart-plus" /> เพิ่มลงตะกร้า
+              </button>
+              <button type="button" onClick={() => setSelected(new Set())}>
+                ล้างการเลือก
+              </button>
+            </div>
+
+            <AdminOrderTableWrap className="admin-product-table">
+              {showAdminTableLoading(loading, rows.length) ? (
+                <div className="admin-order-empty">กำลังโหลด…</div>
+              ) : filtered.length === 0 ? (
+                <div className="admin-order-empty">
+                  {rows.length === 0 ? (
+                    <>
+                      ยังไม่มีสินค้าในร้านลูกค้า
+                      <br />
+                      <small style={{ opacity: 0.75, fontWeight: 400 }}>
+                        หลังเปิดร้าน ลูกค้าเลือกสินค้าที่ต้องการเข้าร้านได้เอง
+                        — ถ้ายังไม่มี ลองบันทึกร้านอีกครั้งหรือเพิ่มจากคอลเลกชันสินค้า
+                      </small>
+                    </>
+                  ) : (
+                    "ไม่พบข้อมูลสินค้าตามคำค้นหา"
+                  )}
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
                         <input
                           type="checkbox"
-                          checked={isSel}
-                          onChange={() => {
-                            setSelected((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(id)) next.delete(id)
-                              else next.add(id)
-                              return next
-                            })
+                          checked={filtered.length > 0 && filtered.every((r) => selected.has(Number(r.id)))}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelected(new Set(filtered.map((r) => Number(r.id))))
+                            else setSelected(new Set())
                           }}
                         />
-                      </td>
-                      <td>
-                        <img className="admin-order-thumb" src={adminParseImage(row.product_image)} alt="" />
-                      </td>
-                      <td>{String(row.product_name ?? "-")}</td>
-                      <td>{String(row.shop_name ?? "-")}</td>
-                      <td>${adminFmtMoney(row.product_price)}</td>
-                      <td>{adminFmtNum(row.product_stock)}</td>
-                      <td>{adminFmtNum(row.view_count)}</td>
-                      <td>{Number(row.trust_score ?? 0).toFixed(1)}</td>
-                      <td>{adminFmtNum(row.sales_volume)}</td>
-                      <td>#{String(row.user_id ?? "-")}</td>
-                      <td>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', verticalAlign: 'middle', background: '#fff', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
-                          <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderRight: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, (prev[Number(row.id)] ?? 1) - 1) }))}>-</button>
-                          <input type="number" min={1} style={{ width: '40px', textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }} value={addQtys[Number(row.id)] ?? 1} onChange={(e) => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, Number(e.target.value) || 1) }))} />
-                          <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderLeft: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: (prev[Number(row.id)] ?? 1) + 1 }))}>+</button>
-                        </div>
-                        <button type="button" className="admin-order-act ok" title="เพิ่มลงตะกร้า" onClick={() => addToCart(row)}>
-                          <i className="fa-solid fa-cart-plus" />
-                        </button>
-                        <button
-                          type="button"
-                          className="admin-order-act info"
-                          title="รายละเอียด / แก้ไข"
-                          onClick={() => openDetail(row)}
-                        >
-                          <i className="fa-solid fa-circle-info" />
-                        </button>
-                      </td>
+                      </th>
+                      <th>รูป</th>
+                      <th>ชื่อสินค้า</th>
+                      <th>ร้านค้า</th>
+                      <th>ราคา</th>
+                      <th>สต็อก</th>
+                      <th>ยอดวิว</th>
+                      <th>คะแนน</th>
+                      <th>ยอดขาย</th>
+                      <th>รหัสผู้ใช้</th>
+                      <th>จัดการ</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </AdminOrderTableWrap>
-        </section>
+                  </thead>
+                  <tbody>
+                    {filtered.map((row) => {
+                      const id = Number(row.id)
+                      const isSel = selected.has(id)
+                      return (
+                        <tr key={id} className={isSel ? "row-selected" : ""}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={isSel}
+                              onChange={() => {
+                                setSelected((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(id)) next.delete(id)
+                                  else next.add(id)
+                                  return next
+                                })
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <img className="admin-order-thumb" src={adminParseImage(row.product_image)} alt="" />
+                          </td>
+                          <td>{String(row.product_name ?? "-")}</td>
+                          <td>{String(row.shop_name ?? "-")}</td>
+                          <td>${adminFmtMoney(row.product_price)}</td>
+                          <td>{adminFmtNum(row.product_stock)}</td>
+                          <td>{adminFmtNum(row.view_count)}</td>
+                          <td>{Number(row.trust_score ?? 0).toFixed(1)}</td>
+                          <td>{adminFmtNum(row.sales_volume)}</td>
+                          <td>#{String(row.user_id ?? "-")}</td>
+                          <td>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px', verticalAlign: 'middle', background: '#fff', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                              <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderRight: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, (prev[Number(row.id)] ?? 1) - 1) }))}>-</button>
+                              <input type="number" min={1} style={{ width: '40px', textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }} value={addQtys[Number(row.id)] ?? 1} onChange={(e) => setAddQtys(prev => ({ ...prev, [Number(row.id)]: Math.max(1, Number(e.target.value) || 1) }))} />
+                              <button type="button" style={{ padding: '2px 8px', border: 'none', background: '#f5f5f5', cursor: 'pointer', borderLeft: '1px solid #ddd' }} onClick={() => setAddQtys(prev => ({ ...prev, [Number(row.id)]: (prev[Number(row.id)] ?? 1) + 1 }))}>+</button>
+                            </div>
+                            <button type="button" className="admin-order-act ok" title="เพิ่มลงตะกร้า" onClick={() => addToCart(row)}>
+                              <i className="fa-solid fa-cart-plus" />
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-order-act info"
+                              title="รายละเอียด / แก้ไข"
+                              onClick={() => openDetail(row)}
+                            >
+                              <i className="fa-solid fa-circle-info" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </AdminOrderTableWrap>
+          </section>
+        )}
+
+        {/* ── Tab: ร้านที่ลูกค้าเปิด ── */}
+        {activeTab === "stores" && (
+          <section className="admin-customer-stores-section">
+            <div className="admin-order-search">
+              <i className="fa-solid fa-magnifying-glass" />
+              <input
+                value={storeSearch}
+                onChange={(e) => setStoreSearch(e.target.value)}
+                placeholder="ค้นหาชื่อร้าน / รหัสผู้ใช้ / หมวดหมู่…"
+              />
+            </div>
+            <AdminOrderTableWrap className="admin-product-table admin-stores-table">
+              {showAdminTableLoading(loading, stores.length) ? (
+                <div className="admin-order-empty">กำลังโหลดร้านค้า…</div>
+              ) : filteredStores.length === 0 ? (
+                <div className="admin-order-empty">
+                  {stores.length === 0 ? (
+                    <>
+                      ยังไม่มีลูกค้าเปิดร้าน
+                      <br />
+                      <small style={{ opacity: 0.75, fontWeight: 400 }}>
+                        ลูกค้าเปิดร้านได้จากเมนู &quot;ฉันจะเปิดร้าน&quot; ในหน้าโปรไฟล์
+                      </small>
+                    </>
+                  ) : (
+                    "ไม่พบร้านตามคำค้นหา"
+                  )}
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>รูป</th>
+                      <th>ชื่อร้าน</th>
+                      <th>หมวดหมู่</th>
+                      <th>สินค้าในร้าน</th>
+                      <th>ขายแล้ว</th>
+                      <th>สถานะ</th>
+                      <th>รหัสผู้ใช้</th>
+                      <th>เปิดเมื่อ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStores.map((store) => (
+                      <tr key={String(store.id)}>
+                        <td>
+                          <img
+                            className="admin-order-thumb"
+                            src={adminParseImage(String(store.shop_image ?? ""))}
+                            alt=""
+                          />
+                        </td>
+                        <td>{String(store.shop_name ?? "-")}</td>
+                        <td>{String(store.main_category ?? "-")}</td>
+                        <td>{adminFmtNum(store.product_count ?? 0)}</td>
+                        <td>{adminFmtNum(store.sold_count ?? 0)}</td>
+                        <td>{String(store.status ?? "active")}</td>
+                        <td>#{String(store.user_id ?? "-")}</td>
+                        <td>{formatAdminDate(String(store.created_at ?? ""))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </AdminOrderTableWrap>
+          </section>
+        )}
       </div>
 
       <AdminDetailModal
