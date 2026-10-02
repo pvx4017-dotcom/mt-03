@@ -1,4 +1,4 @@
-const CACHE = "meta-pwa-v5"
+const CACHE = "meta-pwa-v6"
 const SKIP_CACHE = new Set(["/sw.js", "/manifest.json", "/manifest.webmanifest"])
 
 function isViteDevRequest(url) {
@@ -20,9 +20,7 @@ function offlineResponse() {
   })
 }
 
-async function cachedOrOffline(request) {
-  const cached = await caches.match(request)
-  if (cached) return cached
+async function cachedDocumentOrOffline() {
   const index = (await caches.match("/index.html")) || (await caches.match("/"))
   if (index) return index
   return offlineResponse()
@@ -72,9 +70,14 @@ self.addEventListener("fetch", (event) => {
           await cache.put(event.request, copy)
         }
         return response
-      } catch {
-        if (isNavigate) return cachedOrOffline("/")
-        return cachedOrOffline(event.request)
+      } catch (err) {
+        if (isNavigate) {
+          return cachedDocumentOrOffline()
+        }
+        const cached = await caches.match(event.request)
+        if (cached) return cached
+        // Do NOT return HTML for JS/CSS/asset requests — let it throw or return 404
+        throw err
       }
     })(),
   )
